@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import ReactFlow, {
   MiniMap,
   Controls,
@@ -12,8 +12,8 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
-// Custom node component with editing capability
-function CustomNode({ data, id }) {
+// Custom node component
+function CustomNode({ data, id, selected }) {
   const [isEditing, setIsEditing] = useState(false);
   const [label, setLabel] = useState(data.label);
 
@@ -49,7 +49,7 @@ function CustomNode({ data, id }) {
       backgroundColor: '#2c3e50',
       color: 'white',
       minWidth: '180px',
-      boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
+      boxShadow: selected ? '0 0 0 3px #f39c12' : '0 4px 6px rgba(0,0,0,0.3)',
       position: 'relative'
     }}>
       <Handle 
@@ -71,6 +71,20 @@ function CustomNode({ data, id }) {
         fontWeight: 'bold'
       }}>
         {data.type === 'platform' ? '🔷 PLATFORM' : '🔶 PROJECT'}
+        {data.priority && (
+          <span style={{ marginLeft: '8px', fontSize: '9px' }}>
+            {data.priority === 'high' && '🔴 HIGH'}
+            {data.priority === 'medium' && '🟡 MED'}
+            {data.priority === 'low' && '🟢 LOW'}
+          </span>
+        )}
+        {data.status && (
+          <span style={{ marginLeft: '8px', fontSize: '9px' }}>
+            {data.status === 'done' && '✅'}
+            {data.status === 'in-progress' && '⏳'}
+            {data.status === 'new' && '🆕'}
+          </span>
+        )}
       </div>
       
       {isEditing ? (
@@ -106,16 +120,282 @@ function CustomNode({ data, id }) {
         </div>
       )}
       
-      {!isEditing && (
+      {!isEditing && data.description && (
         <div style={{
-          fontSize: '9px',
-          color: '#95a5a6',
-          marginTop: '4px',
-          fontStyle: 'italic'
+          fontSize: '11px',
+          color: '#bdc3c7',
+          marginTop: '6px',
+          fontStyle: 'italic',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap'
         }}>
-          Double-click to edit
+          {data.description}
         </div>
       )}
+    </div>
+  );
+}
+
+// Draggable Floating Panel Component
+function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [position, setPosition] = useState(initialPosition);
+
+  // Reset position when initialPosition changes (new node clicked)
+  useEffect(() => {
+    setPosition(initialPosition);
+  }, [initialPosition]);
+
+  const handleMouseDown = (e) => {
+    // Don't start drag if clicking on input/textarea/select
+    if (e.target.tagName === 'INPUT' || 
+        e.target.tagName === 'TEXTAREA' || 
+        e.target.tagName === 'SELECT' ||
+        e.target.tagName === 'BUTTON') {
+      return;
+    }
+
+    setIsDragging(true);
+    setDragOffset({
+      x: e.clientX - position.x,
+      y: e.clientY - position.y
+    });
+  };
+
+  const handleMouseMove = useCallback((e) => {
+    if (isDragging) {
+      setPosition({
+        x: e.clientX - dragOffset.x,
+        y: e.clientY - dragOffset.y
+      });
+    }
+  }, [isDragging, dragOffset]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp]);
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        left: position.x + 'px',
+        top: position.y + 'px',
+        width: '320px',
+        background: '#2c3e50',
+        borderRadius: '8px',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+        zIndex: 2000,
+        color: 'white',
+        userSelect: isDragging ? 'none' : 'auto'
+      }}
+    >
+      <div 
+        style={{
+          padding: '12px 15px',
+          borderBottom: '2px solid #34495e',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          background: '#34495e',
+          borderTopLeftRadius: '8px',
+          borderTopRightRadius: '8px',
+          cursor: isDragging ? 'grabbing' : 'grab'
+        }}
+        onMouseDown={handleMouseDown}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '16px' }}>✋</span>
+          <span style={{ fontSize: '14px', fontWeight: 'bold' }}>Edit Node</span>
+        </div>
+        <button
+          onClick={onClose}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: 'white',
+            fontSize: '20px',
+            cursor: 'pointer',
+            padding: '0 6px',
+            lineHeight: '1'
+          }}
+        >
+          ×
+        </button>
+      </div>
+
+      <div style={{ padding: '15px', maxHeight: '400px', overflowY: 'auto' }}>
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{
+            display: 'block',
+            marginBottom: '6px',
+            fontSize: '11px',
+            color: '#bdc3c7',
+            textTransform: 'uppercase',
+            fontWeight: 'bold'
+          }}>
+            Title
+          </label>
+          <div style={{
+            padding: '8px',
+            background: '#34495e',
+            borderRadius: '4px',
+            fontSize: '14px',
+            fontWeight: 'bold'
+          }}>
+            {node.data.label}
+          </div>
+          <div style={{ fontSize: '9px', color: '#95a5a6', marginTop: '4px' }}>
+            Double-click node to edit
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{
+            display: 'block',
+            marginBottom: '6px',
+            fontSize: '11px',
+            color: '#bdc3c7',
+            textTransform: 'uppercase',
+            fontWeight: 'bold'
+          }}>
+            Description
+          </label>
+          <textarea
+            value={node.data.description || ''}
+            onChange={(e) => onUpdate(node.id, 'description', e.target.value)}
+            placeholder="Add description..."
+            style={{
+              width: '100%',
+              minHeight: '60px',
+              padding: '8px',
+              background: '#34495e',
+              color: 'white',
+              border: '1px solid #4a5f7f',
+              borderRadius: '4px',
+              fontSize: '13px',
+              fontFamily: 'inherit',
+              resize: 'vertical'
+            }}
+          />
+        </div>
+
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{
+            display: 'block',
+            marginBottom: '6px',
+            fontSize: '11px',
+            color: '#bdc3c7',
+            textTransform: 'uppercase',
+            fontWeight: 'bold'
+          }}>
+            Priority
+          </label>
+          <select
+            value={node.data.priority || 'medium'}
+            onChange={(e) => onUpdate(node.id, 'priority', e.target.value)}
+            style={{
+              width: '100%',
+              padding: '8px',
+              background: '#34495e',
+              color: 'white',
+              border: '1px solid #4a5f7f',
+              borderRadius: '4px',
+              fontSize: '13px',
+              cursor: 'pointer'
+            }}
+          >
+            <option value="low">🟢 Low</option>
+            <option value="medium">🟡 Medium</option>
+            <option value="high">🔴 High</option>
+          </select>
+        </div>
+
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{
+            display: 'block',
+            marginBottom: '6px',
+            fontSize: '11px',
+            color: '#bdc3c7',
+            textTransform: 'uppercase',
+            fontWeight: 'bold'
+          }}>
+            Status
+          </label>
+          <select
+            value={node.data.status || 'new'}
+            onChange={(e) => onUpdate(node.id, 'status', e.target.value)}
+            style={{
+              width: '100%',
+              padding: '8px',
+              background: '#34495e',
+              color: 'white',
+              border: '1px solid #4a5f7f',
+              borderRadius: '4px',
+              fontSize: '13px',
+              cursor: 'pointer'
+            }}
+          >
+            <option value="new">🆕 New</option>
+            <option value="in-progress">⏳ In Progress</option>
+            <option value="done">✅ Done</option>
+          </select>
+        </div>
+
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{
+            display: 'block',
+            marginBottom: '6px',
+            fontSize: '11px',
+            color: '#bdc3c7',
+            textTransform: 'uppercase',
+            fontWeight: 'bold'
+          }}>
+            Owner
+          </label>
+          <input
+            type="text"
+            value={node.data.owner || ''}
+            onChange={(e) => onUpdate(node.id, 'owner', e.target.value)}
+            placeholder="Who owns this?"
+            style={{
+              width: '100%',
+              padding: '8px',
+              background: '#34495e',
+              color: 'white',
+              border: '1px solid #4a5f7f',
+              borderRadius: '4px',
+              fontSize: '13px'
+            }}
+          />
+        </div>
+
+        <div style={{
+          padding: '10px',
+          background: '#34495e',
+          borderRadius: '4px',
+          fontSize: '11px',
+          color: '#95a5a6'
+        }}>
+          <div><strong>ID:</strong> {node.id}</div>
+          <div style={{ marginTop: '4px' }}>
+            <strong>Type:</strong> {node.data.type === 'platform' ? '🔷 Platform' : '🔶 Project'}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -129,19 +409,40 @@ const initialNodes = [
     id: '1', 
     type: 'custom',
     position: { x: 100, y: 100 }, 
-    data: { label: 'Motor Control Library', type: 'platform' }
+    data: { 
+      label: 'Motor Control Library', 
+      type: 'platform',
+      description: 'Core library for motor control',
+      priority: 'high',
+      status: 'done',
+      owner: 'Engineering Team'
+    }
   },
   { 
     id: '2', 
     type: 'custom',
     position: { x: 400, y: 100 }, 
-    data: { label: 'Speed Control Required', type: 'project' }
+    data: { 
+      label: 'Speed Control Required', 
+      type: 'project',
+      description: 'Variable speed control needed',
+      priority: 'high',
+      status: 'in-progress',
+      owner: 'Fredrik'
+    }
   },
   { 
     id: '3', 
     type: 'custom',
     position: { x: 400, y: 250 }, 
-    data: { label: 'Safety Stop Function', type: 'project' }
+    data: { 
+      label: 'Safety Stop Function', 
+      type: 'project',
+      description: 'Emergency stop within 2 seconds',
+      priority: 'high',
+      status: 'new',
+      owner: 'Safety Team'
+    }
   },
 ];
 
@@ -154,6 +455,8 @@ export default function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [nodeId, setNodeId] = useState(4);
+  const [selectedNode, setSelectedNode] = useState(null);
+  const [floatingPanelPosition, setFloatingPanelPosition] = useState({ x: 0, y: 0 });
 
   const onConnect = useCallback(
     (params) => setEdges((eds) => addEdge({ ...params, animated: true }, eds)),
@@ -177,6 +480,53 @@ export default function App() {
     );
   }, [setNodes]);
 
+  const handleNodeClick = useCallback((event, node) => {
+    // Calculate position next to the clicked node
+    const rect = event.target.getBoundingClientRect();
+    const newX = rect.right + 20;
+    const newY = rect.top;
+    
+    // Make sure panel doesn't go off screen
+    const adjustedX = newX + 320 > window.innerWidth ? rect.left - 340 : newX;
+    const adjustedY = newY + 400 > window.innerHeight ? window.innerHeight - 420 : newY;
+    
+    setFloatingPanelPosition({
+      x: adjustedX,
+      y: Math.max(10, adjustedY)
+    });
+    setSelectedNode(node);
+  }, []);
+
+  const handlePaneClick = useCallback(() => {
+    setSelectedNode(null);
+  }, []);
+
+  const updateNodeData = (nodeId, field, value) => {
+    setNodes((nds) =>
+      nds.map((node) => {
+        if (node.id === nodeId) {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              [field]: value,
+            },
+          };
+        }
+        return node;
+      })
+    );
+    if (selectedNode && selectedNode.id === nodeId) {
+      setSelectedNode({
+        ...selectedNode,
+        data: {
+          ...selectedNode.data,
+          [field]: value,
+        },
+      });
+    }
+  };
+
   const nodesWithHandlers = nodes.map((node) => ({
     ...node,
     data: {
@@ -193,6 +543,10 @@ export default function App() {
       data: { 
         label: 'New Platform Component', 
         type: 'platform',
+        description: '',
+        priority: 'medium',
+        status: 'new',
+        owner: '',
         onChange: handleNodeLabelChange
       },
     };
@@ -208,6 +562,10 @@ export default function App() {
       data: { 
         label: 'New Requirement', 
         type: 'project',
+        description: '',
+        priority: 'medium',
+        status: 'new',
+        owner: '',
         onChange: handleNodeLabelChange
       },
     };
@@ -241,6 +599,7 @@ export default function App() {
           setEdges(project.edges || []);
           const maxId = Math.max(...project.nodes.map(n => parseInt(n.id) || 0), 0);
           setNodeId(maxId + 1);
+          setSelectedNode(null);
         } catch (error) {
           alert('Error loading project file!');
         }
@@ -250,7 +609,7 @@ export default function App() {
   };
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: '#1e1e1e' }}>
+    <div style={{ width: '100vw', height: '100vh', background: '#1e1e1e', position: 'relative' }}>
       <div style={{
         position: 'absolute',
         top: 10,
@@ -274,6 +633,8 @@ export default function App() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onNodeClick={handleNodeClick}
+        onPaneClick={handlePaneClick}
         nodeTypes={nodeTypes}
         fitView
         deleteKeyCode="Delete"
@@ -285,91 +646,52 @@ export default function App() {
         <Panel position="top-left">
           <div style={{ display: 'flex', gap: '10px', flexDirection: 'column' }}>
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button
-                onClick={addPlatformNode}
-                style={{
-                  padding: '10px 20px',
-                  background: '#3498db',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                  fontSize: '14px',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                }}
-              >
+              <button onClick={addPlatformNode} style={{
+                padding: '10px 20px', background: '#3498db', color: 'white',
+                border: 'none', borderRadius: '6px', cursor: 'pointer',
+                fontWeight: 'bold', fontSize: '14px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }}>
                 + Platform
               </button>
-              <button
-                onClick={addProjectNode}
-                style={{
-                  padding: '10px 20px',
-                  background: '#e67e22',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                  fontSize: '14px',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                }}
-              >
+              <button onClick={addProjectNode} style={{
+                padding: '10px 20px', background: '#e67e22', color: 'white',
+                border: 'none', borderRadius: '6px', cursor: 'pointer',
+                fontWeight: 'bold', fontSize: '14px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }}>
                 + Project
               </button>
             </div>
             
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button
-                onClick={exportProject}
-                style={{
-                  padding: '8px 16px',
-                  background: '#27ae60',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                  fontSize: '12px',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                }}
-              >
+              <button onClick={exportProject} style={{
+                padding: '8px 16px', background: '#27ae60', color: 'white',
+                border: 'none', borderRadius: '6px', cursor: 'pointer',
+                fontWeight: 'bold', fontSize: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }}>
                 💾 Save
               </button>
               <label style={{
-                padding: '8px 16px',
-                background: '#9b59b6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: '12px',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                padding: '8px 16px', background: '#9b59b6', color: 'white',
+                border: 'none', borderRadius: '6px', cursor: 'pointer',
+                fontWeight: 'bold', fontSize: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
                 display: 'inline-block'
               }}>
                 📂 Load
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={importProject}
-                  style={{ display: 'none' }}
-                />
+                <input type="file" accept=".json" onChange={importProject} style={{ display: 'none' }} />
               </label>
-            </div>
-            
-            <div style={{
-              background: '#2c3e50',
-              color: 'white',
-              padding: '8px 12px',
-              borderRadius: '6px',
-              fontSize: '11px'
-            }}>
-              💡 Double-click to edit | Drag ● to connect
             </div>
           </div>
         </Panel>
       </ReactFlow>
+
+      {selectedNode && (
+        <FloatingPanel
+          node={selectedNode}
+          onClose={() => setSelectedNode(null)}
+          onUpdate={updateNodeData}
+          initialPosition={floatingPanelPosition}
+        />
+      )}
     </div>
   );
 }
