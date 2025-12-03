@@ -299,7 +299,7 @@ function CustomNode({ data, id, selected }) {
         </div>
       </div>
       
-      {isEditing ? (
+ {isEditing ? (
         <input
           autoFocus
           value={label}
@@ -319,18 +319,32 @@ function CustomNode({ data, id, selected }) {
           }}
         />
       ) : (
-        <div 
-          onDoubleClick={handleDoubleClick}
-          style={{
-            fontSize: '14px',
-            fontWeight: 'bold',
-            cursor: (data.state === 'frozen' || data.state === 'released') ? 'not-allowed' : 'text',
-            minHeight: '20px',
-            marginBottom: '6px'
-          }}
-        >
-          {data.label}
-        </div>
+        <>
+          {data.reqId && (
+            <div style={{
+              fontSize: '10px',
+              color: '#3498db',
+              fontWeight: 'bold',
+              marginBottom: '4px',
+              fontFamily: 'monospace'
+            }}>
+              {data.reqId}
+            </div>
+          )}
+
+          <div 
+            onDoubleClick={handleDoubleClick}
+            style={{
+              fontSize: '14px',
+              fontWeight: 'bold',
+              cursor: (data.state === 'frozen' || data.state === 'released') ? 'not-allowed' : 'text',
+              minHeight: '20px',
+              marginBottom: '6px'
+            }}
+          >
+            {data.label}
+          </div>
+        </>
       )}
       
       {!isEditing && data.description && (
@@ -587,7 +601,30 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
         </button>
       </div>
 
-      <div style={{ padding: '15px', overflowY: 'auto', flex: 1 }}>
+      <div style={{ marginBottom: '15px' }}>
+          <label style={{
+            display: 'block',
+            marginBottom: '6px',
+            fontSize: '11px',
+            color: '#bdc3c7',
+            textTransform: 'uppercase',
+            fontWeight: 'bold'
+          }}>
+            Requirement ID
+          </label>
+          <div style={{
+            padding: '8px',
+            background: '#34495e',
+            borderRadius: '4px',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            color: '#3498db',
+            fontFamily: 'monospace'
+          }}>
+            {node.data.reqId || 'No ID'}
+          </div>
+        </div>
+
         <div style={{ marginBottom: '15px' }}>
           <label style={{
             display: 'block',
@@ -908,7 +945,7 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
         >
         📋 Duplicate Node (Ctrl+D) 
         </button>
-        </div>
+      
 
       {showImagePreview && node.data.attachment && (
         <div
@@ -956,6 +993,7 @@ const initialNodes = [
       label: 'High-Speed Motor Control', 
       type: 'platform',
       reqType: 'customer',
+      reqId: 'CUS-001',
       classification: 'need',
       description: 'Customer needs high-performance motor control system',
       priority: 'high',
@@ -973,6 +1011,7 @@ const initialNodes = [
       label: 'Variable Speed Control', 
       type: 'platform',
       reqType: 'platform',
+      reqId: 'PLT-001',
       classification: 'capability',
       description: 'System shall support variable speed from 0-100%',
       priority: 'high',
@@ -990,6 +1029,7 @@ const initialNodes = [
       label: 'PWM Control Algorithm', 
       type: 'project',
       reqType: 'project',
+      reqId: 'PRJ-001',
       classification: 'requirement',
       description: 'Implement PWM with 10kHz frequency',
       priority: 'high',
@@ -1007,6 +1047,7 @@ const initialNodes = [
       label: 'Safety Stop Function', 
       type: 'platform',
       reqType: 'platform',
+      reqId: 'PLT-002',
       classification: 'capability',
       description: 'Emergency stop within 2 seconds',
       priority: 'high',
@@ -1024,6 +1065,7 @@ const initialNodes = [
       label: 'Hardware Interrupt Handler', 
       type: 'project',
       reqType: 'implementation',
+      reqId: 'IMP-001',
       classification: 'requirement',
       description: 'Implement interrupt-based stop signal',
       priority: 'medium',
@@ -1058,6 +1100,33 @@ export default function App() {
   const [stateFilter, setStateFilter] = useState('all');
   const [reqTypeFilter, setReqTypeFilter] = useState('all');
   const [classificationFilter, setClassificationFilter] = useState('all');
+
+  const [cusIdCounter, setCusIdCounter] = useState(2);  // CUS-001 exists
+  const [pltIdCounter, setPltIdCounter] = useState(3);  // PLT-001, PLT-002 exist
+  const [prjIdCounter, setPrjIdCounter] = useState(2);  // PRJ-001 exists
+  const [impIdCounter, setImpIdCounter] = useState(2);  // IMP-001 exists
+
+  // Generate requirement ID based on type
+  const generateReqId = useCallback((reqType) => {
+    switch (reqType) {
+      case 'customer':
+        const cusId = `CUS-${String(cusIdCounter).padStart(3, '0')}`;
+        setCusIdCounter(c => c + 1);
+        return cusId;
+      case 'platform':
+        const pltId = `PLT-${String(pltIdCounter).padStart(3, '0')}`;
+        setPltIdCounter(c => c + 1);
+        return pltId;
+      case 'implementation':
+        const impId = `IMP-${String(impIdCounter).padStart(3, '0')}`;
+        setImpIdCounter(c => c + 1);
+        return impId;
+      default: // project
+        const prjId = `PRJ-${String(prjIdCounter).padStart(3, '0')}`;
+        setPrjIdCounter(c => c + 1);
+        return prjId;
+    }
+  }, [cusIdCounter, pltIdCounter, prjIdCounter, impIdCounter]);
 
   const stats = useMemo(() => {
     const total = nodes.length;
@@ -1158,7 +1227,8 @@ export default function App() {
       const searchLower = searchText.toLowerCase();
       const matchesSearch = searchText === '' || 
         node.data.label.toLowerCase().includes(searchLower) ||
-        (node.data.description && node.data.description.toLowerCase().includes(searchLower));
+        (node.data.description && node.data.description.toLowerCase().includes(searchLower)) ||
+        (node.data.reqId && node.data.reqId.toLowerCase().includes(searchLower));
       
       const matchesType = typeFilter === 'all' || node.data.type === typeFilter;
       const matchesStatus = statusFilter === 'all' || node.data.status === statusFilter;
@@ -1180,6 +1250,7 @@ export default function App() {
   const filteredCount = processedNodes.filter(n => n.data.isFiltered).length;
 
 const addPlatformNode = useCallback(() => {
+    const reqId = generateReqId('platform');
     const newNode = {
       id: String(nodeId),
       type: 'custom',
@@ -1188,6 +1259,7 @@ const addPlatformNode = useCallback(() => {
         label: 'New Platform Component', 
         type: 'platform',
         reqType: 'platform',
+        reqId: reqId,
         classification: 'capability',
         description: '',
         priority: 'medium',
@@ -1200,9 +1272,10 @@ const addPlatformNode = useCallback(() => {
     };
     setNodes((nds) => nds.concat(newNode));
     setNodeId((id) => id + 1);
-  }, [nodeId, handleNodeLabelChange, setNodes]);
+  }, [nodeId, handleNodeLabelChange, setNodes, generateReqId]);
 
-  const addRequirementNode = useCallback(() => {
+ const addRequirementNode = useCallback(() => {
+    const reqId = generateReqId('project');
     const newNode = {
       id: String(nodeId),
       type: 'custom',
@@ -1211,6 +1284,7 @@ const addPlatformNode = useCallback(() => {
         label: 'New Requirement', 
         type: 'project',
         reqType: 'project',
+        reqId: reqId,
         classification: 'requirement',
         description: '',
         priority: 'medium',
@@ -1223,7 +1297,7 @@ const addPlatformNode = useCallback(() => {
     };
     setNodes((nds) => nds.concat(newNode));
     setNodeId((id) => id + 1);
-  }, [nodeId, handleNodeLabelChange, setNodes]);
+  }, [nodeId, handleNodeLabelChange, setNodes, generateReqId]);
 
   const exportProject = useCallback(() => {
     const project = { nodes, edges };
@@ -1237,9 +1311,10 @@ const addPlatformNode = useCallback(() => {
     URL.revokeObjectURL(url);
   }, [nodes, edges]);
 
-  const duplicateNode = useCallback((nodeToDuplicate) => {
+ const duplicateNode = useCallback((nodeToDuplicate) => {
     if (!nodeToDuplicate) return;
     
+    const reqId = generateReqId(nodeToDuplicate.data.reqType || 'project');
     const newNode = {
       id: String(nodeId),
       type: 'custom',
@@ -1250,13 +1325,14 @@ const addPlatformNode = useCallback(() => {
       data: { 
         ...nodeToDuplicate.data,
         label: nodeToDuplicate.data.label + ' (Copy)',
-        state: 'open', // Reset state to open for the copy
+        reqId: reqId,
+        state: 'open',
         onChange: handleNodeLabelChange
       },
     };
     setNodes((nds) => nds.concat(newNode));
     setNodeId((id) => id + 1);
-  }, [nodeId, handleNodeLabelChange, setNodes]);
+  }, [nodeId, handleNodeLabelChange, setNodes, generateReqId]);
 
   // Expose duplicateNode to window for FloatingPanel button
   useEffect(() => {
@@ -1344,8 +1420,26 @@ const addPlatformNode = useCallback(() => {
           const project = JSON.parse(e.target.result);
           setNodes(project.nodes || []);
           setEdges(project.edges || []);
+          
+          // Calculate max node ID
           const maxId = Math.max(...project.nodes.map(n => parseInt(n.id) || 0), 0);
           setNodeId(maxId + 1);
+          
+          // Calculate max requirement IDs for each type
+          let maxCus = 0, maxPlt = 0, maxPrj = 0, maxImp = 0;
+          project.nodes.forEach(n => {
+            const reqId = n.data?.reqId || '';
+            const num = parseInt(reqId.split('-')[1]) || 0;
+            if (reqId.startsWith('CUS')) maxCus = Math.max(maxCus, num);
+            if (reqId.startsWith('PLT')) maxPlt = Math.max(maxPlt, num);
+            if (reqId.startsWith('PRJ')) maxPrj = Math.max(maxPrj, num);
+            if (reqId.startsWith('IMP')) maxImp = Math.max(maxImp, num);
+          });
+          setCusIdCounter(maxCus + 1);
+          setPltIdCounter(maxPlt + 1);
+          setPrjIdCounter(maxPrj + 1);
+          setImpIdCounter(maxImp + 1);
+          
           setSelectedNode(null);
           setSelectedEdge(null);
         } catch (error) {
