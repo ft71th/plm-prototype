@@ -222,6 +222,7 @@ function CustomNode({ data, id, selected }) {
       backgroundColor: '#2c3e50',
       color: 'white',
       minWidth: '200px',
+      maxWidth: '280px',
       boxShadow: selected ? '0 0 0 3px #f39c12' : (isHighlighted ? '0 0 0 4px #f1c40f, 0 0 20px rgba(241,196,15,0.6)' : '0 4px 6px rgba(0,0,0,0.3)'),
       position: 'relative',
       opacity: data.isFiltered === false ? 0.3 : 1,
@@ -1026,6 +1027,9 @@ export default function App() {
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
+  const [stateFilter, setStateFilter] = useState('all');
+  const [reqTypeFilter, setReqTypeFilter] = useState('all');
+  const [classificationFilter, setClassificationFilter] = useState('all');
 
   const stats = useMemo(() => {
     const total = nodes.length;
@@ -1131,16 +1135,19 @@ export default function App() {
       const matchesType = typeFilter === 'all' || node.data.type === typeFilter;
       const matchesStatus = statusFilter === 'all' || node.data.status === statusFilter;
       const matchesPriority = priorityFilter === 'all' || node.data.priority === priorityFilter;
+      const matchesState = stateFilter === 'all' || node.data.state === stateFilter || (stateFilter === 'open' && !node.data.state);
+      const matchesReqType = reqTypeFilter === 'all' || node.data.reqType === reqTypeFilter;
+      const matchesClassification = classificationFilter === 'all' || node.data.classification === classificationFilter;
       
-      const isFiltered = matchesSearch && matchesType && matchesStatus && matchesPriority;
-      const isHighlighted = searchText !== '' && matchesSearch && matchesType && matchesStatus && matchesPriority;
+      const isFiltered = matchesSearch && matchesType && matchesStatus && matchesPriority && matchesState && matchesReqType && matchesClassification;
+      const isHighlighted = searchText !== '' && isFiltered;
 
       return {
         ...node,
         data: { ...node.data, isFiltered, isHighlighted, onChange: handleNodeLabelChange },
       };
     });
-  }, [nodes, searchText, typeFilter, statusFilter, priorityFilter, handleNodeLabelChange]);
+  }, [nodes, searchText, typeFilter, statusFilter, priorityFilter, stateFilter, reqTypeFilter, classificationFilter, handleNodeLabelChange]);
 
   const filteredCount = processedNodes.filter(n => n.data.isFiltered).length;
 
@@ -1228,6 +1235,9 @@ export default function App() {
     setTypeFilter('all');
     setStatusFilter('all');
     setPriorityFilter('all');
+    setStateFilter('all');
+    setReqTypeFilter('all');
+    setClassificationFilter('all');
   };
 
   return (
@@ -1277,12 +1287,15 @@ export default function App() {
         transform: 'translateX(-50%)',
         zIndex: 1000,
         display: 'flex',
-        gap: '10px',
+        gap: '8px',
         alignItems: 'center',
         background: '#34495e',
-        padding: '12px 20px',
+        padding: '12px 16px',
         borderRadius: '8px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+        flexWrap: 'wrap',
+        maxWidth: '95vw',
+        justifyContent: 'center'
       }}>
         <input
           type="text"
@@ -1295,29 +1308,51 @@ export default function App() {
             color: 'white',
             border: '1px solid #4a5f7f',
             borderRadius: '4px',
-            fontSize: '14px',
-            width: '150px',
+            fontSize: '13px',
+            width: '140px',
             outline: 'none'
           }}
         />
         
-        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} style={{
+        <select value={stateFilter} onChange={(e) => setStateFilter(e.target.value)} style={{
           padding: '8px', background: '#2c3e50', color: 'white',
           border: '1px solid #4a5f7f', borderRadius: '4px', fontSize: '12px', cursor: 'pointer'
         }}>
-          <option value="all">All Types</option>
-          <option value="platform">Platform</option>
-          <option value="project">Project</option>
+          <option value="all">All States</option>
+          <option value="open">📝 Open</option>
+          <option value="frozen">🔒 Frozen</option>
+          <option value="released">✅ Released</option>
+        </select>
+
+        <select value={reqTypeFilter} onChange={(e) => setReqTypeFilter(e.target.value)} style={{
+          padding: '8px', background: '#2c3e50', color: 'white',
+          border: '1px solid #4a5f7f', borderRadius: '4px', fontSize: '12px', cursor: 'pointer'
+        }}>
+          <option value="all">All Req Types</option>
+          <option value="customer">🟣 Customer</option>
+          <option value="platform">🔷 Platform</option>
+          <option value="project">🔶 Project</option>
+          <option value="implementation">🟢 Implementation</option>
+        </select>
+
+        <select value={classificationFilter} onChange={(e) => setClassificationFilter(e.target.value)} style={{
+          padding: '8px', background: '#2c3e50', color: 'white',
+          border: '1px solid #4a5f7f', borderRadius: '4px', fontSize: '12px', cursor: 'pointer'
+        }}>
+          <option value="all">All Classes</option>
+          <option value="need">🎯 Need</option>
+          <option value="capability">⚙️ Capability</option>
+          <option value="requirement">📋 Requirement</option>
         </select>
         
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{
+        <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} style={{
           padding: '8px', background: '#2c3e50', color: 'white',
           border: '1px solid #4a5f7f', borderRadius: '4px', fontSize: '12px', cursor: 'pointer'
         }}>
-          <option value="all">All Status</option>
-          <option value="new">New</option>
-          <option value="in-progress">In Progress</option>
-          <option value="done">Done</option>
+          <option value="all">All Priority</option>
+          <option value="high">🔴 High</option>
+          <option value="medium">🟡 Medium</option>
+          <option value="low">🟢 Low</option>
         </select>
         
         <div style={{
@@ -1331,13 +1366,13 @@ export default function App() {
           {filteredCount} / {nodes.length}
         </div>
         
-        {(searchText || typeFilter !== 'all' || statusFilter !== 'all' || priorityFilter !== 'all') && (
+        {(searchText || stateFilter !== 'all' || reqTypeFilter !== 'all' || classificationFilter !== 'all' || priorityFilter !== 'all') && (
           <button onClick={clearFilters} style={{
             padding: '8px 12px', background: '#e74c3c', color: 'white',
             border: 'none', borderRadius: '4px', cursor: 'pointer',
             fontSize: '11px', fontWeight: 'bold'
           }}>
-            Clear
+            Clear All
           </button>
         )}
       </div>
