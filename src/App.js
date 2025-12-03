@@ -15,6 +15,8 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
+// Keyboard shortcuts
+
 // Relationship type definitions
 const RELATIONSHIP_TYPES = {
   addresses: { label: 'Addresses', color: '#27ae60', style: 'solid' },
@@ -1151,7 +1153,7 @@ export default function App() {
 
   const filteredCount = processedNodes.filter(n => n.data.isFiltered).length;
 
-  const addPlatformNode = () => {
+const addPlatformNode = useCallback(() => {
     const newNode = {
       id: String(nodeId),
       type: 'custom',
@@ -1172,9 +1174,9 @@ export default function App() {
     };
     setNodes((nds) => nds.concat(newNode));
     setNodeId((id) => id + 1);
-  };
+  }, [nodeId, handleNodeLabelChange, setNodes]);
 
-  const addRequirementNode = () => {
+  const addRequirementNode = useCallback(() => {
     const newNode = {
       id: String(nodeId),
       type: 'custom',
@@ -1195,9 +1197,9 @@ export default function App() {
     };
     setNodes((nds) => nds.concat(newNode));
     setNodeId((id) => id + 1);
-  };
+  }, [nodeId, handleNodeLabelChange, setNodes]);
 
-  const exportProject = () => {
+  const exportProject = useCallback(() => {
     const project = { nodes, edges };
     const dataStr = JSON.stringify(project, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
@@ -1207,8 +1209,69 @@ export default function App() {
     link.download = 'plm-project.json';
     link.click();
     URL.revokeObjectURL(url);
-  };
+  }, [nodes, edges]);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Don't trigger shortcuts when typing in input fields
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+        if (e.key === 'Escape') {
+          setSelectedNode(null);
+          setSelectedEdge(null);
+          e.target.blur();
+        }
+        return;
+      }
+
+      // P = New Platform
+      if (e.key === 'p' || e.key === 'P') {
+        e.preventDefault();
+        addPlatformNode();
+      }
+
+      // R = New Requirement
+      if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault();
+        addRequirementNode();
+      }
+
+      // Escape = Close panels
+      if (e.key === 'Escape') {
+        setSelectedNode(null);
+        setSelectedEdge(null);
+      }
+
+      // Ctrl+S = Save
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        exportProject();
+      }
+
+      // Ctrl+F = Focus search
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        const searchInput = document.querySelector('input[placeholder="🔍 Search..."]');
+        if (searchInput) {
+          searchInput.focus();
+        }
+      }
+
+      // F = Fit view (only if not Ctrl+F)
+      if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        const fitViewButton = document.querySelector('.react-flow__controls-fitview');
+        if (fitViewButton) {
+          fitViewButton.click();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [addPlatformNode, addRequirementNode, exportProject]);
+
+    
   const importProject = (event) => {
     const file = event.target.files[0];
     if (file) {
