@@ -465,6 +465,38 @@ export default function App() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
 
+  // Calculate statistics
+  const stats = useMemo(() => {
+    const total = nodes.length;
+    const platform = nodes.filter(n => n.data.type === 'platform').length;
+    const project = nodes.filter(n => n.data.type === 'project').length;
+    
+    const statusNew = nodes.filter(n => n.data.status === 'new').length;
+    const statusInProgress = nodes.filter(n => n.data.status === 'in-progress').length;
+    const statusDone = nodes.filter(n => n.data.status === 'done').length;
+    
+    const priorityHigh = nodes.filter(n => n.data.priority === 'high').length;
+    const priorityMedium = nodes.filter(n => n.data.priority === 'medium').length;
+    const priorityLow = nodes.filter(n => n.data.priority === 'low').length;
+    
+    const connections = edges.length;
+    
+    return {
+      total,
+      platform,
+      project,
+      platformPercent: total > 0 ? Math.round((platform / total) * 100) : 0,
+      projectPercent: total > 0 ? Math.round((project / total) * 100) : 0,
+      statusNew,
+      statusInProgress,
+      statusDone,
+      priorityHigh,
+      priorityMedium,
+      priorityLow,
+      connections
+    };
+  }, [nodes, edges]);
+
   const onConnect = useCallback(
     (params) => setEdges((eds) => addEdge({ ...params, animated: true }, eds)),
     [setEdges],
@@ -738,6 +770,89 @@ export default function App() {
             Clear
           </button>
         )}
+      </div>
+
+      {/* Statistics Panel */}
+      <div style={{
+        position: 'absolute',
+        bottom: 20,
+        right: 20,
+        zIndex: 1000,
+        background: '#2c3e50',
+        padding: '16px',
+        borderRadius: '8px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+        color: 'white',
+        minWidth: '220px'
+      }}>
+        <div style={{
+          fontSize: '14px',
+          fontWeight: 'bold',
+          marginBottom: '12px',
+          borderBottom: '2px solid #34495e',
+          paddingBottom: '8px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          <span>📊</span>
+          <span>Project Statistics</span>
+        </div>
+        
+        <div style={{ fontSize: '12px', lineHeight: '1.8' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <span style={{ color: '#bdc3c7' }}>Total Nodes:</span>
+            <span style={{ fontWeight: 'bold', fontSize: '14px' }}>{stats.total}</span>
+          </div>
+          
+          <div style={{ marginBottom: '12px', paddingTop: '8px', borderTop: '1px solid #34495e' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+              <span style={{ color: '#3498db' }}>🔷 Platform:</span>
+              <span style={{ fontWeight: 'bold' }}>{stats.platform} ({stats.platformPercent}%)</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: '#e67e22' }}>🔶 Project:</span>
+              <span style={{ fontWeight: 'bold' }}>{stats.project} ({stats.projectPercent}%)</span>
+            </div>
+          </div>
+          
+          <div style={{ marginBottom: '12px', paddingTop: '8px', borderTop: '1px solid #34495e' }}>
+            <div style={{ color: '#95a5a6', fontSize: '11px', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 'bold' }}>Status</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+              <span>🆕 New:</span>
+              <span style={{ fontWeight: 'bold' }}>{stats.statusNew}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+              <span>⏳ In Progress:</span>
+              <span style={{ fontWeight: 'bold' }}>{stats.statusInProgress}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>✅ Done:</span>
+              <span style={{ fontWeight: 'bold' }}>{stats.statusDone}</span>
+            </div>
+          </div>
+          
+          <div style={{ marginBottom: '12px', paddingTop: '8px', borderTop: '1px solid #34495e' }}>
+            <div style={{ color: '#95a5a6', fontSize: '11px', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 'bold' }}>Priority</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+              <span>🔴 High:</span>
+              <span style={{ fontWeight: 'bold' }}>{stats.priorityHigh}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+              <span>🟡 Medium:</span>
+              <span style={{ fontWeight: 'bold' }}>{stats.priorityMedium}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>🟢 Low:</span>
+              <span style={{ fontWeight: 'bold' }}>{stats.priorityLow}</span>
+            </div>
+          </div>
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid #34495e' }}>
+            <span style={{ color: '#bdc3c7' }}>🔗 Connections:</span>
+            <span style={{ fontWeight: 'bold' }}>{stats.connections}</span>
+          </div>
+        </div>
       </div>
       
       <ReactFlow
