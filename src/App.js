@@ -12,11 +12,18 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
-// Custom node component with highlight support
+// Custom node component with priority-based colors
 function CustomNode({ data, id, selected }) {
   const [isEditing, setIsEditing] = useState(false);
   const [label, setLabel] = useState(data.label);
   const isHighlighted = data.isHighlighted;
+
+  // Priority colors override type colors
+  const getBorderColor = () => {
+    if (data.priority === 'high') return '#e74c3c'; // Red
+    if (data.priority === 'low') return '#27ae60'; // Green
+    return '#f39c12'; // Yellow/Orange for medium (default)
+  };
 
   const handleDoubleClick = () => {
     setIsEditing(true);
@@ -46,7 +53,7 @@ function CustomNode({ data, id, selected }) {
     <div style={{
       padding: '15px',
       borderRadius: '8px',
-      border: '3px solid ' + (data.type === 'platform' ? '#3498db' : '#e67e22'),
+      border: '3px solid ' + getBorderColor(),
       backgroundColor: '#2c3e50',
       color: 'white',
       minWidth: '180px',
@@ -69,26 +76,35 @@ function CustomNode({ data, id, selected }) {
       <div style={{
         fontSize: '10px',
         textTransform: 'uppercase',
-        color: data.type === 'platform' ? '#3498db' : '#e67e22',
+        color: getBorderColor(),
         marginBottom: '5px',
-        fontWeight: 'bold'
+        fontWeight: 'bold',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
       }}>
-        {data.type === 'platform' ? '🔷 PLATFORM' : '🔶 PROJECT'}
-        {data.priority && (
-          <span style={{ marginLeft: '8px', fontSize: '9px' }}>
-            {data.priority === 'high' && '🔴 HIGH'}
-            {data.priority === 'medium' && '🟡 MED'}
-            {data.priority === 'low' && '🟢 LOW'}
-          </span>
-        )}
-        {data.status && (
-          <span style={{ marginLeft: '8px', fontSize: '9px' }}>
-            {data.status === 'done' && '✅'}
-            {data.status === 'in-progress' && '⏳'}
-            {data.status === 'new' && '🆕'}
-          </span>
-        )}
+        <span>
+          {data.type === 'platform' ? '🔷 PLATFORM' : '🔶 PROJECT'}
+        </span>
+        <span style={{ fontSize: '11px' }}>
+          {data.priority === 'high' && '🔴 HIGH'}
+          {data.priority === 'medium' && '🟡 MED'}
+          {data.priority === 'low' && '🟢 LOW'}
+        </span>
       </div>
+      
+      {data.status && (
+        <div style={{
+          position: 'absolute',
+          top: '8px',
+          right: '8px',
+          fontSize: '16px'
+        }}>
+          {data.status === 'done' && '✅'}
+          {data.status === 'in-progress' && '⏳'}
+          {data.status === 'new' && '🆕'}
+        </div>
+      )}
       
       {isEditing ? (
         <input
@@ -103,7 +119,7 @@ function CustomNode({ data, id, selected }) {
             fontWeight: 'bold',
             background: '#34495e',
             color: 'white',
-            border: '1px solid #3498db',
+            border: '1px solid ' + getBorderColor(),
             borderRadius: '4px',
             padding: '4px 8px',
             outline: 'none'
@@ -116,7 +132,8 @@ function CustomNode({ data, id, selected }) {
             fontSize: '14px',
             fontWeight: 'bold',
             cursor: 'text',
-            minHeight: '20px'
+            minHeight: '20px',
+            paddingRight: '24px'
           }}
         >
           {data.label}
@@ -303,7 +320,7 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
             textTransform: 'uppercase',
             fontWeight: 'bold'
           }}>
-            Priority
+            Priority ⚠️ Changes border color!
           </label>
           <select
             value={node.data.priority || 'medium'}
@@ -319,9 +336,9 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
               cursor: 'pointer'
             }}
           >
-            <option value="low">🟢 Low</option>
-            <option value="medium">🟡 Medium</option>
-            <option value="high">🔴 High</option>
+            <option value="low">🟢 Low (Green border)</option>
+            <option value="medium">🟡 Medium (Yellow border)</option>
+            <option value="high">🔴 High (Red border)</option>
           </select>
         </div>
 
@@ -440,7 +457,7 @@ const initialNodes = [
       label: 'Safety Stop Function', 
       type: 'project',
       description: 'Emergency stop within 2 seconds',
-      priority: 'high',
+      priority: 'medium',
       status: 'new',
       owner: 'Safety Team'
     }
@@ -833,7 +850,7 @@ export default function App() {
           </div>
           
           <div style={{ marginBottom: '12px', paddingTop: '8px', borderTop: '1px solid #34495e' }}>
-            <div style={{ color: '#95a5a6', fontSize: '11px', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 'bold' }}>Priority</div>
+            <div style={{ color: '#95a5a6', fontSize: '11px', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 'bold' }}>Priority (Border Color)</div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
               <span>🔴 High:</span>
               <span style={{ fontWeight: 'bold' }}>{stats.priorityHigh}</span>
