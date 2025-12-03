@@ -12,20 +12,55 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
-// Custom node component with priority-based colors
+// Custom node component with enhanced requirement attributes
 function CustomNode({ data, id, selected }) {
   const [isEditing, setIsEditing] = useState(false);
   const [label, setLabel] = useState(data.label);
   const isHighlighted = data.isHighlighted;
 
-  // Priority colors override type colors
+  // Priority colors for borders
   const getBorderColor = () => {
-    if (data.priority === 'high') return '#e74c3c'; // Red
-    if (data.priority === 'low') return '#27ae60'; // Green
-    return '#f39c12'; // Yellow/Orange for medium (default)
+    if (data.priority === 'high') return '#e74c3c';
+    if (data.priority === 'low') return '#27ae60';
+    return '#f39c12';
+  };
+
+  // State colors
+  const getStateColor = () => {
+    if (data.state === 'released') return '#27ae60'; // Green
+    if (data.state === 'frozen') return '#3498db'; // Blue
+    return '#f39c12'; // Yellow for open
+  };
+
+  // Requirement type colors
+  const getReqTypeColor = () => {
+    if (data.reqType === 'customer') return '#9b59b6'; // Purple
+    if (data.reqType === 'platform') return '#3498db'; // Blue
+    if (data.reqType === 'project') return '#e67e22'; // Orange
+    if (data.reqType === 'implementation') return '#16a085'; // Teal
+    return '#95a5a6'; // Gray default
+  };
+
+  // Classification icons
+  const getClassificationIcon = () => {
+    if (data.classification === 'need') return '🎯';
+    if (data.classification === 'capability') return '⚙️';
+    if (data.classification === 'requirement') return '📋';
+    return '📄';
+  };
+
+  // State display
+  const getStateDisplay = () => {
+    if (data.state === 'released') return '✅ Released';
+    if (data.state === 'frozen') return '🔒 Frozen';
+    return '📝 Open';
   };
 
   const handleDoubleClick = () => {
+    // Only allow editing if not frozen or released
+    if (data.state === 'frozen' || data.state === 'released') {
+      return;
+    }
     setIsEditing(true);
   };
 
@@ -56,7 +91,7 @@ function CustomNode({ data, id, selected }) {
       border: '3px solid ' + getBorderColor(),
       backgroundColor: '#2c3e50',
       color: 'white',
-      minWidth: '180px',
+      minWidth: '200px',
       boxShadow: selected ? '0 0 0 3px #f39c12' : (isHighlighted ? '0 0 0 4px #f1c40f, 0 0 20px rgba(241,196,15,0.6)' : '0 4px 6px rgba(0,0,0,0.3)'),
       position: 'relative',
       opacity: data.isFiltered === false ? 0.3 : 1,
@@ -73,39 +108,68 @@ function CustomNode({ data, id, selected }) {
         style={{ background: '#555', width: 12, height: 12 }}
       />
       
+      {/* Top row: Type badge and State */}
       <div style={{
-        fontSize: '10px',
-        textTransform: 'uppercase',
-        color: getBorderColor(),
-        marginBottom: '5px',
-        fontWeight: 'bold',
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'center'
+        alignItems: 'center',
+        marginBottom: '8px',
+        gap: '8px'
       }}>
-        <span>
+        <div style={{
+          fontSize: '10px',
+          padding: '3px 8px',
+          borderRadius: '4px',
+          backgroundColor: getReqTypeColor(),
+          color: 'white',
+          fontWeight: 'bold',
+          textTransform: 'uppercase'
+        }}>
           {data.type === 'platform' ? '🔷 PLATFORM' : '🔶 PROJECT'}
-        </span>
-        <span style={{ fontSize: '11px' }}>
-          {data.priority === 'high' && '🔴 HIGH'}
-          {data.priority === 'medium' && '🟡 MED'}
-          {data.priority === 'low' && '🟢 LOW'}
-        </span>
+          {data.reqType && ` - ${data.reqType}`}
+        </div>
+        
+        <div style={{
+          fontSize: '9px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}>
+          <div style={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            backgroundColor: getStateColor()
+          }} />
+          <span style={{ color: getStateColor(), fontWeight: 'bold' }}>
+            {data.state === 'released' ? 'REL' : data.state === 'frozen' ? 'FRZ' : 'OPEN'}
+          </span>
+        </div>
+      </div>
+
+      {/* Classification and Priority row */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '8px',
+        fontSize: '11px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span>{getClassificationIcon()}</span>
+          <span style={{ color: '#bdc3c7', textTransform: 'capitalize' }}>
+            {data.classification || 'requirement'}
+          </span>
+        </div>
+        
+        <div>
+          {data.priority === 'high' && '🔴'}
+          {data.priority === 'medium' && '🟡'}
+          {data.priority === 'low' && '🟢'}
+        </div>
       </div>
       
-      {data.status && (
-        <div style={{
-          position: 'absolute',
-          top: '8px',
-          right: '8px',
-          fontSize: '16px'
-        }}>
-          {data.status === 'done' && '✅'}
-          {data.status === 'in-progress' && '⏳'}
-          {data.status === 'new' && '🆕'}
-        </div>
-      )}
-      
+      {/* Title */}
       {isEditing ? (
         <input
           autoFocus
@@ -121,7 +185,7 @@ function CustomNode({ data, id, selected }) {
             color: 'white',
             border: '1px solid ' + getBorderColor(),
             borderRadius: '4px',
-            padding: '4px 8px',
+            padding: '6px 8px',
             outline: 'none'
           }}
         />
@@ -131,20 +195,20 @@ function CustomNode({ data, id, selected }) {
           style={{
             fontSize: '14px',
             fontWeight: 'bold',
-            cursor: 'text',
+            cursor: (data.state === 'frozen' || data.state === 'released') ? 'not-allowed' : 'text',
             minHeight: '20px',
-            paddingRight: '24px'
+            marginBottom: '6px'
           }}
         >
           {data.label}
         </div>
       )}
       
+      {/* Description preview */}
       {!isEditing && data.description && (
         <div style={{
           fontSize: '11px',
           color: '#bdc3c7',
-          marginTop: '6px',
           fontStyle: 'italic',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -153,15 +217,42 @@ function CustomNode({ data, id, selected }) {
           {data.description}
         </div>
       )}
+
+      {/* Lock indicator */}
+      {(data.state === 'frozen' || data.state === 'released') && (
+        <div style={{
+          position: 'absolute',
+          top: '8px',
+          right: '8px',
+          fontSize: '16px'
+        }}>
+          {data.state === 'released' ? '✅' : '🔒'}
+        </div>
+      )}
+
+      {/* Attachment indicator */}
+      {data.attachment && (
+        <div style={{
+          position: 'absolute',
+          bottom: '8px',
+          right: '8px',
+          fontSize: '14px'
+        }}>
+          📎
+        </div>
+      )}
     </div>
   );
 }
 
-// Draggable Floating Panel Component
+// Enhanced Floating Panel with new attributes
 function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [position, setPosition] = useState(initialPosition);
+  const [showImagePreview, setShowImagePreview] = useState(false);
+
+  const isEditable = node.data.state !== 'frozen' && node.data.state !== 'released';
 
   useEffect(() => {
     setPosition(initialPosition);
@@ -206,19 +297,37 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
     }
   }, [isDragging, handleMouseMove, handleMouseUp]);
 
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        onUpdate(node.id, 'attachment', event.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    onUpdate(node.id, 'attachment', null);
+  };
+
   return (
     <div
       style={{
         position: 'fixed',
         left: position.x + 'px',
         top: position.y + 'px',
-        width: '320px',
+        width: '360px',
         background: '#2c3e50',
         borderRadius: '8px',
         boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
         zIndex: 2000,
         color: 'white',
-        userSelect: isDragging ? 'none' : 'auto'
+        userSelect: isDragging ? 'none' : 'auto',
+        maxHeight: '90vh',
+        display: 'flex',
+        flexDirection: 'column'
       }}
     >
       <div 
@@ -237,7 +346,8 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '16px' }}>✋</span>
-          <span style={{ fontSize: '14px', fontWeight: 'bold' }}>Edit Node</span>
+          <span style={{ fontSize: '14px', fontWeight: 'bold' }}>Edit Requirement</span>
+          {!isEditable && <span style={{ fontSize: '12px', color: '#f39c12' }}>🔒 Read-Only</span>}
         </div>
         <button
           onClick={onClose}
@@ -255,7 +365,8 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
         </button>
       </div>
 
-      <div style={{ padding: '15px', maxHeight: '400px', overflowY: 'auto' }}>
+      <div style={{ padding: '15px', overflowY: 'auto', flex: 1 }}>
+        {/* Title */}
         <div style={{ marginBottom: '15px' }}>
           <label style={{
             display: 'block',
@@ -277,10 +388,113 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
             {node.data.label}
           </div>
           <div style={{ fontSize: '9px', color: '#95a5a6', marginTop: '4px' }}>
-            Double-click node to edit
+            {isEditable ? 'Double-click node to edit' : 'Cannot edit - requirement is frozen/released'}
           </div>
         </div>
 
+        {/* State Management */}
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{
+            display: 'block',
+            marginBottom: '6px',
+            fontSize: '11px',
+            color: '#bdc3c7',
+            textTransform: 'uppercase',
+            fontWeight: 'bold'
+          }}>
+            State
+          </label>
+          <select
+            value={node.data.state || 'open'}
+            onChange={(e) => onUpdate(node.id, 'state', e.target.value)}
+            style={{
+              width: '100%',
+              padding: '8px',
+              background: '#34495e',
+              color: 'white',
+              border: '1px solid #4a5f7f',
+              borderRadius: '4px',
+              fontSize: '13px',
+              cursor: 'pointer'
+            }}
+          >
+            <option value="open">📝 Open (Editable)</option>
+            <option value="frozen">🔒 Frozen (Review)</option>
+            <option value="released">✅ Released (Approved)</option>
+          </select>
+          <div style={{ fontSize: '9px', color: '#95a5a6', marginTop: '4px' }}>
+            Frozen/Released requirements cannot be edited
+          </div>
+        </div>
+
+        {/* Requirement Type */}
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{
+            display: 'block',
+            marginBottom: '6px',
+            fontSize: '11px',
+            color: '#bdc3c7',
+            textTransform: 'uppercase',
+            fontWeight: 'bold'
+          }}>
+            Requirement Type
+          </label>
+          <select
+            value={node.data.reqType || 'project'}
+            onChange={(e) => onUpdate(node.id, 'reqType', e.target.value)}
+            disabled={!isEditable}
+            style={{
+              width: '100%',
+              padding: '8px',
+              background: isEditable ? '#34495e' : '#2c3e50',
+              color: 'white',
+              border: '1px solid #4a5f7f',
+              borderRadius: '4px',
+              fontSize: '13px',
+              cursor: isEditable ? 'pointer' : 'not-allowed'
+            }}
+          >
+            <option value="customer">🟣 Customer Requirement</option>
+            <option value="platform">🔷 Platform Requirement</option>
+            <option value="project">🔶 Project Requirement</option>
+            <option value="implementation">🟢 Implementation Requirement</option>
+          </select>
+        </div>
+
+        {/* Classification */}
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{
+            display: 'block',
+            marginBottom: '6px',
+            fontSize: '11px',
+            color: '#bdc3c7',
+            textTransform: 'uppercase',
+            fontWeight: 'bold'
+          }}>
+            Classification
+          </label>
+          <select
+            value={node.data.classification || 'requirement'}
+            onChange={(e) => onUpdate(node.id, 'classification', e.target.value)}
+            disabled={!isEditable}
+            style={{
+              width: '100%',
+              padding: '8px',
+              background: isEditable ? '#34495e' : '#2c3e50',
+              color: 'white',
+              border: '1px solid #4a5f7f',
+              borderRadius: '4px',
+              fontSize: '13px',
+              cursor: isEditable ? 'pointer' : 'not-allowed'
+            }}
+          >
+            <option value="need">🎯 Need (High-level goal)</option>
+            <option value="capability">⚙️ Capability (System ability)</option>
+            <option value="requirement">📋 Requirement (Specific spec)</option>
+          </select>
+        </div>
+
+        {/* Description */}
         <div style={{ marginBottom: '15px' }}>
           <label style={{
             display: 'block',
@@ -296,21 +510,24 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
             value={node.data.description || ''}
             onChange={(e) => onUpdate(node.id, 'description', e.target.value)}
             placeholder="Add description..."
+            disabled={!isEditable}
             style={{
               width: '100%',
-              minHeight: '60px',
+              minHeight: '80px',
               padding: '8px',
-              background: '#34495e',
+              background: isEditable ? '#34495e' : '#2c3e50',
               color: 'white',
               border: '1px solid #4a5f7f',
               borderRadius: '4px',
               fontSize: '13px',
               fontFamily: 'inherit',
-              resize: 'vertical'
+              resize: 'vertical',
+              cursor: isEditable ? 'text' : 'not-allowed'
             }}
           />
         </div>
 
+        {/* Attachment */}
         <div style={{ marginBottom: '15px' }}>
           <label style={{
             display: 'block',
@@ -320,28 +537,101 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
             textTransform: 'uppercase',
             fontWeight: 'bold'
           }}>
-            Priority ⚠️ Changes border color!
+            Attachment 📎
+          </label>
+          
+          {node.data.attachment ? (
+            <div>
+              <div 
+                style={{
+                  width: '100%',
+                  height: '120px',
+                  backgroundImage: 'url(' + node.data.attachment + ')',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  border: '2px solid #4a5f7f'
+                }}
+                onClick={() => setShowImagePreview(true)}
+              />
+              {isEditable && (
+                <button
+                  onClick={removeImage}
+                  style={{
+                    marginTop: '8px',
+                    padding: '6px 12px',
+                    background: '#e74c3c',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    width: '100%'
+                  }}
+                >
+                  Remove Image
+                </button>
+              )}
+            </div>
+          ) : (
+            <label style={{
+              display: 'block',
+              padding: '20px',
+              background: isEditable ? '#34495e' : '#2c3e50',
+              border: '2px dashed #4a5f7f',
+              borderRadius: '4px',
+              textAlign: 'center',
+              cursor: isEditable ? 'pointer' : 'not-allowed',
+              fontSize: '13px'
+            }}>
+              {isEditable ? '📎 Click to upload image' : '📎 No attachment'}
+              {isEditable && (
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  style={{ display: 'none' }}
+                />
+              )}
+            </label>
+          )}
+        </div>
+
+        {/* Priority */}
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{
+            display: 'block',
+            marginBottom: '6px',
+            fontSize: '11px',
+            color: '#bdc3c7',
+            textTransform: 'uppercase',
+            fontWeight: 'bold'
+          }}>
+            Priority (Border Color)
           </label>
           <select
             value={node.data.priority || 'medium'}
             onChange={(e) => onUpdate(node.id, 'priority', e.target.value)}
+            disabled={!isEditable}
             style={{
               width: '100%',
               padding: '8px',
-              background: '#34495e',
+              background: isEditable ? '#34495e' : '#2c3e50',
               color: 'white',
               border: '1px solid #4a5f7f',
               borderRadius: '4px',
               fontSize: '13px',
-              cursor: 'pointer'
+              cursor: isEditable ? 'pointer' : 'not-allowed'
             }}
           >
-            <option value="low">🟢 Low (Green border)</option>
-            <option value="medium">🟡 Medium (Yellow border)</option>
-            <option value="high">🔴 High (Red border)</option>
+            <option value="low">🟢 Low (Green)</option>
+            <option value="medium">🟡 Medium (Yellow)</option>
+            <option value="high">🔴 High (Red)</option>
           </select>
         </div>
 
+        {/* Status */}
         <div style={{ marginBottom: '15px' }}>
           <label style={{
             display: 'block',
@@ -351,20 +641,21 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
             textTransform: 'uppercase',
             fontWeight: 'bold'
           }}>
-            Status
+            Work Status
           </label>
           <select
             value={node.data.status || 'new'}
             onChange={(e) => onUpdate(node.id, 'status', e.target.value)}
+            disabled={!isEditable}
             style={{
               width: '100%',
               padding: '8px',
-              background: '#34495e',
+              background: isEditable ? '#34495e' : '#2c3e50',
               color: 'white',
               border: '1px solid #4a5f7f',
               borderRadius: '4px',
               fontSize: '13px',
-              cursor: 'pointer'
+              cursor: isEditable ? 'pointer' : 'not-allowed'
             }}
           >
             <option value="new">🆕 New</option>
@@ -373,6 +664,7 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
           </select>
         </div>
 
+        {/* Owner */}
         <div style={{ marginBottom: '15px' }}>
           <label style={{
             display: 'block',
@@ -389,18 +681,21 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
             value={node.data.owner || ''}
             onChange={(e) => onUpdate(node.id, 'owner', e.target.value)}
             placeholder="Who owns this?"
+            disabled={!isEditable}
             style={{
               width: '100%',
               padding: '8px',
-              background: '#34495e',
+              background: isEditable ? '#34495e' : '#2c3e50',
               color: 'white',
               border: '1px solid #4a5f7f',
               borderRadius: '4px',
-              fontSize: '13px'
+              fontSize: '13px',
+              cursor: isEditable ? 'text' : 'not-allowed'
             }}
           />
         </div>
 
+        {/* Metadata */}
         <div style={{
           padding: '10px',
           background: '#34495e',
@@ -414,6 +709,37 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
           </div>
         </div>
       </div>
+
+      {/* Image Preview Modal */}
+      {showImagePreview && node.data.attachment && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.9)',
+            zIndex: 3000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+          onClick={() => setShowImagePreview(false)}
+        >
+          <img
+            src={node.data.attachment}
+            alt="Attachment preview"
+            style={{
+              maxWidth: '90%',
+              maxHeight: '90%',
+              objectFit: 'contain',
+              borderRadius: '8px'
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -430,36 +756,48 @@ const initialNodes = [
     data: { 
       label: 'Motor Control Library', 
       type: 'platform',
-      description: 'Core library for motor control',
+      reqType: 'platform',
+      classification: 'capability',
+      description: 'Core library for motor control functionality',
       priority: 'high',
       status: 'done',
-      owner: 'Engineering Team'
+      state: 'released',
+      owner: 'Engineering Team',
+      attachment: null
     }
   },
   { 
     id: '2', 
     type: 'custom',
-    position: { x: 400, y: 100 }, 
+    position: { x: 450, y: 100 }, 
     data: { 
       label: 'Speed Control Required', 
       type: 'project',
-      description: 'Variable speed control needed',
+      reqType: 'customer',
+      classification: 'requirement',
+      description: 'Customer needs variable speed control from 0-100%',
       priority: 'high',
       status: 'in-progress',
-      owner: 'Fredrik'
+      state: 'open',
+      owner: 'Fredrik',
+      attachment: null
     }
   },
   { 
     id: '3', 
     type: 'custom',
-    position: { x: 400, y: 250 }, 
+    position: { x: 450, y: 280 }, 
     data: { 
       label: 'Safety Stop Function', 
       type: 'project',
-      description: 'Emergency stop within 2 seconds',
-      priority: 'medium',
+      reqType: 'project',
+      classification: 'requirement',
+      description: 'Emergency stop must halt within 2 seconds',
+      priority: 'high',
       status: 'new',
-      owner: 'Safety Team'
+      state: 'frozen',
+      owner: 'Safety Team',
+      attachment: null
     }
   },
 ];
@@ -496,6 +834,10 @@ export default function App() {
     const priorityMedium = nodes.filter(n => n.data.priority === 'medium').length;
     const priorityLow = nodes.filter(n => n.data.priority === 'low').length;
     
+    const stateOpen = nodes.filter(n => n.data.state === 'open' || !n.data.state).length;
+    const stateFrozen = nodes.filter(n => n.data.state === 'frozen').length;
+    const stateReleased = nodes.filter(n => n.data.state === 'released').length;
+    
     const connections = edges.length;
     
     return {
@@ -510,6 +852,9 @@ export default function App() {
       priorityHigh,
       priorityMedium,
       priorityLow,
+      stateOpen,
+      stateFrozen,
+      stateReleased,
       connections
     };
   }, [nodes, edges]);
@@ -523,6 +868,10 @@ export default function App() {
     setNodes((nds) =>
       nds.map((node) => {
         if (node.id === nodeId) {
+          // Only allow editing if not frozen or released
+          if (node.data.state === 'frozen' || node.data.state === 'released') {
+            return node;
+          }
           return {
             ...node,
             data: {
@@ -541,8 +890,8 @@ export default function App() {
     const newX = rect.right + 20;
     const newY = rect.top;
     
-    const adjustedX = newX + 320 > window.innerWidth ? rect.left - 340 : newX;
-    const adjustedY = newY + 400 > window.innerHeight ? window.innerHeight - 420 : newY;
+    const adjustedX = newX + 360 > window.innerWidth ? rect.left - 380 : newX;
+    const adjustedY = newY + 500 > window.innerHeight ? window.innerHeight - 520 : newY;
     
     setFloatingPanelPosition({
       x: adjustedX,
@@ -618,10 +967,14 @@ export default function App() {
       data: { 
         label: 'New Platform Component', 
         type: 'platform',
+        reqType: 'platform',
+        classification: 'capability',
         description: '',
         priority: 'medium',
         status: 'new',
+        state: 'open',
         owner: '',
+        attachment: null,
         onChange: handleNodeLabelChange
       },
     };
@@ -637,10 +990,14 @@ export default function App() {
       data: { 
         label: 'New Requirement', 
         type: 'project',
+        reqType: 'project',
+        classification: 'requirement',
         description: '',
         priority: 'medium',
         status: 'new',
+        state: 'open',
         owner: '',
+        attachment: null,
         onChange: handleNodeLabelChange
       },
     };
@@ -703,7 +1060,7 @@ export default function App() {
         fontWeight: 'bold',
         boxShadow: '0 2px 10px rgba(0,0,0,0.3)'
       }}>
-        PLM Prototype - Week 2 🚀
+        PLM Prototype - Requirement Canvas 🚀
       </div>
       
       {/* Search and Filter Bar */}
@@ -723,7 +1080,7 @@ export default function App() {
       }}>
         <input
           type="text"
-          placeholder="🔍 Search nodes..."
+          placeholder="🔍 Search requirements..."
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
           style={{
@@ -818,23 +1175,28 @@ export default function App() {
         
         <div style={{ fontSize: '12px', lineHeight: '1.8' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ color: '#bdc3c7' }}>Total Nodes:</span>
+            <span style={{ color: '#bdc3c7' }}>Total Requirements:</span>
             <span style={{ fontWeight: 'bold', fontSize: '14px' }}>{stats.total}</span>
           </div>
           
           <div style={{ marginBottom: '12px', paddingTop: '8px', borderTop: '1px solid #34495e' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ color: '#3498db' }}>🔷 Platform:</span>
-              <span style={{ fontWeight: 'bold' }}>{stats.platform} ({stats.platformPercent}%)</span>
+            <div style={{ color: '#95a5a6', fontSize: '11px', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 'bold' }}>Lifecycle State</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+              <span>📝 Open:</span>
+              <span style={{ fontWeight: 'bold' }}>{stats.stateOpen}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+              <span>🔒 Frozen:</span>
+              <span style={{ fontWeight: 'bold' }}>{stats.stateFrozen}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#e67e22' }}>🔶 Project:</span>
-              <span style={{ fontWeight: 'bold' }}>{stats.project} ({stats.projectPercent}%)</span>
+              <span>✅ Released:</span>
+              <span style={{ fontWeight: 'bold' }}>{stats.stateReleased}</span>
             </div>
           </div>
           
           <div style={{ marginBottom: '12px', paddingTop: '8px', borderTop: '1px solid #34495e' }}>
-            <div style={{ color: '#95a5a6', fontSize: '11px', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 'bold' }}>Status</div>
+            <div style={{ color: '#95a5a6', fontSize: '11px', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 'bold' }}>Work Status</div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
               <span>🆕 New:</span>
               <span style={{ fontWeight: 'bold' }}>{stats.statusNew}</span>
@@ -850,7 +1212,7 @@ export default function App() {
           </div>
           
           <div style={{ marginBottom: '12px', paddingTop: '8px', borderTop: '1px solid #34495e' }}>
-            <div style={{ color: '#95a5a6', fontSize: '11px', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 'bold' }}>Priority (Border Color)</div>
+            <div style={{ color: '#95a5a6', fontSize: '11px', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 'bold' }}>Priority</div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
               <span>🔴 High:</span>
               <span style={{ fontWeight: 'bold' }}>{stats.priorityHigh}</span>
@@ -903,7 +1265,7 @@ export default function App() {
                 border: 'none', borderRadius: '6px', cursor: 'pointer',
                 fontWeight: 'bold', fontSize: '14px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
               }}>
-                + Project
+                + Requirement
               </button>
             </div>
             
