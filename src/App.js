@@ -9,8 +9,150 @@ import ReactFlow, {
   Panel,
   Handle,
   Position,
+  EdgeLabelRenderer,
+  getBezierPath,
+  useReactFlow,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
+
+// Relationship type definitions
+const RELATIONSHIP_TYPES = {
+  addresses: { label: 'Addresses', color: '#27ae60', style: 'solid' },
+  implements: { label: 'Implements', color: '#3498db', style: 'solid' },
+  satisfies: { label: 'Satisfies', color: '#9b59b6', style: 'solid' },
+  derives: { label: 'Derives from', color: '#e67e22', style: 'dashed' },
+  depends: { label: 'Depends on', color: '#f1c40f', style: 'dashed' },
+  conflicts: { label: 'Conflicts with', color: '#e74c3c', style: 'dotted' },
+  related: { label: 'Related to', color: '#95a5a6', style: 'dotted' },
+  flowsDown: { label: 'Flows down', color: '#00bcd4', style: 'solid' },
+  reuses: { label: 'Reuses', color: '#16a085', style: 'solid' },
+};
+
+// Auto-inference engine
+function inferRelationshipType(sourceNode, targetNode) {
+  const sourceClass = sourceNode?.data?.classification || 'requirement';
+  const targetClass = targetNode?.data?.classification || 'requirement';
+  const sourceReqType = sourceNode?.data?.reqType || 'project';
+  const targetReqType = targetNode?.data?.reqType || 'project';
+  const sourceType = sourceNode?.data?.type || 'project';
+  const targetType = targetNode?.data?.type || 'project';
+
+  // Need → Capability = Addresses
+  if (sourceClass === 'need' && targetClass === 'capability') {
+    return 'addresses';
+  }
+  
+  // Capability → Requirement = Implements
+  if (sourceClass === 'capability' && targetClass === 'requirement') {
+    return 'implements';
+  }
+  
+  // Need → Requirement = Satisfies
+  if (sourceClass === 'need' && targetClass === 'requirement') {
+    return 'satisfies';
+  }
+  
+  // Customer → Project = Flows down
+  if (sourceReqType === 'customer' && targetReqType === 'project') {
+    return 'flowsDown';
+  }
+  
+  // Customer → Platform = Flows down
+  if (sourceReqType === 'customer' && targetReqType === 'platform') {
+    return 'flowsDown';
+  }
+  
+  // Platform → Project = Reuses
+  if (sourceType === 'platform' && targetType === 'project') {
+    return 'reuses';
+  }
+  
+  // Platform → Platform with implementation = Implements
+  if (sourceReqType === 'implementation' && targetClass === 'requirement') {
+    return 'implements';
+  }
+  
+  // Same classification = Related or Derives
+  if (sourceClass === targetClass && sourceClass === 'requirement') {
+    return 'derives';
+  }
+  
+  // Default
+  return 'related';
+}
+
+// Custom Edge Component with label and click handling
+function CustomEdge({
+  id,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  data,
+  selected,
+}) {
+  const [edgePath, labelX, labelY] = getBezierPath({
+    sourceX,
+    sourceY,
+    sourcePosition,
+    targetX,
+    targetY,
+    targetPosition,
+  });
+
+  const relType = RELATIONSHIP_TYPES[data?.relationType || 'related'];
+  
+  const getStrokeDasharray = () => {
+    if (relType.style === 'dashed') return '8 4';
+    if (relType.style === 'dotted') return '2 2';
+    return '0';
+  };
+
+  return (
+    <>
+      <path
+        id={id}
+        className="react-flow__edge-path"
+        d={edgePath}
+        style={{
+          stroke: relType.color,
+          strokeWidth: selected ? 3 : 2,
+          strokeDasharray: getStrokeDasharray(),
+          fill: 'none',
+          cursor: 'pointer',
+        }}
+        markerEnd={`url(#arrow-${data?.relationType || 'related'})`}
+      />
+      <EdgeLabelRenderer>
+        <div
+          style={{
+            position: 'absolute',
+            transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+            background: '#2c3e50',
+            padding: '4px 8px',
+            borderRadius: '4px',
+            fontSize: '10px',
+            fontWeight: 'bold',
+            color: relType.color,
+            border: `1px solid ${relType.color}`,
+            pointerEvents: 'all',
+            cursor: 'pointer',
+            boxShadow: selected ? `0 0 8px ${relType.color}` : '0 2px 4px rgba(0,0,0,0.3)',
+          }}
+          className="nodrag nopan"
+        >
+          {relType.label}
+        </div>
+      </EdgeLabelRenderer>
+    </>
+  );
+}
+
+const edgeTypes = {
+  custom: CustomEdge,
+};
 
 // Custom node component with enhanced requirement attributes
 function CustomNode({ data, id, selected }) {
@@ -18,30 +160,26 @@ function CustomNode({ data, id, selected }) {
   const [label, setLabel] = useState(data.label);
   const isHighlighted = data.isHighlighted;
 
-  // Priority colors for borders
   const getBorderColor = () => {
     if (data.priority === 'high') return '#e74c3c';
     if (data.priority === 'low') return '#27ae60';
     return '#f39c12';
   };
 
-  // State colors
   const getStateColor = () => {
-    if (data.state === 'released') return '#27ae60'; // Green
-    if (data.state === 'frozen') return '#3498db'; // Blue
-    return '#f39c12'; // Yellow for open
+    if (data.state === 'released') return '#27ae60';
+    if (data.state === 'frozen') return '#3498db';
+    return '#f39c12';
   };
 
-  // Requirement type colors
   const getReqTypeColor = () => {
-    if (data.reqType === 'customer') return '#9b59b6'; // Purple
-    if (data.reqType === 'platform') return '#3498db'; // Blue
-    if (data.reqType === 'project') return '#e67e22'; // Orange
-    if (data.reqType === 'implementation') return '#16a085'; // Teal
-    return '#95a5a6'; // Gray default
+    if (data.reqType === 'customer') return '#9b59b6';
+    if (data.reqType === 'platform') return '#3498db';
+    if (data.reqType === 'project') return '#e67e22';
+    if (data.reqType === 'implementation') return '#16a085';
+    return '#95a5a6';
   };
 
-  // Classification icons
   const getClassificationIcon = () => {
     if (data.classification === 'need') return '🎯';
     if (data.classification === 'capability') return '⚙️';
@@ -49,15 +187,7 @@ function CustomNode({ data, id, selected }) {
     return '📄';
   };
 
-  // State display
-  const getStateDisplay = () => {
-    if (data.state === 'released') return '✅ Released';
-    if (data.state === 'frozen') return '🔒 Frozen';
-    return '📝 Open';
-  };
-
   const handleDoubleClick = () => {
-    // Only allow editing if not frozen or released
     if (data.state === 'frozen' || data.state === 'released') {
       return;
     }
@@ -108,7 +238,6 @@ function CustomNode({ data, id, selected }) {
         style={{ background: '#555', width: 12, height: 12 }}
       />
       
-      {/* Top row: Type badge and State */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -125,8 +254,7 @@ function CustomNode({ data, id, selected }) {
           fontWeight: 'bold',
           textTransform: 'uppercase'
         }}>
-          {data.type === 'platform' ? '🔷 PLATFORM' : '🔶 PROJECT'}
-          {data.reqType && ` - ${data.reqType}`}
+          {data.reqType || 'project'}
         </div>
         
         <div style={{
@@ -147,7 +275,6 @@ function CustomNode({ data, id, selected }) {
         </div>
       </div>
 
-      {/* Classification and Priority row */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -169,7 +296,6 @@ function CustomNode({ data, id, selected }) {
         </div>
       </div>
       
-      {/* Title */}
       {isEditing ? (
         <input
           autoFocus
@@ -204,7 +330,6 @@ function CustomNode({ data, id, selected }) {
         </div>
       )}
       
-      {/* Description preview */}
       {!isEditing && data.description && (
         <div style={{
           fontSize: '11px',
@@ -218,7 +343,6 @@ function CustomNode({ data, id, selected }) {
         </div>
       )}
 
-      {/* Lock indicator */}
       {(data.state === 'frozen' || data.state === 'released') && (
         <div style={{
           position: 'absolute',
@@ -230,7 +354,6 @@ function CustomNode({ data, id, selected }) {
         </div>
       )}
 
-      {/* Attachment indicator */}
       {data.attachment && (
         <div style={{
           position: 'absolute',
@@ -245,7 +368,103 @@ function CustomNode({ data, id, selected }) {
   );
 }
 
-// Enhanced Floating Panel with new attributes
+// Floating Panel for editing relationships
+function RelationshipPanel({ edge, onClose, onUpdate, position }) {
+  return (
+    <div style={{
+      position: 'fixed',
+      left: position.x + 'px',
+      top: position.y + 'px',
+      background: '#2c3e50',
+      borderRadius: '8px',
+      padding: '15px',
+      boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+      zIndex: 3000,
+      color: 'white',
+      minWidth: '250px'
+    }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '12px',
+        borderBottom: '2px solid #34495e',
+        paddingBottom: '8px'
+      }}>
+        <span style={{ fontWeight: 'bold', fontSize: '14px' }}>🔗 Edit Relationship</span>
+        <button onClick={onClose} style={{
+          background: 'transparent',
+          border: 'none',
+          color: 'white',
+          fontSize: '18px',
+          cursor: 'pointer'
+        }}>×</button>
+      </div>
+      
+      <div style={{ marginBottom: '12px' }}>
+        <label style={{
+          display: 'block',
+          fontSize: '11px',
+          color: '#bdc3c7',
+          marginBottom: '6px',
+          textTransform: 'uppercase',
+          fontWeight: 'bold'
+        }}>
+          Relationship Type
+        </label>
+        <select
+          value={edge.data?.relationType || 'related'}
+          onChange={(e) => onUpdate(edge.id, e.target.value)}
+          style={{
+            width: '100%',
+            padding: '10px',
+            background: '#34495e',
+            color: 'white',
+            border: '1px solid #4a5f7f',
+            borderRadius: '4px',
+            fontSize: '13px',
+            cursor: 'pointer'
+          }}
+        >
+          {Object.entries(RELATIONSHIP_TYPES).map(([key, value]) => (
+            <option key={key} value={key}>
+              {value.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: '8px',
+        marginTop: '12px'
+      }}>
+        {Object.entries(RELATIONSHIP_TYPES).map(([key, value]) => (
+          <button
+            key={key}
+            onClick={() => onUpdate(edge.id, key)}
+            style={{
+              padding: '8px',
+              background: edge.data?.relationType === key ? value.color : '#34495e',
+              color: 'white',
+              border: `2px solid ${value.color}`,
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              transition: 'all 0.2s'
+            }}
+          >
+            {value.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Enhanced Floating Panel for nodes
 function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -366,7 +585,6 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
       </div>
 
       <div style={{ padding: '15px', overflowY: 'auto', flex: 1 }}>
-        {/* Title */}
         <div style={{ marginBottom: '15px' }}>
           <label style={{
             display: 'block',
@@ -392,7 +610,6 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
           </div>
         </div>
 
-        {/* State Management */}
         <div style={{ marginBottom: '15px' }}>
           <label style={{
             display: 'block',
@@ -422,12 +639,8 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
             <option value="frozen">🔒 Frozen (Review)</option>
             <option value="released">✅ Released (Approved)</option>
           </select>
-          <div style={{ fontSize: '9px', color: '#95a5a6', marginTop: '4px' }}>
-            Frozen/Released requirements cannot be edited
-          </div>
         </div>
 
-        {/* Requirement Type */}
         <div style={{ marginBottom: '15px' }}>
           <label style={{
             display: 'block',
@@ -461,7 +674,6 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
           </select>
         </div>
 
-        {/* Classification */}
         <div style={{ marginBottom: '15px' }}>
           <label style={{
             display: 'block',
@@ -494,7 +706,6 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
           </select>
         </div>
 
-        {/* Description */}
         <div style={{ marginBottom: '15px' }}>
           <label style={{
             display: 'block',
@@ -527,7 +738,6 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
           />
         </div>
 
-        {/* Attachment */}
         <div style={{ marginBottom: '15px' }}>
           <label style={{
             display: 'block',
@@ -598,7 +808,6 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
           )}
         </div>
 
-        {/* Priority */}
         <div style={{ marginBottom: '15px' }}>
           <label style={{
             display: 'block',
@@ -608,7 +817,7 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
             textTransform: 'uppercase',
             fontWeight: 'bold'
           }}>
-            Priority (Border Color)
+            Priority
           </label>
           <select
             value={node.data.priority || 'medium'}
@@ -625,46 +834,12 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
               cursor: isEditable ? 'pointer' : 'not-allowed'
             }}
           >
-            <option value="low">🟢 Low (Green)</option>
-            <option value="medium">🟡 Medium (Yellow)</option>
-            <option value="high">🔴 High (Red)</option>
+            <option value="low">🟢 Low</option>
+            <option value="medium">🟡 Medium</option>
+            <option value="high">🔴 High</option>
           </select>
         </div>
 
-        {/* Status */}
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{
-            display: 'block',
-            marginBottom: '6px',
-            fontSize: '11px',
-            color: '#bdc3c7',
-            textTransform: 'uppercase',
-            fontWeight: 'bold'
-          }}>
-            Work Status
-          </label>
-          <select
-            value={node.data.status || 'new'}
-            onChange={(e) => onUpdate(node.id, 'status', e.target.value)}
-            disabled={!isEditable}
-            style={{
-              width: '100%',
-              padding: '8px',
-              background: isEditable ? '#34495e' : '#2c3e50',
-              color: 'white',
-              border: '1px solid #4a5f7f',
-              borderRadius: '4px',
-              fontSize: '13px',
-              cursor: isEditable ? 'pointer' : 'not-allowed'
-            }}
-          >
-            <option value="new">🆕 New</option>
-            <option value="in-progress">⏳ In Progress</option>
-            <option value="done">✅ Done</option>
-          </select>
-        </div>
-
-        {/* Owner */}
         <div style={{ marginBottom: '15px' }}>
           <label style={{
             display: 'block',
@@ -695,7 +870,6 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
           />
         </div>
 
-        {/* Metadata */}
         <div style={{
           padding: '10px',
           background: '#34495e',
@@ -704,13 +878,9 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
           color: '#95a5a6'
         }}>
           <div><strong>ID:</strong> {node.id}</div>
-          <div style={{ marginTop: '4px' }}>
-            <strong>Type:</strong> {node.data.type === 'platform' ? '🔷 Platform' : '🔶 Project'}
-          </div>
         </div>
       </div>
 
-      {/* Image Preview Modal */}
       {showImagePreview && node.data.attachment && (
         <div
           style={{
@@ -752,17 +922,17 @@ const initialNodes = [
   { 
     id: '1', 
     type: 'custom',
-    position: { x: 100, y: 100 }, 
+    position: { x: 100, y: 150 }, 
     data: { 
-      label: 'Motor Control Library', 
+      label: 'High-Speed Motor Control', 
       type: 'platform',
-      reqType: 'platform',
-      classification: 'capability',
-      description: 'Core library for motor control functionality',
+      reqType: 'customer',
+      classification: 'need',
+      description: 'Customer needs high-performance motor control system',
       priority: 'high',
       status: 'done',
       state: 'released',
-      owner: 'Engineering Team',
+      owner: 'Customer A',
       attachment: null
     }
   },
@@ -771,28 +941,45 @@ const initialNodes = [
     type: 'custom',
     position: { x: 450, y: 100 }, 
     data: { 
-      label: 'Speed Control Required', 
-      type: 'project',
-      reqType: 'customer',
-      classification: 'requirement',
-      description: 'Customer needs variable speed control from 0-100%',
+      label: 'Variable Speed Control', 
+      type: 'platform',
+      reqType: 'platform',
+      classification: 'capability',
+      description: 'System shall support variable speed from 0-100%',
       priority: 'high',
       status: 'in-progress',
       state: 'open',
-      owner: 'Fredrik',
+      owner: 'Engineering Team',
       attachment: null
     }
   },
   { 
     id: '3', 
     type: 'custom',
-    position: { x: 450, y: 280 }, 
+    position: { x: 800, y: 100 }, 
     data: { 
-      label: 'Safety Stop Function', 
+      label: 'PWM Control Algorithm', 
       type: 'project',
       reqType: 'project',
       classification: 'requirement',
-      description: 'Emergency stop must halt within 2 seconds',
+      description: 'Implement PWM with 10kHz frequency',
+      priority: 'high',
+      status: 'new',
+      state: 'open',
+      owner: 'Fredrik',
+      attachment: null
+    }
+  },
+  { 
+    id: '4', 
+    type: 'custom',
+    position: { x: 450, y: 280 }, 
+    data: { 
+      label: 'Safety Stop Function', 
+      type: 'platform',
+      reqType: 'platform',
+      classification: 'capability',
+      description: 'Emergency stop within 2 seconds',
       priority: 'high',
       status: 'new',
       state: 'frozen',
@@ -800,85 +987,84 @@ const initialNodes = [
       attachment: null
     }
   },
+  { 
+    id: '5', 
+    type: 'custom',
+    position: { x: 800, y: 280 }, 
+    data: { 
+      label: 'Hardware Interrupt Handler', 
+      type: 'project',
+      reqType: 'implementation',
+      classification: 'requirement',
+      description: 'Implement interrupt-based stop signal',
+      priority: 'medium',
+      status: 'new',
+      state: 'open',
+      owner: 'Dev Team',
+      attachment: null
+    }
+  },
 ];
 
 const initialEdges = [
-  { id: 'e1-2', source: '1', target: '2', animated: true },
-  { id: 'e1-3', source: '1', target: '3', animated: true },
+  { id: 'e1-2', source: '1', target: '2', type: 'custom', data: { relationType: 'addresses' } },
+  { id: 'e1-4', source: '1', target: '4', type: 'custom', data: { relationType: 'addresses' } },
+  { id: 'e2-3', source: '2', target: '3', type: 'custom', data: { relationType: 'implements' } },
+  { id: 'e4-5', source: '4', target: '5', type: 'custom', data: { relationType: 'implements' } },
 ];
 
 export default function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-  const [nodeId, setNodeId] = useState(4);
+  const [nodeId, setNodeId] = useState(6);
   const [selectedNode, setSelectedNode] = useState(null);
+  const [selectedEdge, setSelectedEdge] = useState(null);
   const [floatingPanelPosition, setFloatingPanelPosition] = useState({ x: 0, y: 0 });
+  const [edgePanelPosition, setEdgePanelPosition] = useState({ x: 0, y: 0 });
   
-  // Search and filter state
   const [searchText, setSearchText] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
 
-  // Calculate statistics
   const stats = useMemo(() => {
     const total = nodes.length;
-    const platform = nodes.filter(n => n.data.type === 'platform').length;
-    const project = nodes.filter(n => n.data.type === 'project').length;
-    
-    const statusNew = nodes.filter(n => n.data.status === 'new').length;
-    const statusInProgress = nodes.filter(n => n.data.status === 'in-progress').length;
-    const statusDone = nodes.filter(n => n.data.status === 'done').length;
-    
-    const priorityHigh = nodes.filter(n => n.data.priority === 'high').length;
-    const priorityMedium = nodes.filter(n => n.data.priority === 'medium').length;
-    const priorityLow = nodes.filter(n => n.data.priority === 'low').length;
-    
     const stateOpen = nodes.filter(n => n.data.state === 'open' || !n.data.state).length;
     const stateFrozen = nodes.filter(n => n.data.state === 'frozen').length;
     const stateReleased = nodes.filter(n => n.data.state === 'released').length;
-    
     const connections = edges.length;
     
-    return {
-      total,
-      platform,
-      project,
-      platformPercent: total > 0 ? Math.round((platform / total) * 100) : 0,
-      projectPercent: total > 0 ? Math.round((project / total) * 100) : 0,
-      statusNew,
-      statusInProgress,
-      statusDone,
-      priorityHigh,
-      priorityMedium,
-      priorityLow,
-      stateOpen,
-      stateFrozen,
-      stateReleased,
-      connections
-    };
+    const relationshipCounts = {};
+    edges.forEach(e => {
+      const type = e.data?.relationType || 'related';
+      relationshipCounts[type] = (relationshipCounts[type] || 0) + 1;
+    });
+    
+    return { total, stateOpen, stateFrozen, stateReleased, connections, relationshipCounts };
   }, [nodes, edges]);
 
-  const onConnect = useCallback(
-    (params) => setEdges((eds) => addEdge({ ...params, animated: true }, eds)),
-    [setEdges],
-  );
+  const onConnect = useCallback((params) => {
+    const sourceNode = nodes.find(n => n.id === params.source);
+    const targetNode = nodes.find(n => n.id === params.target);
+    const relationType = inferRelationshipType(sourceNode, targetNode);
+    
+    const newEdge = {
+      ...params,
+      type: 'custom',
+      data: { relationType },
+    };
+    
+    setEdges((eds) => addEdge(newEdge, eds));
+  }, [nodes, setEdges]);
 
   const handleNodeLabelChange = useCallback((nodeId, newLabel) => {
     setNodes((nds) =>
       nds.map((node) => {
         if (node.id === nodeId) {
-          // Only allow editing if not frozen or released
           if (node.data.state === 'frozen' || node.data.state === 'released') {
             return node;
           }
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              label: newLabel,
-            },
-          };
+          return { ...node, data: { ...node.data, label: newLabel } };
         }
         return node;
       })
@@ -886,6 +1072,7 @@ export default function App() {
   }, [setNodes]);
 
   const handleNodeClick = useCallback((event, node) => {
+    setSelectedEdge(null);
     const rect = event.target.getBoundingClientRect();
     const newX = rect.right + 20;
     const newY = rect.top;
@@ -893,44 +1080,47 @@ export default function App() {
     const adjustedX = newX + 360 > window.innerWidth ? rect.left - 380 : newX;
     const adjustedY = newY + 500 > window.innerHeight ? window.innerHeight - 520 : newY;
     
-    setFloatingPanelPosition({
-      x: adjustedX,
-      y: Math.max(10, adjustedY)
-    });
+    setFloatingPanelPosition({ x: adjustedX, y: Math.max(10, adjustedY) });
     setSelectedNode(node);
+  }, []);
+
+  const handleEdgeClick = useCallback((event, edge) => {
+    setSelectedNode(null);
+    setEdgePanelPosition({ x: event.clientX, y: event.clientY });
+    setSelectedEdge(edge);
   }, []);
 
   const handlePaneClick = useCallback(() => {
     setSelectedNode(null);
+    setSelectedEdge(null);
   }, []);
 
   const updateNodeData = (nodeId, field, value) => {
     setNodes((nds) =>
       nds.map((node) => {
         if (node.id === nodeId) {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              [field]: value,
-            },
-          };
+          return { ...node, data: { ...node.data, [field]: value } };
         }
         return node;
       })
     );
     if (selectedNode && selectedNode.id === nodeId) {
-      setSelectedNode({
-        ...selectedNode,
-        data: {
-          ...selectedNode.data,
-          [field]: value,
-        },
-      });
+      setSelectedNode({ ...selectedNode, data: { ...selectedNode.data, [field]: value } });
     }
   };
 
-  // Filter and highlight nodes
+  const updateEdgeRelationType = (edgeId, relationType) => {
+    setEdges((eds) =>
+      eds.map((edge) => {
+        if (edge.id === edgeId) {
+          return { ...edge, data: { ...edge.data, relationType } };
+        }
+        return edge;
+      })
+    );
+    setSelectedEdge(null);
+  };
+
   const processedNodes = useMemo(() => {
     return nodes.map((node) => {
       const searchLower = searchText.toLowerCase();
@@ -947,12 +1137,7 @@ export default function App() {
 
       return {
         ...node,
-        data: {
-          ...node.data,
-          isFiltered,
-          isHighlighted,
-          onChange: handleNodeLabelChange,
-        },
+        data: { ...node.data, isFiltered, isHighlighted, onChange: handleNodeLabelChange },
       };
     });
   }, [nodes, searchText, typeFilter, statusFilter, priorityFilter, handleNodeLabelChange]);
@@ -982,7 +1167,7 @@ export default function App() {
     setNodeId((id) => id + 1);
   };
 
-  const addProjectNode = () => {
+  const addRequirementNode = () => {
     const newNode = {
       id: String(nodeId),
       type: 'custom',
@@ -1006,7 +1191,7 @@ export default function App() {
   };
 
   const exportProject = () => {
-    const project = { nodes: nodes, edges: edges };
+    const project = { nodes, edges };
     const dataStr = JSON.stringify(project, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(dataBlob);
@@ -1029,6 +1214,7 @@ export default function App() {
           const maxId = Math.max(...project.nodes.map(n => parseInt(n.id) || 0), 0);
           setNodeId(maxId + 1);
           setSelectedNode(null);
+          setSelectedEdge(null);
         } catch (error) {
           alert('Error loading project file!');
         }
@@ -1046,6 +1232,26 @@ export default function App() {
 
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#1e1e1e', position: 'relative' }}>
+      {/* Arrow markers for different relationship types */}
+      <svg style={{ position: 'absolute', width: 0, height: 0 }}>
+        <defs>
+          {Object.entries(RELATIONSHIP_TYPES).map(([key, value]) => (
+            <marker
+              key={key}
+              id={`arrow-${key}`}
+              viewBox="0 0 20 20"
+              refX="20"
+              refY="10"
+              markerWidth="10"
+              markerHeight="10"
+              orient="auto-start-reverse"
+            >
+              <path d="M 0 0 L 20 10 L 0 20 z" fill={value.color} />
+            </marker>
+          ))}
+        </defs>
+      </svg>
+
       <div style={{
         position: 'absolute',
         top: 10,
@@ -1060,7 +1266,7 @@ export default function App() {
         fontWeight: 'bold',
         boxShadow: '0 2px 10px rgba(0,0,0,0.3)'
       }}>
-        PLM Prototype - Requirement Canvas 🚀
+        PLM Prototype - Smart Relationships 🧠
       </div>
       
       {/* Search and Filter Bar */}
@@ -1080,7 +1286,7 @@ export default function App() {
       }}>
         <input
           type="text"
-          placeholder="🔍 Search requirements..."
+          placeholder="🔍 Search..."
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
           style={{
@@ -1090,45 +1296,35 @@ export default function App() {
             border: '1px solid #4a5f7f',
             borderRadius: '4px',
             fontSize: '14px',
-            width: '200px',
+            width: '150px',
             outline: 'none'
           }}
         />
         
         <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} style={{
-          padding: '8px 12px', background: '#2c3e50', color: 'white',
-          border: '1px solid #4a5f7f', borderRadius: '4px', fontSize: '13px', cursor: 'pointer'
+          padding: '8px', background: '#2c3e50', color: 'white',
+          border: '1px solid #4a5f7f', borderRadius: '4px', fontSize: '12px', cursor: 'pointer'
         }}>
           <option value="all">All Types</option>
-          <option value="platform">🔷 Platform</option>
-          <option value="project">🔶 Project</option>
+          <option value="platform">Platform</option>
+          <option value="project">Project</option>
         </select>
         
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{
-          padding: '8px 12px', background: '#2c3e50', color: 'white',
-          border: '1px solid #4a5f7f', borderRadius: '4px', fontSize: '13px', cursor: 'pointer'
+          padding: '8px', background: '#2c3e50', color: 'white',
+          border: '1px solid #4a5f7f', borderRadius: '4px', fontSize: '12px', cursor: 'pointer'
         }}>
           <option value="all">All Status</option>
-          <option value="new">🆕 New</option>
-          <option value="in-progress">⏳ In Progress</option>
-          <option value="done">✅ Done</option>
-        </select>
-        
-        <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} style={{
-          padding: '8px 12px', background: '#2c3e50', color: 'white',
-          border: '1px solid #4a5f7f', borderRadius: '4px', fontSize: '13px', cursor: 'pointer'
-        }}>
-          <option value="all">All Priority</option>
-          <option value="high">🔴 High</option>
-          <option value="medium">🟡 Medium</option>
-          <option value="low">🟢 Low</option>
+          <option value="new">New</option>
+          <option value="in-progress">In Progress</option>
+          <option value="done">Done</option>
         </select>
         
         <div style={{
           padding: '8px 12px',
           background: '#2c3e50',
           borderRadius: '4px',
-          fontSize: '13px',
+          fontSize: '12px',
           color: '#bdc3c7',
           fontWeight: 'bold'
         }}>
@@ -1139,7 +1335,7 @@ export default function App() {
           <button onClick={clearFilters} style={{
             padding: '8px 12px', background: '#e74c3c', color: 'white',
             border: 'none', borderRadius: '4px', cursor: 'pointer',
-            fontSize: '12px', fontWeight: 'bold'
+            fontSize: '11px', fontWeight: 'bold'
           }}>
             Clear
           </button>
@@ -1157,79 +1353,46 @@ export default function App() {
         borderRadius: '8px',
         boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
         color: 'white',
-        minWidth: '220px'
+        minWidth: '240px'
       }}>
         <div style={{
           fontSize: '14px',
           fontWeight: 'bold',
           marginBottom: '12px',
           borderBottom: '2px solid #34495e',
-          paddingBottom: '8px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px'
+          paddingBottom: '8px'
         }}>
-          <span>📊</span>
-          <span>Project Statistics</span>
+          📊 Statistics
         </div>
         
         <div style={{ fontSize: '12px', lineHeight: '1.8' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ color: '#bdc3c7' }}>Total Requirements:</span>
-            <span style={{ fontWeight: 'bold', fontSize: '14px' }}>{stats.total}</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span>Total Requirements:</span>
+            <span style={{ fontWeight: 'bold' }}>{stats.total}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span>📝 Open:</span>
+            <span style={{ fontWeight: 'bold' }}>{stats.stateOpen}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span>🔒 Frozen:</span>
+            <span style={{ fontWeight: 'bold' }}>{stats.stateFrozen}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span>✅ Released:</span>
+            <span style={{ fontWeight: 'bold' }}>{stats.stateReleased}</span>
           </div>
           
-          <div style={{ marginBottom: '12px', paddingTop: '8px', borderTop: '1px solid #34495e' }}>
-            <div style={{ color: '#95a5a6', fontSize: '11px', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 'bold' }}>Lifecycle State</div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-              <span>📝 Open:</span>
-              <span style={{ fontWeight: 'bold' }}>{stats.stateOpen}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-              <span>🔒 Frozen:</span>
-              <span style={{ fontWeight: 'bold' }}>{stats.stateFrozen}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>✅ Released:</span>
-              <span style={{ fontWeight: 'bold' }}>{stats.stateReleased}</span>
-            </div>
-          </div>
-          
-          <div style={{ marginBottom: '12px', paddingTop: '8px', borderTop: '1px solid #34495e' }}>
-            <div style={{ color: '#95a5a6', fontSize: '11px', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 'bold' }}>Work Status</div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-              <span>🆕 New:</span>
-              <span style={{ fontWeight: 'bold' }}>{stats.statusNew}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-              <span>⏳ In Progress:</span>
-              <span style={{ fontWeight: 'bold' }}>{stats.statusInProgress}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>✅ Done:</span>
-              <span style={{ fontWeight: 'bold' }}>{stats.statusDone}</span>
-            </div>
-          </div>
-          
-          <div style={{ marginBottom: '12px', paddingTop: '8px', borderTop: '1px solid #34495e' }}>
-            <div style={{ color: '#95a5a6', fontSize: '11px', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 'bold' }}>Priority</div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-              <span>🔴 High:</span>
-              <span style={{ fontWeight: 'bold' }}>{stats.priorityHigh}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-              <span>🟡 Medium:</span>
-              <span style={{ fontWeight: 'bold' }}>{stats.priorityMedium}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>🟢 Low:</span>
-              <span style={{ fontWeight: 'bold' }}>{stats.priorityLow}</span>
-            </div>
-          </div>
-          
-          <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid #34495e' }}>
-            <span style={{ color: '#bdc3c7' }}>🔗 Connections:</span>
-            <span style={{ fontWeight: 'bold' }}>{stats.connections}</span>
+          <div style={{ borderTop: '1px solid #34495e', marginTop: '10px', paddingTop: '10px' }}>
+            <div style={{ fontWeight: 'bold', marginBottom: '6px' }}>🔗 Relationships ({stats.connections})</div>
+            {Object.entries(stats.relationshipCounts).map(([type, count]) => (
+              <div key={type} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
+                <span style={{ color: RELATIONSHIP_TYPES[type]?.color || '#95a5a6' }}>
+                  {RELATIONSHIP_TYPES[type]?.label || type}:
+                </span>
+                <span>{count}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -1241,8 +1404,10 @@ export default function App() {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeClick={handleNodeClick}
+        onEdgeClick={handleEdgeClick}
         onPaneClick={handlePaneClick}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         fitView
         deleteKeyCode="Delete"
       >
@@ -1260,7 +1425,7 @@ export default function App() {
               }}>
                 + Platform
               </button>
-              <button onClick={addProjectNode} style={{
+              <button onClick={addRequirementNode} style={{
                 padding: '10px 20px', background: '#e67e22', color: 'white',
                 border: 'none', borderRadius: '6px', cursor: 'pointer',
                 fontWeight: 'bold', fontSize: '14px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
@@ -1287,6 +1452,18 @@ export default function App() {
                 <input type="file" accept=".json" onChange={importProject} style={{ display: 'none' }} />
               </label>
             </div>
+            
+            <div style={{
+              background: '#2c3e50',
+              padding: '10px',
+              borderRadius: '6px',
+              fontSize: '11px',
+              color: '#bdc3c7'
+            }}>
+              💡 <strong>Smart Relationships:</strong><br/>
+              Connect nodes → Auto-detects relationship type!<br/>
+              Click relationship label → Change type manually
+            </div>
           </div>
         </Panel>
       </ReactFlow>
@@ -1297,6 +1474,15 @@ export default function App() {
           onClose={() => setSelectedNode(null)}
           onUpdate={updateNodeData}
           initialPosition={floatingPanelPosition}
+        />
+      )}
+
+      {selectedEdge && (
+        <RelationshipPanel
+          edge={selectedEdge}
+          onClose={() => setSelectedEdge(null)}
+          onUpdate={updateEdgeRelationType}
+          position={edgePanelPosition}
         />
       )}
     </div>
