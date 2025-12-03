@@ -14,6 +14,7 @@ import ReactFlow, {
   useReactFlow,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
+import * as XLSX from 'xlsx';
 
 // Keyboard shortcuts
 
@@ -1461,6 +1462,50 @@ const addPlatformNode = useCallback(() => {
     URL.revokeObjectURL(url);
   }, [nodes, edges]);
 
+  const exportToExcel = useCallback(() => {
+    // Prepare data for Excel
+    const excelData = nodes.map(node => ({
+      'Requirement ID': node.data.reqId || '',
+      'Title': node.data.label || '',
+      'Version': node.data.version || '1.0',
+      'Type': node.data.reqType || '',
+      'Classification': node.data.classification || '',
+      'State': node.data.state || 'open',
+      'Priority': node.data.priority || 'medium',
+      'Status': node.data.status || 'new',
+      'Owner': node.data.owner || '',
+      'Description': node.data.description || ''
+    }));
+
+    // Create workbook and worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(excelData);
+
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 12 },  // Requirement ID
+      { wch: 30 },  // Title
+      { wch: 8 },   // Version
+      { wch: 15 },  // Type
+      { wch: 15 },  // Classification
+      { wch: 10 },  // State
+      { wch: 10 },  // Priority
+      { wch: 12 },  // Status
+      { wch: 15 },  // Owner
+      { wch: 50 },  // Description
+    ];
+
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Requirements');
+
+    // Generate filename with date
+    const date = new Date().toISOString().split('T')[0];
+    const filename = `PLM-Requirements-${date}.xlsx`;
+
+    // Download file
+    XLSX.writeFile(wb, filename);
+  }, [nodes]);
+
  const duplicateNode = useCallback((nodeToDuplicate) => {
     if (!nodeToDuplicate) return;
     
@@ -1850,7 +1895,7 @@ const addPlatformNode = useCallback(() => {
               </button>
             </div>
             
-            <div style={{ display: 'flex', gap: '10px' }}>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               <button onClick={exportProject} style={{
                 padding: '8px 16px', background: '#27ae60', color: 'white',
                 border: 'none', borderRadius: '6px', cursor: 'pointer',
@@ -1867,6 +1912,13 @@ const addPlatformNode = useCallback(() => {
                 📂 Load
                 <input type="file" accept=".json" onChange={importProject} style={{ display: 'none' }} />
               </label>
+              <button onClick={exportToExcel} style={{
+                padding: '8px 16px', background: '#16a085', color: 'white',
+                border: 'none', borderRadius: '6px', cursor: 'pointer',
+                fontWeight: 'bold', fontSize: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }}>
+                📊 Excel
+              </button>
             </div>
             
       <div style={{
