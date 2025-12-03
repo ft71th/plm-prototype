@@ -12,20 +12,46 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
-// Custom node component with visible handles
-function CustomNode({ data }) {
+// Custom node component with editing capability
+function CustomNode({ data, id }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [label, setLabel] = useState(data.label);
+
+  const handleDoubleClick = () => {
+    setIsEditing(true);
+  };
+
+  const handleBlur = () => {
+    setIsEditing(false);
+    if (data.onChange) {
+      data.onChange(id, label);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      setIsEditing(false);
+      if (data.onChange) {
+        data.onChange(id, label);
+      }
+    }
+    if (e.key === 'Escape') {
+      setLabel(data.label);
+      setIsEditing(false);
+    }
+  };
+
   return (
     <div style={{
       padding: '15px',
       borderRadius: '8px',
-      border: `3px solid ${data.type === 'platform' ? '#3498db' : '#e67e22'}`,
+      border: '3px solid ' + (data.type === 'platform' ? '#3498db' : '#e67e22'),
       backgroundColor: '#2c3e50',
       color: 'white',
       minWidth: '180px',
       boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
       position: 'relative'
     }}>
-      {/* Connection handles - these let you connect nodes */}
       <Handle 
         type="target" 
         position={Position.Left} 
@@ -46,12 +72,50 @@ function CustomNode({ data }) {
       }}>
         {data.type === 'platform' ? '🔷 PLATFORM' : '🔶 PROJECT'}
       </div>
-      <div style={{
-        fontSize: '14px',
-        fontWeight: 'bold'
-      }}>
-        {data.label}
-      </div>
+      
+      {isEditing ? (
+        <input
+          autoFocus
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+          style={{
+            width: '100%',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            background: '#34495e',
+            color: 'white',
+            border: '1px solid #3498db',
+            borderRadius: '4px',
+            padding: '4px 8px',
+            outline: 'none'
+          }}
+        />
+      ) : (
+        <div 
+          onDoubleClick={handleDoubleClick}
+          style={{
+            fontSize: '14px',
+            fontWeight: 'bold',
+            cursor: 'text',
+            minHeight: '20px'
+          }}
+        >
+          {data.label}
+        </div>
+      )}
+      
+      {!isEditing && (
+        <div style={{
+          fontSize: '9px',
+          color: '#95a5a6',
+          marginTop: '4px',
+          fontStyle: 'italic'
+        }}>
+          Double-click to edit
+        </div>
+      )}
     </div>
   );
 }
@@ -96,33 +160,97 @@ export default function App() {
     [setEdges],
   );
 
-  // Add new platform node
+  const handleNodeLabelChange = useCallback((nodeId, newLabel) => {
+    setNodes((nds) =>
+      nds.map((node) => {
+        if (node.id === nodeId) {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              label: newLabel,
+            },
+          };
+        }
+        return node;
+      })
+    );
+  }, [setNodes]);
+
+  const nodesWithHandlers = nodes.map((node) => ({
+    ...node,
+    data: {
+      ...node.data,
+      onChange: handleNodeLabelChange,
+    },
+  }));
+
   const addPlatformNode = () => {
     const newNode = {
       id: String(nodeId),
       type: 'custom',
       position: { x: Math.random() * 400, y: Math.random() * 400 },
-      data: { label: 'Platform Component ' + nodeId, type: 'platform' },
+      data: { 
+        label: 'New Platform Component', 
+        type: 'platform',
+        onChange: handleNodeLabelChange
+      },
     };
     setNodes((nds) => nds.concat(newNode));
     setNodeId((id) => id + 1);
   };
 
-  // Add new project node
   const addProjectNode = () => {
     const newNode = {
       id: String(nodeId),
       type: 'custom',
       position: { x: Math.random() * 400 + 300, y: Math.random() * 400 },
-      data: { label: 'Requirement ' + nodeId, type: 'project' },
+      data: { 
+        label: 'New Requirement', 
+        type: 'project',
+        onChange: handleNodeLabelChange
+      },
     };
     setNodes((nds) => nds.concat(newNode));
     setNodeId((id) => id + 1);
   };
 
+  const exportProject = () => {
+    const project = {
+      nodes: nodes,
+      edges: edges,
+    };
+    const dataStr = JSON.stringify(project, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'plm-project.json';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importProject = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const project = JSON.parse(e.target.result);
+          setNodes(project.nodes || []);
+          setEdges(project.edges || []);
+          const maxId = Math.max(...project.nodes.map(n => parseInt(n.id) || 0), 0);
+          setNodeId(maxId + 1);
+        } catch (error) {
+          alert('Error loading project file!');
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
+
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#1e1e1e' }}>
-      {/* Title */}
       <div style={{
         position: 'absolute',
         top: 10,
@@ -137,11 +265,11 @@ export default function App() {
         fontWeight: 'bold',
         boxShadow: '0 2px 10px rgba(0,0,0,0.3)'
       }}>
-        PLM Prototype - Week 1 🚀
+        PLM Prototype - Week 2 🚀
       </div>
       
       <ReactFlow
-        nodes={nodes}
+        nodes={nodesWithHandlers}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
@@ -154,7 +282,6 @@ export default function App() {
         <MiniMap />
         <Background variant="dots" gap={12} size={1} color="#444" />
         
-        {/* Button Panel */}
         <Panel position="top-left">
           <div style={{ display: 'flex', gap: '10px', flexDirection: 'column' }}>
             <div style={{ display: 'flex', gap: '10px' }}>
@@ -172,7 +299,7 @@ export default function App() {
                   boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                 }}
               >
-                + Platform Component
+                + Platform
               </button>
               <button
                 onClick={addProjectNode}
@@ -188,17 +315,57 @@ export default function App() {
                   boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                 }}
               >
-                + Project Requirement
+                + Project
               </button>
             </div>
+            
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={exportProject}
+                style={{
+                  padding: '8px 16px',
+                  background: '#27ae60',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '12px',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                }}
+              >
+                💾 Save
+              </button>
+              <label style={{
+                padding: '8px 16px',
+                background: '#9b59b6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: '12px',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                display: 'inline-block'
+              }}>
+                📂 Load
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={importProject}
+                  style={{ display: 'none' }}
+                />
+              </label>
+            </div>
+            
             <div style={{
               background: '#2c3e50',
               color: 'white',
               padding: '8px 12px',
               borderRadius: '6px',
-              fontSize: '12px'
+              fontSize: '11px'
             }}>
-              💡 Drag from ● to ● to connect | Click + Delete to remove
+              💡 Double-click to edit | Drag ● to connect
             </div>
           </div>
         </Panel>
