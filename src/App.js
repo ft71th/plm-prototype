@@ -1084,6 +1084,8 @@ const initialEdges = [
   { id: 'e4-5', source: '4', target: '5', type: 'custom', data: { relationType: 'implements' } },
 ];
 
+
+
 export default function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -1093,6 +1095,10 @@ export default function App() {
   const [floatingPanelPosition, setFloatingPanelPosition] = useState({ x: 0, y: 0 });
   const [edgePanelPosition, setEdgePanelPosition] = useState({ x: 0, y: 0 });
   
+  const [history, setHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [isUndoRedo, setIsUndoRedo] = useState(false);
+
   const [searchText, setSearchText] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -1105,6 +1111,73 @@ export default function App() {
   const [pltIdCounter, setPltIdCounter] = useState(3);  // PLT-001, PLT-002 exist
   const [prjIdCounter, setPrjIdCounter] = useState(2);  // PRJ-001 exists
   const [impIdCounter, setImpIdCounter] = useState(2);  // IMP-001 exists
+
+// Save current state to history
+  const saveToHistory = useCallback(() => {
+    if (isUndoRedo) return; // Don't save during undo/redo operations
+    
+    const currentState = {
+      nodes: JSON.parse(JSON.stringify(nodes)),
+      edges: JSON.parse(JSON.stringify(edges))
+    };
+    
+    setHistory(prev => {
+      // Remove any future states if we're not at the end
+      const newHistory = prev.slice(0, historyIndex + 1);
+      // Add current state
+      newHistory.push(currentState);
+      // Keep only last 50 states
+      if (newHistory.length > 50) {
+        newHistory.shift();
+      }
+      return newHistory;
+    });
+    setHistoryIndex(prev => Math.min(prev + 1, 49));
+  }, [nodes, edges, historyIndex, isUndoRedo]);
+
+  // Undo function
+  const undo = useCallback(() => {
+    if (historyIndex <= 0) return; // Nothing to undo
+    
+    setIsUndoRedo(true);
+    const prevIndex = historyIndex - 1;
+    const prevState = history[prevIndex];
+    
+    if (prevState) {
+      setNodes(prevState.nodes);
+      setEdges(prevState.edges);
+      setHistoryIndex(prevIndex);
+    }
+    
+    setTimeout(() => setIsUndoRedo(false), 100);
+  }, [history, historyIndex, setNodes, setEdges]);
+
+  // Redo function
+  const redo = useCallback(() => {
+    if (historyIndex >= history.length - 1) return; // Nothing to redo
+    
+    setIsUndoRedo(true);
+    const nextIndex = historyIndex + 1;
+    const nextState = history[nextIndex];
+    
+    if (nextState) {
+      setNodes(nextState.nodes);
+      setEdges(nextState.edges);
+      setHistoryIndex(nextIndex);
+    }
+    
+    setTimeout(() => setIsUndoRedo(false), 100);
+  }, [history, historyIndex, setNodes, setEdges]);
+
+  // Save to history when nodes or edges change
+  useEffect(() => {
+    if (!isUndoRedo && nodes.length > 0) {
+      const timeoutId = setTimeout(() => {
+        saveToHistory();
+      }, 500); // Debounce to avoid saving every tiny change
+      return () => clearTimeout(timeoutId);
+    }
+  }, [nodes, edges, isUndoRedo, saveToHistory]);
 
   // Generate requirement ID based on type
   const generateReqId = useCallback((reqType) => {
@@ -1381,6 +1454,18 @@ const addPlatformNode = useCallback(() => {
         }
       }
 
+      // Ctrl+Z = Undo
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      }
+
+      // Ctrl+Y or Ctrl+Shift+Z = Redo
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        redo();
+      }
+
       // Ctrl+S = Save
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
@@ -1408,8 +1493,7 @@ const addPlatformNode = useCallback(() => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [addPlatformNode, addRequirementNode, exportProject, duplicateNode, selectedNode]);
-
+  }, [addPlatformNode, addRequirementNode, exportProject, duplicateNode, selectedNode, undo, redo]);
     
   const importProject = (event) => {
     const file = event.target.files[0];
@@ -1708,7 +1792,7 @@ const addPlatformNode = useCallback(() => {
               </label>
             </div>
             
-            <div style={{
+      <div style={{
               background: '#2c3e50',
               padding: '10px',
               borderRadius: '6px',
@@ -1718,6 +1802,53 @@ const addPlatformNode = useCallback(() => {
               💡 <strong>Smart Relationships:</strong><br/>
               Connect nodes → Auto-detects relationship type!<br/>
               Click relationship label → Change type manually
+            </div>
+
+            <div style={{
+              background: '#2c3e50',
+              padding: '8px 10px',
+              borderRadius: '6px',
+              fontSize: '10px',
+              color: '#bdc3c7',
+              display: 'flex',
+              gap: '10px',
+              alignItems: 'center'
+            }}>
+              <button
+                onClick={undo}
+                disabled={historyIndex <= 0}
+                style={{
+                  padding: '4px 8px',
+                  background: historyIndex <= 0 ? '#34495e' : '#3498db',
+                  color: historyIndex <= 0 ? '#666' : 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: historyIndex <= 0 ? 'not-allowed' : 'pointer',
+                  fontSize: '11px',
+                  fontWeight: 'bold'
+                }}
+              >
+                ⏪ Undo
+              </button>
+              <button
+                onClick={redo}
+                disabled={historyIndex >= history.length - 1}
+                style={{
+                  padding: '4px 8px',
+                  background: historyIndex >= history.length - 1 ? '#34495e' : '#3498db',
+                  color: historyIndex >= history.length - 1 ? '#666' : 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: historyIndex >= history.length - 1 ? 'not-allowed' : 'pointer',
+                  fontSize: '11px',
+                  fontWeight: 'bold'
+                }}
+              >
+                Redo ⏩
+              </button>
+              <span style={{ fontSize: '9px', color: '#7f8c8d' }}>
+                Ctrl+Z / Ctrl+Y
+              </span>
             </div>
           </div>
         </Panel>
