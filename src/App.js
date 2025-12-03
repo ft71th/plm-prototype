@@ -196,6 +196,31 @@ function CustomNode({ data, id, selected }) {
     return '📄';
   };
 
+  const isSystemItem = () => {
+    return ['system', 'subsystem', 'function'].includes(data.itemType || data.type);
+  };
+
+  const getSystemAccentColor = () => {
+    if (data.itemType === 'system' || data.type === 'system') return '#1abc9c';
+    if (data.itemType === 'subsystem' || data.type === 'subsystem') return '#3498db';
+    if (data.itemType === 'function' || data.type === 'function') return '#00bcd4';
+    return '#95a5a6';
+  };
+
+  const getItemTypeLabel = () => {
+    if (data.itemType === 'system' || data.type === 'system') return 'SYSTEM';
+    if (data.itemType === 'subsystem' || data.type === 'subsystem') return 'SUB-SYSTEM';
+    if (data.itemType === 'function' || data.type === 'function') return 'FUNCTION';
+    return null;
+  };
+
+  const getItemTypeIcon = () => {
+    if (data.itemType === 'system' || data.type === 'system') return '🔷';
+    if (data.itemType === 'subsystem' || data.type === 'subsystem') return '🔶';
+    if (data.itemType === 'function' || data.type === 'function') return '⚡';
+    return null;
+  };
+
   const handleDoubleClick = () => {
     if (data.state === 'frozen' || data.state === 'released') {
       return;
@@ -226,9 +251,11 @@ function CustomNode({ data, id, selected }) {
   return (
     <div style={{
       padding: '15px',
+      paddingLeft: isSystemItem() ? '20px' : '15px',
       borderRadius: '8px',
       border: '3px solid ' + getBorderColor(),
-      backgroundColor: '#2c3e50',
+      borderLeft: isSystemItem() ? `6px solid ${getSystemAccentColor()}` : '3px solid ' + getBorderColor(),
+      backgroundColor: isSystemItem() ? '#1a2634' : '#2c3e50',
       color: 'white',
       minWidth: '200px',
       maxWidth: '280px',
@@ -255,16 +282,16 @@ function CustomNode({ data, id, selected }) {
         marginBottom: '8px',
         gap: '8px'
       }}>
-        <div style={{
+       <div style={{
           fontSize: '10px',
           padding: '3px 8px',
           borderRadius: '4px',
-          backgroundColor: getReqTypeColor(),
+          backgroundColor: isSystemItem() ? getSystemAccentColor() : getReqTypeColor(),
           color: 'white',
           fontWeight: 'bold',
           textTransform: 'uppercase'
         }}>
-          {data.reqType || 'project'}
+          {getItemTypeLabel() || data.reqType || 'project'}
         </div>
         
         <div style={{
@@ -603,12 +630,14 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
     onUpdate(node.id, 'attachment', null);
   };
 
-  return (
+  
+return (
     <div
       style={{
         position: 'fixed',
-        left: position.x + 'px',
-        top: position.y + 'px',
+        left: Math.min(position.x, window.innerWidth - 380) + 'px',
+        top: '20px',
+        bottom: '20px',
         width: '360px',
         background: '#2c3e50',
         borderRadius: '8px',
@@ -616,9 +645,9 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
         zIndex: 2000,
         color: 'white',
         userSelect: isDragging ? 'none' : 'auto',
-        maxHeight: '90vh',
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        overflow: 'hidden'
       }}
     >
       <div 
@@ -637,7 +666,11 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '16px' }}>✋</span>
-          <span style={{ fontSize: '14px', fontWeight: 'bold' }}>Edit Requirement</span>
+          <span style={{ fontSize: '14px', fontWeight: 'bold' }}>
+            Edit {node.data.itemType === 'system' ? 'System' : 
+                  node.data.itemType === 'subsystem' ? 'Sub-System' : 
+                  node.data.itemType === 'function' ? 'Function' : 'Requirement'}
+          </span>
           {!isEditable && <span style={{ fontSize: '12px', color: '#f39c12' }}>🔒 Read-Only</span>}
         </div>
         <button
@@ -650,13 +683,18 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
             cursor: 'pointer',
             padding: '0 6px',
             lineHeight: '1'
-          }}
-        >
-          ×
+          }}   >
+        ×
         </button>
       </div>
 
-      <div style={{ marginBottom: '15px' }}>
+      <div style={{ 
+        padding: '15px', 
+        overflowY: 'auto', 
+        flex: 1,
+        minHeight: 0
+      }}>
+        <div style={{ marginBottom: '15px' }}>
           <label style={{
             display: 'block',
             marginBottom: '6px',
@@ -665,7 +703,9 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
             textTransform: 'uppercase',
             fontWeight: 'bold'
           }}>
-            Requirement ID
+            {node.data.itemType === 'system' ? 'System ID' : 
+             node.data.itemType === 'subsystem' ? 'Sub-System ID' : 
+             node.data.itemType === 'function' ? 'Function ID' : 'Requirement ID'}
           </label>
           <div style={{
             padding: '8px',
@@ -1056,7 +1096,7 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
         >
         📋 Duplicate Node (Ctrl+D) 
         </button>
-      
+      </div>
 
       {showImagePreview && node.data.attachment && (
         <div
@@ -1200,7 +1240,166 @@ const initialEdges = [
   { id: 'e4-5', source: '4', target: '5', type: 'custom', data: { relationType: 'implements', notes: '' } },
 ];
 
+// New Object Modal
+function NewObjectModal({ onClose, onCreate }) {
+  const [name, setName] = useState('');
+  const [version, setVersion] = useState('1.0');
+  const [description, setDescription] = useState('');
 
+  const handleCreate = () => {
+    if (name.trim()) {
+      onCreate(name, version, description);
+      onClose();
+    }
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.8)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 5000
+    }}>
+      <div style={{
+        background: '#2c3e50',
+        borderRadius: '12px',
+        padding: '30px',
+        width: '450px',
+        boxShadow: '0 10px 40px rgba(0,0,0,0.5)'
+      }}>
+        <h2 style={{ color: 'white', marginTop: 0, marginBottom: '20px', fontSize: '20px' }}>
+          🚢 Create New Object Definition
+        </h2>
+        
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{
+            display: 'block',
+            color: '#bdc3c7',
+            fontSize: '11px',
+            textTransform: 'uppercase',
+            fontWeight: 'bold',
+            marginBottom: '6px'
+          }}>
+            Object Name *
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g., Propulsion Control System"
+            autoFocus
+            style={{
+              width: '100%',
+              padding: '12px',
+              background: '#34495e',
+              color: 'white',
+              border: '1px solid #4a5f7f',
+              borderRadius: '6px',
+              fontSize: '14px'
+            }}
+          />
+        </div>
+
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{
+            display: 'block',
+            color: '#bdc3c7',
+            fontSize: '11px',
+            textTransform: 'uppercase',
+            fontWeight: 'bold',
+            marginBottom: '6px'
+          }}>
+            Version
+          </label>
+          <input
+            type="text"
+            value={version}
+            onChange={(e) => setVersion(e.target.value)}
+            placeholder="1.0"
+            style={{
+              width: '100%',
+              padding: '12px',
+              background: '#34495e',
+              color: 'white',
+              border: '1px solid #4a5f7f',
+              borderRadius: '6px',
+              fontSize: '14px'
+            }}
+          />
+        </div>
+
+        <div style={{ marginBottom: '25px' }}>
+          <label style={{
+            display: 'block',
+            color: '#bdc3c7',
+            fontSize: '11px',
+            textTransform: 'uppercase',
+            fontWeight: 'bold',
+            marginBottom: '6px'
+          }}>
+            Description
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="What is this object? What does it control?"
+            style={{
+              width: '100%',
+              padding: '12px',
+              background: '#34495e',
+              color: 'white',
+              border: '1px solid #4a5f7f',
+              borderRadius: '6px',
+              fontSize: '14px',
+              minHeight: '80px',
+              resize: 'vertical'
+            }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+          <button
+            onClick={onClose}
+            style={{
+              padding: '10px 20px',
+              background: '#7f8c8d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 'bold'
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleCreate}
+            disabled={!name.trim()}
+            style={{
+              padding: '10px 20px',
+              background: name.trim() ? '#27ae60' : '#7f8c8d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: name.trim() ? 'pointer' : 'not-allowed',
+              fontSize: '14px',
+              fontWeight: 'bold'
+            }}
+          >
+            🚀 Create Object
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
@@ -1223,10 +1422,18 @@ export default function App() {
   const [reqTypeFilter, setReqTypeFilter] = useState('all');
   const [classificationFilter, setClassificationFilter] = useState('all');
 
+  const [objectName, setObjectName] = useState('Motor Control System');
+  const [objectVersion, setObjectVersion] = useState('1.0');
+  const [objectDescription, setObjectDescription] = useState('Ship propulsion motor control system');
+  const [showNewObjectModal, setShowNewObjectModal] = useState(false);
+
   const [cusIdCounter, setCusIdCounter] = useState(2);  // CUS-001 exists
   const [pltIdCounter, setPltIdCounter] = useState(3);  // PLT-001, PLT-002 exist
   const [prjIdCounter, setPrjIdCounter] = useState(2);  // PRJ-001 exists
   const [impIdCounter, setImpIdCounter] = useState(2);  // IMP-001 exists
+  const [sysIdCounter, setSysIdCounter] = useState(1);
+  const [subIdCounter, setSubIdCounter] = useState(1);
+  const [funIdCounter, setFunIdCounter] = useState(1);
 
 // Save current state to history
   const saveToHistory = useCallback(() => {
@@ -1295,9 +1502,21 @@ export default function App() {
     }
   }, [nodes, edges, isUndoRedo, saveToHistory]);
 
-  // Generate requirement ID based on type
-  const generateReqId = useCallback((reqType) => {
-    switch (reqType) {
+  // Generate ID based on type
+  const generateItemId = useCallback((itemType) => {
+    switch (itemType) {
+      case 'system':
+        const sysId = `SYS-${String(sysIdCounter).padStart(3, '0')}`;
+        setSysIdCounter(c => c + 1);
+        return sysId;
+      case 'subsystem':
+        const subId = `SUB-${String(subIdCounter).padStart(3, '0')}`;
+        setSubIdCounter(c => c + 1);
+        return subId;
+      case 'function':
+        const funId = `FUN-${String(funIdCounter).padStart(3, '0')}`;
+        setFunIdCounter(c => c + 1);
+        return funId;
       case 'customer':
         const cusId = `CUS-${String(cusIdCounter).padStart(3, '0')}`;
         setCusIdCounter(c => c + 1);
@@ -1315,7 +1534,7 @@ export default function App() {
         setPrjIdCounter(c => c + 1);
         return prjId;
     }
-  }, [cusIdCounter, pltIdCounter, prjIdCounter, impIdCounter]);
+  }, [sysIdCounter, subIdCounter, funIdCounter, cusIdCounter, pltIdCounter, prjIdCounter, impIdCounter]);
 
   const stats = useMemo(() => {
     const total = nodes.length;
@@ -1446,7 +1665,7 @@ export default function App() {
   const filteredCount = processedNodes.filter(n => n.data.isFiltered).length;
 
 const addPlatformNode = useCallback(() => {
-    const reqId = generateReqId('platform');
+    const reqId = generateItemId ('platform');
     const newNode = {
       id: String(nodeId),
       type: 'custom',
@@ -1469,10 +1688,10 @@ const addPlatformNode = useCallback(() => {
     };
     setNodes((nds) => nds.concat(newNode));
     setNodeId((id) => id + 1);
-  }, [nodeId, handleNodeLabelChange, setNodes, generateReqId]);
+  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId ]);
 
  const addRequirementNode = useCallback(() => {
-    const reqId = generateReqId('project');
+    const reqId = generateItemId ('project');
     const newNode = {
       id: String(nodeId),
       type: 'custom',
@@ -1495,10 +1714,97 @@ const addPlatformNode = useCallback(() => {
     };
     setNodes((nds) => nds.concat(newNode));
     setNodeId((id) => id + 1);
-  }, [nodeId, handleNodeLabelChange, setNodes, generateReqId]);
+  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId ]);
+
+  const addSystemNode = useCallback(() => {
+    const itemId = generateItemId('system');
+    const newNode = {
+      id: String(nodeId),
+      type: 'custom',
+      position: { x: Math.random() * 300 + 50, y: Math.random() * 200 + 50 },
+      data: { 
+        label: 'New System', 
+        type: 'system',
+        itemType: 'system',
+        reqId: itemId,
+        version: '1.0',
+        classification: 'system',
+        description: '',
+        rationale: '',
+        priority: 'high',
+        status: 'new',
+        state: 'open',
+        owner: '',
+        attachment: null,
+        onChange: handleNodeLabelChange
+      },
+    };
+    setNodes((nds) => nds.concat(newNode));
+    setNodeId((id) => id + 1);
+  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId]);
+
+  const addSubSystemNode = useCallback(() => {
+    const itemId = generateItemId('subsystem');
+    const newNode = {
+      id: String(nodeId),
+      type: 'custom',
+      position: { x: Math.random() * 300 + 200, y: Math.random() * 200 + 150 },
+      data: { 
+        label: 'New Sub-System', 
+        type: 'subsystem',
+        itemType: 'subsystem',
+        reqId: itemId,
+        version: '1.0',
+        classification: 'subsystem',
+        description: '',
+        rationale: '',
+        priority: 'medium',
+        status: 'new',
+        state: 'open',
+        owner: '',
+        attachment: null,
+        onChange: handleNodeLabelChange
+      },
+    };
+    setNodes((nds) => nds.concat(newNode));
+    setNodeId((id) => id + 1);
+  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId]);
+
+  const addFunctionNode = useCallback(() => {
+    const itemId = generateItemId('function');
+    const newNode = {
+      id: String(nodeId),
+      type: 'custom',
+      position: { x: Math.random() * 300 + 350, y: Math.random() * 200 + 250 },
+      data: { 
+        label: 'New Function', 
+        type: 'function',
+        itemType: 'function',
+        reqId: itemId,
+        version: '1.0',
+        classification: 'function',
+        description: '',
+        rationale: '',
+        priority: 'medium',
+        status: 'new',
+        state: 'open',
+        owner: '',
+        attachment: null,
+        onChange: handleNodeLabelChange
+      },
+    };
+    setNodes((nds) => nds.concat(newNode));
+    setNodeId((id) => id + 1);
+  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId]);
 
   const exportProject = useCallback(() => {
-    const project = { nodes, edges };
+    const project = { 
+      objectName,
+      objectVersion,
+      objectDescription,
+      nodes, 
+      edges 
+    };
     const dataStr = JSON.stringify(project, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(dataBlob);
@@ -1507,7 +1813,7 @@ const addPlatformNode = useCallback(() => {
     link.download = 'plm-project.json';
     link.click();
     URL.revokeObjectURL(url);
-  }, [nodes, edges]);
+  }, [nodes, edges, objectName, objectVersion, objectDescription]);
 
   const exportToExcel = useCallback(() => {
     // Prepare data for Excel
@@ -1524,7 +1830,7 @@ const addPlatformNode = useCallback(() => {
       'Description': node.data.description || ''
     }));
 
-    // Create workbook and worksheet
+  // Create workbook and worksheet
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(excelData);
 
@@ -1553,10 +1859,30 @@ const addPlatformNode = useCallback(() => {
     XLSX.writeFile(wb, filename);
   }, [nodes]);
 
- const duplicateNode = useCallback((nodeToDuplicate) => {
+const createNewObject = (name, version, description) => {
+    setObjectName(name);
+    setObjectVersion(version);
+    setObjectDescription(description);
+    setNodes([]);
+    setEdges([]);
+    setSelectedNode(null);
+    setSelectedEdge(null);
+    setNodeId(1);
+    setCusIdCounter(1);
+    setPltIdCounter(1);
+    setPrjIdCounter(1);
+    setImpIdCounter(1);
+    setSysIdCounter(1);
+    setSubIdCounter(1);
+    setFunIdCounter(1);
+    setHistory([]);
+    setHistoryIndex(-1);
+  };
+
+  const duplicateNode = useCallback((nodeToDuplicate) => {
     if (!nodeToDuplicate) return;
     
-    const reqId = generateReqId(nodeToDuplicate.data.reqType || 'project');
+    const reqId = generateItemId (nodeToDuplicate.data.reqType || 'project');
     const newNode = {
       id: String(nodeId),
       type: 'custom',
@@ -1574,7 +1900,7 @@ const addPlatformNode = useCallback(() => {
     };
     setNodes((nds) => nds.concat(newNode));
     setNodeId((id) => id + 1);
-  }, [nodeId, handleNodeLabelChange, setNodes, generateReqId]);
+  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId ]);
 
   // Expose duplicateNode to window for FloatingPanel button
   useEffect(() => {
@@ -1671,30 +1997,46 @@ const addPlatformNode = useCallback(() => {
       reader.onload = (e) => {
         try {
           const project = JSON.parse(e.target.result);
+          
+          // Load object definition
+          if (project.objectName) setObjectName(project.objectName);
+          if (project.objectVersion) setObjectVersion(project.objectVersion);
+          if (project.objectDescription) setObjectDescription(project.objectDescription);
+          
+          // Load nodes and edges
           setNodes(project.nodes || []);
           setEdges(project.edges || []);
           
           // Calculate max node ID
-          const maxId = Math.max(...project.nodes.map(n => parseInt(n.id) || 0), 0);
+          const maxId = Math.max(...(project.nodes || []).map(n => parseInt(n.id) || 0), 0);
           setNodeId(maxId + 1);
           
           // Calculate max requirement IDs for each type
           let maxCus = 0, maxPlt = 0, maxPrj = 0, maxImp = 0;
-          project.nodes.forEach(n => {
+          let maxSys = 0, maxSub = 0, maxFun = 0;
+          (project.nodes || []).forEach(n => {
             const reqId = n.data?.reqId || '';
             const num = parseInt(reqId.split('-')[1]) || 0;
             if (reqId.startsWith('CUS')) maxCus = Math.max(maxCus, num);
             if (reqId.startsWith('PLT')) maxPlt = Math.max(maxPlt, num);
             if (reqId.startsWith('PRJ')) maxPrj = Math.max(maxPrj, num);
             if (reqId.startsWith('IMP')) maxImp = Math.max(maxImp, num);
+            if (reqId.startsWith('SYS')) maxSys = Math.max(maxSys, num);
+            if (reqId.startsWith('SUB')) maxSub = Math.max(maxSub, num);
+            if (reqId.startsWith('FUN')) maxFun = Math.max(maxFun, num);
           });
           setCusIdCounter(maxCus + 1);
           setPltIdCounter(maxPlt + 1);
           setPrjIdCounter(maxPrj + 1);
           setImpIdCounter(maxImp + 1);
+          setSysIdCounter(maxSys + 1);
+          setSubIdCounter(maxSub + 1);
+          setFunIdCounter(maxFun + 1);
           
           setSelectedNode(null);
           setSelectedEdge(null);
+          setHistory([]);
+          setHistoryIndex(-1);
         } catch (error) {
           alert('Error loading project file!');
         }
@@ -1741,15 +2083,48 @@ const addPlatformNode = useCallback(() => {
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 1000,
-        padding: '10px 20px',
-        background: '#2C3E50',
+        padding: '12px 24px',
+        background: 'linear-gradient(135deg, #1a252f 0%, #2C3E50 100%)',
         color: 'white',
-        borderRadius: 8,
-        fontSize: 20,
-        fontWeight: 'bold',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.3)'
+        borderRadius: 10,
+        boxShadow: '0 4px 15px rgba(0,0,0,0.4)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '20px',
+        border: '1px solid #3d5a73'
       }}>
-        PLM Prototype - Smart Relationships 🧠
+        <div>
+          <div style={{ fontSize: '10px', color: '#7f8c8d', textTransform: 'uppercase', letterSpacing: '1px' }}>
+            Object Definition
+          </div>
+          <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
+            🚢 {objectName}
+          </div>
+        </div>
+        <div style={{
+          width: '1px',
+          height: '35px',
+          background: '#4a5f7f'
+        }} />
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '10px', color: '#7f8c8d' }}>Version</div>
+          <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#3498db' }}>{objectVersion}</div>
+        </div>
+        <button
+          onClick={() => setShowNewObjectModal(true)}
+          style={{
+            padding: '8px 12px',
+            background: '#e74c3c',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '11px',
+            fontWeight: 'bold'
+          }}
+        >
+          + New Object
+        </button>
       </div>
       
       {/* Search and Filter Bar */}
@@ -1925,18 +2300,42 @@ const addPlatformNode = useCallback(() => {
         
         <Panel position="top-left">
           <div style={{ display: 'flex', gap: '10px', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={addPlatformNode} style={{
-                padding: '10px 20px', background: '#3498db', color: 'white',
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button onClick={addSystemNode} style={{
+                padding: '8px 12px', background: '#1abc9c', color: 'white',
                 border: 'none', borderRadius: '6px', cursor: 'pointer',
-                fontWeight: 'bold', fontSize: '14px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                fontWeight: 'bold', fontSize: '11px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }}>
+                🔷 System
+              </button>
+              <button onClick={addSubSystemNode} style={{
+                padding: '8px 12px', background: '#3498db', color: 'white',
+                border: 'none', borderRadius: '6px', cursor: 'pointer',
+                fontWeight: 'bold', fontSize: '11px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }}>
+                🔶 Sub-Sys
+              </button>
+              <button onClick={addFunctionNode} style={{
+                padding: '8px 12px', background: '#00bcd4', color: 'white',
+                border: 'none', borderRadius: '6px', cursor: 'pointer',
+                fontWeight: 'bold', fontSize: '11px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }}>
+                ⚡ Function
+              </button>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button onClick={addPlatformNode} style={{
+                padding: '8px 12px', background: '#9b59b6', color: 'white',
+                border: 'none', borderRadius: '6px', cursor: 'pointer',
+                fontWeight: 'bold', fontSize: '11px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
               }}>
                 + Platform
               </button>
               <button onClick={addRequirementNode} style={{
-                padding: '10px 20px', background: '#e67e22', color: 'white',
+                padding: '8px 12px', background: '#e67e22', color: 'white',
                 border: 'none', borderRadius: '6px', cursor: 'pointer',
-                fontWeight: 'bold', fontSize: '14px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                fontWeight: 'bold', fontSize: '11px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
               }}>
                 + Requirement
               </button>
@@ -1968,7 +2367,7 @@ const addPlatformNode = useCallback(() => {
               </button>
             </div>
             
-      <div style={{
+            <div style={{
               background: '#2c3e50',
               padding: '10px',
               borderRadius: '6px',
@@ -2045,6 +2444,13 @@ const addPlatformNode = useCallback(() => {
           onClose={() => setSelectedEdge(null)}
           onUpdate={updateEdgeData}
           position={edgePanelPosition}
+        />
+      )}
+      
+      {showNewObjectModal && (
+        <NewObjectModal
+          onClose={() => setShowNewObjectModal(false)}
+          onCreate={createNewObject}
         />
       )}
     </div>
