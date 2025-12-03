@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useMemo } from 'react';
 import ReactFlow, {
   MiniMap,
   Controls,
@@ -12,10 +12,11 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
-// Custom node component
+// Custom node component with highlight support
 function CustomNode({ data, id, selected }) {
   const [isEditing, setIsEditing] = useState(false);
   const [label, setLabel] = useState(data.label);
+  const isHighlighted = data.isHighlighted;
 
   const handleDoubleClick = () => {
     setIsEditing(true);
@@ -49,8 +50,10 @@ function CustomNode({ data, id, selected }) {
       backgroundColor: '#2c3e50',
       color: 'white',
       minWidth: '180px',
-      boxShadow: selected ? '0 0 0 3px #f39c12' : '0 4px 6px rgba(0,0,0,0.3)',
-      position: 'relative'
+      boxShadow: selected ? '0 0 0 3px #f39c12' : (isHighlighted ? '0 0 0 4px #f1c40f, 0 0 20px rgba(241,196,15,0.6)' : '0 4px 6px rgba(0,0,0,0.3)'),
+      position: 'relative',
+      opacity: data.isFiltered === false ? 0.3 : 1,
+      transition: 'all 0.2s ease'
     }}>
       <Handle 
         type="target" 
@@ -143,13 +146,11 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [position, setPosition] = useState(initialPosition);
 
-  // Reset position when initialPosition changes (new node clicked)
   useEffect(() => {
     setPosition(initialPosition);
   }, [initialPosition]);
 
   const handleMouseDown = (e) => {
-    // Don't start drag if clicking on input/textarea/select
     if (e.target.tagName === 'INPUT' || 
         e.target.tagName === 'TEXTAREA' || 
         e.target.tagName === 'SELECT' ||
@@ -457,6 +458,12 @@ export default function App() {
   const [nodeId, setNodeId] = useState(4);
   const [selectedNode, setSelectedNode] = useState(null);
   const [floatingPanelPosition, setFloatingPanelPosition] = useState({ x: 0, y: 0 });
+  
+  // Search and filter state
+  const [searchText, setSearchText] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
 
   const onConnect = useCallback(
     (params) => setEdges((eds) => addEdge({ ...params, animated: true }, eds)),
@@ -481,12 +488,10 @@ export default function App() {
   }, [setNodes]);
 
   const handleNodeClick = useCallback((event, node) => {
-    // Calculate position next to the clicked node
     const rect = event.target.getBoundingClientRect();
     const newX = rect.right + 20;
     const newY = rect.top;
     
-    // Make sure panel doesn't go off screen
     const adjustedX = newX + 320 > window.innerWidth ? rect.left - 340 : newX;
     const adjustedY = newY + 400 > window.innerHeight ? window.innerHeight - 420 : newY;
     
@@ -527,13 +532,34 @@ export default function App() {
     }
   };
 
-  const nodesWithHandlers = nodes.map((node) => ({
-    ...node,
-    data: {
-      ...node.data,
-      onChange: handleNodeLabelChange,
-    },
-  }));
+  // Filter and highlight nodes
+  const processedNodes = useMemo(() => {
+    return nodes.map((node) => {
+      const searchLower = searchText.toLowerCase();
+      const matchesSearch = searchText === '' || 
+        node.data.label.toLowerCase().includes(searchLower) ||
+        (node.data.description && node.data.description.toLowerCase().includes(searchLower));
+      
+      const matchesType = typeFilter === 'all' || node.data.type === typeFilter;
+      const matchesStatus = statusFilter === 'all' || node.data.status === statusFilter;
+      const matchesPriority = priorityFilter === 'all' || node.data.priority === priorityFilter;
+      
+      const isFiltered = matchesSearch && matchesType && matchesStatus && matchesPriority;
+      const isHighlighted = searchText !== '' && matchesSearch && matchesType && matchesStatus && matchesPriority;
+
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          isFiltered,
+          isHighlighted,
+          onChange: handleNodeLabelChange,
+        },
+      };
+    });
+  }, [nodes, searchText, typeFilter, statusFilter, priorityFilter, handleNodeLabelChange]);
+
+  const filteredCount = processedNodes.filter(n => n.data.isFiltered).length;
 
   const addPlatformNode = () => {
     const newNode = {
@@ -574,10 +600,7 @@ export default function App() {
   };
 
   const exportProject = () => {
-    const project = {
-      nodes: nodes,
-      edges: edges,
-    };
+    const project = { nodes: nodes, edges: edges };
     const dataStr = JSON.stringify(project, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(dataBlob);
@@ -608,6 +631,13 @@ export default function App() {
     }
   };
 
+  const clearFilters = () => {
+    setSearchText('');
+    setTypeFilter('all');
+    setStatusFilter('all');
+    setPriorityFilter('all');
+  };
+
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#1e1e1e', position: 'relative' }}>
       <div style={{
@@ -627,8 +657,91 @@ export default function App() {
         PLM Prototype - Week 2 🚀
       </div>
       
+      {/* Search and Filter Bar */}
+      <div style={{
+        position: 'absolute',
+        top: 60,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 1000,
+        display: 'flex',
+        gap: '10px',
+        alignItems: 'center',
+        background: '#34495e',
+        padding: '12px 20px',
+        borderRadius: '8px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+      }}>
+        <input
+          type="text"
+          placeholder="🔍 Search nodes..."
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          style={{
+            padding: '8px 12px',
+            background: '#2c3e50',
+            color: 'white',
+            border: '1px solid #4a5f7f',
+            borderRadius: '4px',
+            fontSize: '14px',
+            width: '200px',
+            outline: 'none'
+          }}
+        />
+        
+        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} style={{
+          padding: '8px 12px', background: '#2c3e50', color: 'white',
+          border: '1px solid #4a5f7f', borderRadius: '4px', fontSize: '13px', cursor: 'pointer'
+        }}>
+          <option value="all">All Types</option>
+          <option value="platform">🔷 Platform</option>
+          <option value="project">🔶 Project</option>
+        </select>
+        
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{
+          padding: '8px 12px', background: '#2c3e50', color: 'white',
+          border: '1px solid #4a5f7f', borderRadius: '4px', fontSize: '13px', cursor: 'pointer'
+        }}>
+          <option value="all">All Status</option>
+          <option value="new">🆕 New</option>
+          <option value="in-progress">⏳ In Progress</option>
+          <option value="done">✅ Done</option>
+        </select>
+        
+        <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} style={{
+          padding: '8px 12px', background: '#2c3e50', color: 'white',
+          border: '1px solid #4a5f7f', borderRadius: '4px', fontSize: '13px', cursor: 'pointer'
+        }}>
+          <option value="all">All Priority</option>
+          <option value="high">🔴 High</option>
+          <option value="medium">🟡 Medium</option>
+          <option value="low">🟢 Low</option>
+        </select>
+        
+        <div style={{
+          padding: '8px 12px',
+          background: '#2c3e50',
+          borderRadius: '4px',
+          fontSize: '13px',
+          color: '#bdc3c7',
+          fontWeight: 'bold'
+        }}>
+          {filteredCount} / {nodes.length}
+        </div>
+        
+        {(searchText || typeFilter !== 'all' || statusFilter !== 'all' || priorityFilter !== 'all') && (
+          <button onClick={clearFilters} style={{
+            padding: '8px 12px', background: '#e74c3c', color: 'white',
+            border: 'none', borderRadius: '4px', cursor: 'pointer',
+            fontSize: '12px', fontWeight: 'bold'
+          }}>
+            Clear
+          </button>
+        )}
+      </div>
+      
       <ReactFlow
-        nodes={nodesWithHandlers}
+        nodes={processedNodes}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
