@@ -878,11 +878,37 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
           background: '#34495e',
           borderRadius: '4px',
           fontSize: '11px',
-          color: '#95a5a6'
+          color: '#95a5a6',
+          marginBottom: '15px'
         }}>
           <div><strong>ID:</strong> {node.id}</div>
         </div>
-      </div>
+
+        <button
+          onClick={() => {
+            if (window.duplicateNodeFunction) {
+              window.duplicateNodeFunction(node);
+            }
+          }}
+          style={{
+            width: '100%',
+            padding: '10px',
+            background: '#8e44ad',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '13px',
+            fontWeight: 'bold',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px'
+          }}
+        >
+        📋 Duplicate Node (Ctrl+D) 
+        </button>
+        </div>
 
       {showImagePreview && node.data.attachment && (
         <div
@@ -1211,6 +1237,35 @@ const addPlatformNode = useCallback(() => {
     URL.revokeObjectURL(url);
   }, [nodes, edges]);
 
+  const duplicateNode = useCallback((nodeToDuplicate) => {
+    if (!nodeToDuplicate) return;
+    
+    const newNode = {
+      id: String(nodeId),
+      type: 'custom',
+      position: { 
+        x: nodeToDuplicate.position.x + 50, 
+        y: nodeToDuplicate.position.y + 50 
+      },
+      data: { 
+        ...nodeToDuplicate.data,
+        label: nodeToDuplicate.data.label + ' (Copy)',
+        state: 'open', // Reset state to open for the copy
+        onChange: handleNodeLabelChange
+      },
+    };
+    setNodes((nds) => nds.concat(newNode));
+    setNodeId((id) => id + 1);
+  }, [nodeId, handleNodeLabelChange, setNodes]);
+
+  // Expose duplicateNode to window for FloatingPanel button
+  useEffect(() => {
+    window.duplicateNodeFunction = duplicateNode;
+    return () => {
+      delete window.duplicateNodeFunction;
+    };
+  }, [duplicateNode]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -1242,6 +1297,14 @@ const addPlatformNode = useCallback(() => {
         setSelectedEdge(null);
       }
 
+      // Ctrl+D = Duplicate selected node
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+        e.preventDefault();
+        if (selectedNode) {
+          duplicateNode(selectedNode);
+        }
+      }
+
       // Ctrl+S = Save
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
@@ -1269,7 +1332,7 @@ const addPlatformNode = useCallback(() => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [addPlatformNode, addRequirementNode, exportProject]);
+  }, [addPlatformNode, addRequirementNode, exportProject, duplicateNode, selectedNode]);
 
     
   const importProject = (event) => {
