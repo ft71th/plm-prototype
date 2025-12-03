@@ -326,9 +326,23 @@ function CustomNode({ data, id, selected }) {
               color: '#3498db',
               fontWeight: 'bold',
               marginBottom: '4px',
-              fontFamily: 'monospace'
+              fontFamily: 'monospace',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
             }}>
-              {data.reqId}
+              <span>{data.reqId}</span>
+              {data.version && (
+                <span style={{
+                  background: '#8e44ad',
+                  color: 'white',
+                  padding: '1px 6px',
+                  borderRadius: '3px',
+                  fontSize: '9px'
+                }}>
+                  v{data.version}
+                </span>
+              )}
             </div>
           )}
 
@@ -622,6 +636,62 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
             fontFamily: 'monospace'
           }}>
             {node.data.reqId || 'No ID'}
+          </div>
+        </div>
+
+          <div style={{ marginBottom: '15px' }}>
+          <label style={{
+            display: 'block',
+            marginBottom: '6px',
+            fontSize: '11px',
+            color: '#bdc3c7',
+            textTransform: 'uppercase',
+            fontWeight: 'bold'
+          }}>
+            Version
+          </label>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <input
+              type="text"
+              value={node.data.version || '1.0'}
+              onChange={(e) => onUpdate(node.id, 'version', e.target.value)}
+              disabled={!isEditable}
+              style={{
+                flex: 1,
+                padding: '8px',
+                background: isEditable ? '#34495e' : '#2c3e50',
+                color: 'white',
+                border: '1px solid #4a5f7f',
+                borderRadius: '4px',
+                fontSize: '14px',
+                fontFamily: 'monospace',
+                fontWeight: 'bold',
+                cursor: isEditable ? 'text' : 'not-allowed'
+              }}
+            />
+            {isEditable && (
+              <button
+                onClick={() => {
+                  const currentVersion = node.data.version || '1.0';
+                  const parts = currentVersion.split('.');
+                  const minor = parseInt(parts[1] || 0) + 1;
+                  onUpdate(node.id, 'version', `${parts[0]}.${minor}`);
+                }}
+                style={{
+                  padding: '8px 12px',
+                  background: '#8e44ad',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '11px',
+                  fontWeight: 'bold',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                +0.1
+              </button>
+            )}
           </div>
         </div>
 
@@ -994,6 +1064,7 @@ const initialNodes = [
       type: 'platform',
       reqType: 'customer',
       reqId: 'CUS-001',
+      version: '1.0',
       classification: 'need',
       description: 'Customer needs high-performance motor control system',
       priority: 'high',
@@ -1012,6 +1083,7 @@ const initialNodes = [
       type: 'platform',
       reqType: 'platform',
       reqId: 'PLT-001',
+      version: '1.0',
       classification: 'capability',
       description: 'System shall support variable speed from 0-100%',
       priority: 'high',
@@ -1030,6 +1102,7 @@ const initialNodes = [
       type: 'project',
       reqType: 'project',
       reqId: 'PRJ-001',
+      version: '1.0',
       classification: 'requirement',
       description: 'Implement PWM with 10kHz frequency',
       priority: 'high',
@@ -1048,6 +1121,7 @@ const initialNodes = [
       type: 'platform',
       reqType: 'platform',
       reqId: 'PLT-002',
+      version: '1.0',
       classification: 'capability',
       description: 'Emergency stop within 2 seconds',
       priority: 'high',
@@ -1066,6 +1140,7 @@ const initialNodes = [
       type: 'project',
       reqType: 'implementation',
       reqId: 'IMP-001',
+      version: '1.0',
       classification: 'requirement',
       description: 'Implement interrupt-based stop signal',
       priority: 'medium',
@@ -1333,6 +1408,7 @@ const addPlatformNode = useCallback(() => {
         type: 'platform',
         reqType: 'platform',
         reqId: reqId,
+        version: '1.0',
         classification: 'capability',
         description: '',
         priority: 'medium',
@@ -1358,6 +1434,7 @@ const addPlatformNode = useCallback(() => {
         type: 'project',
         reqType: 'project',
         reqId: reqId,
+        version: '1.0',
         classification: 'requirement',
         description: '',
         priority: 'medium',
