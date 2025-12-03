@@ -143,10 +143,16 @@ function CustomEdge({
             pointerEvents: 'all',
             cursor: 'pointer',
             boxShadow: selected ? `0 0 8px ${relType.color}` : '0 2px 4px rgba(0,0,0,0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
           }}
           className="nodrag nopan"
         >
           {relType.label}
+          {data?.notes && (
+            <span style={{ fontSize: '8px' }}>📝</span>
+          )}
         </div>
       </EdgeLabelRenderer>
     </>
@@ -403,18 +409,20 @@ function CustomNode({ data, id, selected }) {
 // Floating Panel for editing relationships
 function RelationshipPanel({ edge, onClose, onUpdate, position }) {
   return (
-    <div style={{
-      position: 'fixed',
-      left: position.x + 'px',
-      top: position.y + 'px',
-      background: '#2c3e50',
-      borderRadius: '8px',
-      padding: '15px',
-      boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-      zIndex: 3000,
-      color: 'white',
-      minWidth: '250px'
-    }}>
+    <div 
+      onClick={(e) => e.stopPropagation()}  
+        style={{
+        position: 'fixed',
+        left: position.x + 'px',
+        top: position.y + 'px',
+        background: '#2c3e50',
+        borderRadius: '8px',
+        padding: '15px',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+        zIndex: 3000,
+        color: 'white',
+        minWidth: '250px'
+      }}>
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -446,7 +454,7 @@ function RelationshipPanel({ edge, onClose, onUpdate, position }) {
         </label>
         <select
           value={edge.data?.relationType || 'related'}
-          onChange={(e) => onUpdate(edge.id, e.target.value)}
+          onChange={(e) => onUpdate(edge.id, 'relationType', e.target.value)}
           style={{
             width: '100%',
             padding: '10px',
@@ -475,7 +483,7 @@ function RelationshipPanel({ edge, onClose, onUpdate, position }) {
         {Object.entries(RELATIONSHIP_TYPES).map(([key, value]) => (
           <button
             key={key}
-            onClick={() => onUpdate(edge.id, key)}
+            onClick={() => onUpdate(edge.id, 'relationType', key)}
             style={{
               padding: '8px',
               background: edge.data?.relationType === key ? value.color : '#34495e',
@@ -491,6 +499,38 @@ function RelationshipPanel({ edge, onClose, onUpdate, position }) {
             {value.label}
           </button>
         ))}
+      </div>
+
+      <div style={{ marginTop: '15px' }}>
+        <label style={{
+          display: 'block',
+          fontSize: '11px',
+          color: '#bdc3c7',
+          marginBottom: '6px',
+          textTransform: 'uppercase',
+          fontWeight: 'bold'
+        }}>
+          📝 Notes / Rationale
+        </label>
+        <textarea
+          value={edge.data?.notes || ''}
+          onChange={(e) => onUpdate(edge.id, 'notes', e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          placeholder="Why is this relationship needed? Add context..."
+          style={{
+            width: '100%',
+            minHeight: '80px',
+            padding: '8px',
+            background: '#34495e',
+            color: 'white',
+            border: '1px solid #4a5f7f',
+            borderRadius: '4px',
+            fontSize: '12px',
+            fontFamily: 'inherit',
+            resize: 'vertical'
+          }}
+        />
       </div>
     </div>
   );
@@ -1154,10 +1194,10 @@ const initialNodes = [
 ];
 
 const initialEdges = [
-  { id: 'e1-2', source: '1', target: '2', type: 'custom', data: { relationType: 'addresses' } },
-  { id: 'e1-4', source: '1', target: '4', type: 'custom', data: { relationType: 'addresses' } },
-  { id: 'e2-3', source: '2', target: '3', type: 'custom', data: { relationType: 'implements' } },
-  { id: 'e4-5', source: '4', target: '5', type: 'custom', data: { relationType: 'implements' } },
+  { id: 'e1-2', source: '1', target: '2', type: 'custom', data: { relationType: 'addresses', notes: 'Customer need flows to platform capability' } },
+  { id: 'e1-4', source: '1', target: '4', type: 'custom', data: { relationType: 'addresses', notes: 'Safety is a key customer requirement' } },
+  { id: 'e2-3', source: '2', target: '3', type: 'custom', data: { relationType: 'implements', notes: 'PWM algorithm implements speed control' } },
+  { id: 'e4-5', source: '4', target: '5', type: 'custom', data: { relationType: 'implements', notes: '' } },
 ];
 
 
@@ -1301,7 +1341,7 @@ export default function App() {
     const newEdge = {
       ...params,
       type: 'custom',
-      data: { relationType },
+      data: { relationType, notes: '' },
     };
     
     setEdges((eds) => addEdge(newEdge, eds));
@@ -1359,16 +1399,23 @@ export default function App() {
     }
   };
 
-  const updateEdgeRelationType = (edgeId, relationType) => {
+  const updateEdgeData = (edgeId, field, value) => {
     setEdges((eds) =>
       eds.map((edge) => {
         if (edge.id === edgeId) {
-          return { ...edge, data: { ...edge.data, relationType } };
+          return { ...edge, data: { ...edge.data, [field]: value } };
         }
         return edge;
       })
     );
-    setSelectedEdge(null);
+    
+    // Also update selectedEdge so the panel reflects the change
+    if (selectedEdge && selectedEdge.id === edgeId) {
+      setSelectedEdge({
+        ...selectedEdge,
+        data: { ...selectedEdge.data, [field]: value }
+      });
+    }
   };
 
   const processedNodes = useMemo(() => {
@@ -1996,7 +2043,7 @@ const addPlatformNode = useCallback(() => {
         <RelationshipPanel
           edge={selectedEdge}
           onClose={() => setSelectedEdge(null)}
-          onUpdate={updateEdgeRelationType}
+          onUpdate={updateEdgeData}
           position={edgePanelPosition}
         />
       )}
