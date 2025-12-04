@@ -507,6 +507,62 @@ function CustomNode({ data, id, selected }) {
   );
 }
 
+// Voice-enabled text input helper
+function VoiceTextArea({ value, onChange, placeholder, disabled, style, minHeight = '80px' }) {
+  const [isRecording, setIsRecording] = useState(false);
+
+  const handleVoice = () => {
+    if (window.startVoiceDictation) {
+      setIsRecording(true);
+      window.startVoiceDictation((text) => {
+        // Append to existing text with space
+        const newValue = value ? value + ' ' + text : text;
+        onChange(newValue);
+        setIsRecording(false);
+      });
+      // Auto-stop recording state after 5 seconds (safety)
+      setTimeout(() => setIsRecording(false), 5000);
+    }
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        disabled={disabled}
+        style={{
+          ...style,
+          minHeight,
+          paddingRight: '40px'
+        }}
+      />
+      {!disabled && (
+        <button
+          onClick={handleVoice}
+          type="button"
+          style={{
+            position: 'absolute',
+            right: '8px',
+            top: '8px',
+            background: isRecording ? '#e74c3c' : '#3498db',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            padding: '4px 8px',
+            cursor: 'pointer',
+            fontSize: '12px'
+          }}
+        >
+          {isRecording ? '⏺️' : '🎤'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+
 // Floating Panel for editing relationships
 function RelationshipPanel({ edge, onClose, onUpdate, position }) {
   return (
@@ -982,14 +1038,13 @@ return (
           }}>
             Description
           </label>
-          <textarea
+          <VoiceTextArea
             value={node.data.description || ''}
-            onChange={(e) => onUpdate(node.id, 'description', e.target.value)}
+            onChange={(text) => onUpdate(node.id, 'description', text)}
             placeholder="Add description..."
             disabled={!isEditable}
             style={{
               width: '100%',
-              minHeight: '80px',
               padding: '8px',
               background: isEditable ? '#34495e' : '#2c3e50',
               color: 'white',
@@ -1806,6 +1861,8 @@ export default function App() {
   const [selectedEdge, setSelectedEdge] = useState(null);
   const [floatingPanelPosition, setFloatingPanelPosition] = useState({ x: 0, y: 0 });
   const [edgePanelPosition, setEdgePanelPosition] = useState({ x: 0, y: 0 });
+  const [isListening, setIsListening] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState('');
   
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -2576,7 +2633,114 @@ const addPlatformNode = useCallback(() => {
     URL.revokeObjectURL(url);
   }, [nodes, edges, objectName, objectVersion]);
 
+  // Voice Recognition Setup
+  const startVoiceRecognition = useCallback(() => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      alert('Voice recognition not supported in this browser. Please use Chrome or Edge.');
+      return;
+    }
 
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      setVoiceStatus('🎤 Listening...');
+    };
+
+    recognition.onresult = (event) => {
+      const command = event.results[0][0].transcript.toLowerCase();
+      setVoiceStatus(`Heard: "${command}"`);
+      
+      // Process commands
+      if (command.includes('create system') || command.includes('add system')) {
+        addSystemNode();
+        setVoiceStatus('✅ Created System node');
+      } else if (command.includes('create subsystem') || command.includes('add subsystem') || command.includes('create sub system') || command.includes('add sub system')) {
+        addSubSystemNode();
+        setVoiceStatus('✅ Created Sub-System node');
+      } else if (command.includes('create function') || command.includes('add function')) {
+        addFunctionNode();
+        setVoiceStatus('✅ Created Function node');
+      } else if (command.includes('create requirement') || command.includes('add requirement')) {
+        addRequirementNode();
+        setVoiceStatus('✅ Created Requirement node');
+      } else if (command.includes('create test') || command.includes('add test')) {
+        addTestCaseNode();
+        setVoiceStatus('✅ Created Test Case node');
+      } else if (command.includes('create platform') || command.includes('add platform')) {
+        addPlatformNode();
+        setVoiceStatus('✅ Created Platform node');
+      } else if (command.includes('save project') || command.includes('save')) {
+        exportProject();
+        setVoiceStatus('✅ Project saved');
+      } else if (command.includes('export excel') || command.includes('excel export')) {
+        exportToExcel();
+        setVoiceStatus('✅ Exported to Excel');
+      } else if (command.includes('fit view') || command.includes('fit screen') || command.includes('zoom fit')) {
+        // We'll need to expose fitView - for now just show message
+        setVoiceStatus('💡 Press F to fit view');
+      } else if (command.includes('new object') || command.includes('new project')) {
+        setShowNewObjectModal(true);
+        setVoiceStatus('✅ Opening New Object dialog');
+      } else if (command.includes('undo')) {
+        undo();
+        setVoiceStatus('✅ Undo');
+      } else if (command.includes('redo')) {
+        redo();
+        setVoiceStatus('✅ Redo');
+      } else if (command.includes('help') || command.includes('commands')) {
+        setVoiceStatus('💡 Say: create system/requirement/test, save, undo, redo');
+      } else {
+        setVoiceStatus(`❓ Unknown: "${command}"`);
+      }
+
+      // Clear status after 3 seconds
+      setTimeout(() => setVoiceStatus(''), 3000);
+    };
+
+    recognition.onerror = (event) => {
+      setIsListening(false);
+      setVoiceStatus(`❌ Error: ${event.error}`);
+      setTimeout(() => setVoiceStatus(''), 3000);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.start();
+  }, [addSystemNode, addSubSystemNode, addFunctionNode, addRequirementNode, addTestCaseNode, addPlatformNode, exportProject, exportToExcel, undo, redo]);
+
+// Voice Dictation for text fields
+  const startVoiceDictation = useCallback((callback) => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      alert('Voice recognition not supported. Please use Chrome or Edge.');
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event) => {
+      const text = event.results[0][0].transcript;
+      callback(text);
+    };
+
+    recognition.onerror = (event) => {
+      console.error('Voice error:', event.error);
+    };
+
+    recognition.start();
+  }, []);
 const createNewObject = (name, version, description) => {
     setObjectName(name);
     setObjectVersion(version);
@@ -2625,11 +2789,13 @@ const createNewObject = (name, version, description) => {
   useEffect(() => {
     window.duplicateNodeFunction = duplicateNode;
     window.generateFATFunction = generateFATProtocol;
+    window.startVoiceDictation = startVoiceDictation;
     return () => {
       delete window.duplicateNodeFunction;
       delete window.generateFATFunction;
+      delete window.startVoiceDictation;
     };
-  }, [duplicateNode, generateFATProtocol]);
+  }, [duplicateNode, generateFATProtocol, startVoiceDictation]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -2836,7 +3002,7 @@ const createNewObject = (name, version, description) => {
           style={{
             padding: '8px 12px',
             background: '#e74c3c',
-            color: 'white',
+            color: 'white', 
             border: 'none',
             borderRadius: '6px',
             cursor: 'pointer',
@@ -3155,6 +3321,45 @@ const createNewObject = (name, version, description) => {
               <span style={{ fontSize: '9px', color: '#7f8c8d' }}>
                 Ctrl+Z / Ctrl+Y
               </span>
+            </div>
+            <div style={{
+              display: 'flex',
+              gap: '8px',
+              alignItems: 'center'
+            }}>
+              <button
+                onClick={startVoiceRecognition}
+                disabled={isListening}
+                style={{
+                  padding: '8px 16px',
+                  background: isListening ? '#e74c3c' : '#3498db',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: isListening ? 'not-allowed' : 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '12px',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  animation: isListening ? 'pulse 1s infinite' : 'none'
+                }}
+              >
+                🎤 {isListening ? 'Listening...' : 'Voice'}
+              </button>
+              {voiceStatus && (
+                <span style={{
+                  fontSize: '11px',
+                  color: voiceStatus.includes('✅') ? '#27ae60' : 
+                         voiceStatus.includes('❌') ? '#e74c3c' : 
+                         voiceStatus.includes('❓') ? '#f39c12' : '#3498db',
+                  fontWeight: 'bold'
+                }}>
+                  {voiceStatus}
+                </span>
+              )}
+                          
             </div>
           </div>
         </Panel>
