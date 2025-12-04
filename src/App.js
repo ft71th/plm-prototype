@@ -20,9 +20,17 @@ import * as XLSX from 'xlsx';
 
 // Relationship type definitions
 const RELATIONSHIP_TYPES = {
+  // System Engineering relationships
+  contains: { label: 'Contains', color: '#1abc9c', style: 'solid' },
+  provides: { label: 'Provides', color: '#3498db', style: 'solid' },
+  realizedBy: { label: 'Realized by', color: '#9b59b6', style: 'solid' },
+  verifies: { label: 'Verifies', color: '#27ae60', style: 'solid' },
+  allocatedTo: { label: 'Allocated to', color: '#e91e63', style: 'solid' },
+  
+  // Requirement relationships
   addresses: { label: 'Addresses', color: '#27ae60', style: 'solid' },
-  implements: { label: 'Implements', color: '#3498db', style: 'solid' },
-  satisfies: { label: 'Satisfies', color: '#9b59b6', style: 'solid' },
+  implements: { label: 'Implements', color: '#2196f3', style: 'solid' },
+  satisfies: { label: 'Satisfies', color: '#8e44ad', style: 'solid' },
   derives: { label: 'Derives from', color: '#e67e22', style: 'dashed' },
   depends: { label: 'Depends on', color: '#f1c40f', style: 'dashed' },
   conflicts: { label: 'Conflicts with', color: '#e74c3c', style: 'dotted' },
@@ -37,9 +45,63 @@ function inferRelationshipType(sourceNode, targetNode) {
   const targetClass = targetNode?.data?.classification || 'requirement';
   const sourceReqType = sourceNode?.data?.reqType || 'project';
   const targetReqType = targetNode?.data?.reqType || 'project';
-  const sourceType = sourceNode?.data?.type || 'project';
-  const targetType = targetNode?.data?.type || 'project';
+  const sourceType = sourceNode?.data?.type || sourceNode?.data?.itemType || 'project';
+  const targetType = targetNode?.data?.type || targetNode?.data?.itemType || 'project';
+  const sourceItemType = sourceNode?.data?.itemType;
+  const targetItemType = targetNode?.data?.itemType;
 
+  // System Engineering relationships
+  // System → Sub-System = Contains
+  if (sourceItemType === 'system' && targetItemType === 'subsystem') {
+    return 'contains';
+  }
+  
+  // Sub-System → Function = Provides
+  if (sourceItemType === 'subsystem' && targetItemType === 'function') {
+    return 'provides';
+  }
+  
+  // System → Function = Provides
+  if (sourceItemType === 'system' && targetItemType === 'function') {
+    return 'provides';
+  }
+  
+  // Function → Requirement = Realized by
+  if (sourceItemType === 'function' && !targetItemType) {
+    return 'realizedBy';
+  }
+  
+  // System/Sub-System → Requirement = Allocated to
+  if ((sourceItemType === 'system' || sourceItemType === 'subsystem') && !targetItemType) {
+    return 'allocatedTo';
+  }
+  
+  // Requirement → Function = Implements
+  if (!sourceItemType && targetItemType === 'function') {
+    return 'implements';
+  }
+  
+  // Requirement → Sub-System = Implements
+  if (!sourceItemType && targetItemType === 'subsystem') {
+    return 'implements';
+  }
+  
+  // Requirement → System = Satisfies
+  if (!sourceItemType && targetItemType === 'system') {
+    return 'satisfies';
+  }
+
+  // Test Case → Requirement = Verifies
+  if (sourceItemType === 'testcase' && !targetItemType) {
+    return 'verifies';
+  }
+  
+  // Requirement → Test Case = Verified by
+  if (!sourceItemType && targetItemType === 'testcase') {
+    return 'verifies';
+  }
+
+  // Original requirement relationships
   // Need → Capability = Addresses
   if (sourceClass === 'need' && targetClass === 'capability') {
     return 'addresses';
@@ -70,12 +132,12 @@ function inferRelationshipType(sourceNode, targetNode) {
     return 'reuses';
   }
   
-  // Platform → Platform with implementation = Implements
+  // Implementation → Requirement = Implements
   if (sourceReqType === 'implementation' && targetClass === 'requirement') {
     return 'implements';
   }
   
-  // Same classification = Related or Derives
+  // Same classification = Derives
   if (sourceClass === targetClass && sourceClass === 'requirement') {
     return 'derives';
   }
@@ -83,7 +145,6 @@ function inferRelationshipType(sourceNode, targetNode) {
   // Default
   return 'related';
 }
-
 // Custom Edge Component with label and click handling
 function CustomEdge({
   id,
@@ -200,10 +261,17 @@ function CustomNode({ data, id, selected }) {
     return ['system', 'subsystem', 'function'].includes(data.itemType || data.type);
   };
 
+  const isTestItem = () => {
+    return ['testcase', 'testrun', 'testresult'].includes(data.itemType || data.type);
+  };
+
   const getSystemAccentColor = () => {
     if (data.itemType === 'system' || data.type === 'system') return '#1abc9c';
     if (data.itemType === 'subsystem' || data.type === 'subsystem') return '#3498db';
     if (data.itemType === 'function' || data.type === 'function') return '#00bcd4';
+    if (data.itemType === 'testcase' || data.type === 'testcase') return '#27ae60';
+    if (data.itemType === 'testrun' || data.type === 'testrun') return '#e67e22';
+    if (data.itemType === 'testresult' || data.type === 'testresult') return '#9b59b6';
     return '#95a5a6';
   };
 
@@ -211,6 +279,9 @@ function CustomNode({ data, id, selected }) {
     if (data.itemType === 'system' || data.type === 'system') return 'SYSTEM';
     if (data.itemType === 'subsystem' || data.type === 'subsystem') return 'SUB-SYSTEM';
     if (data.itemType === 'function' || data.type === 'function') return 'FUNCTION';
+    if (data.itemType === 'testcase' || data.type === 'testcase') return 'TEST CASE';
+    if (data.itemType === 'testrun' || data.type === 'testrun') return 'TEST RUN';
+    if (data.itemType === 'testresult' || data.type === 'testresult') return 'TEST RESULT';
     return null;
   };
 
@@ -218,6 +289,9 @@ function CustomNode({ data, id, selected }) {
     if (data.itemType === 'system' || data.type === 'system') return '🔷';
     if (data.itemType === 'subsystem' || data.type === 'subsystem') return '🔶';
     if (data.itemType === 'function' || data.type === 'function') return '⚡';
+    if (data.itemType === 'testcase' || data.type === 'testcase') return '🧪';
+    if (data.itemType === 'testrun' || data.type === 'testrun') return '▶️';
+    if (data.itemType === 'testresult' || data.type === 'testresult') return '✅';
     return null;
   };
 
@@ -251,11 +325,11 @@ function CustomNode({ data, id, selected }) {
   return (
     <div style={{
       padding: '15px',
-      paddingLeft: isSystemItem() ? '20px' : '15px',
+      paddingLeft: (isSystemItem() || isTestItem()) ? '20px' : '15px',
       borderRadius: '8px',
       border: '3px solid ' + getBorderColor(),
-      borderLeft: isSystemItem() ? `6px solid ${getSystemAccentColor()}` : '3px solid ' + getBorderColor(),
-      backgroundColor: isSystemItem() ? '#1a2634' : '#2c3e50',
+      borderLeft: (isSystemItem() || isTestItem()) ? `6px solid ${getSystemAccentColor()}` : '3px solid ' + getBorderColor(),
+      backgroundColor: (isSystemItem() || isTestItem()) ? '#1a2634' : '#2c3e50',
       color: 'white',
       minWidth: '200px',
       maxWidth: '280px',
@@ -286,7 +360,7 @@ function CustomNode({ data, id, selected }) {
           fontSize: '10px',
           padding: '3px 8px',
           borderRadius: '4px',
-          backgroundColor: isSystemItem() ? getSystemAccentColor() : getReqTypeColor(),
+          backgroundColor: (isSystemItem() || isTestItem()) ? getSystemAccentColor() : getReqTypeColor(),
           color: 'white',
           fontWeight: 'bold',
           textTransform: 'uppercase'
@@ -1136,48 +1210,137 @@ const nodeTypes = {
 };
 
 const initialNodes = [
+  // SYSTEM
   { 
     id: '1', 
     type: 'custom',
-    position: { x: 100, y: 150 }, 
+    position: { x: 50, y: 200 }, 
     data: { 
-      label: 'High-Speed Motor Control', 
-      type: 'platform',
-      reqType: 'customer',
-      reqId: 'CUS-001',
+      label: 'Propulsion Control System', 
+      type: 'system',
+      itemType: 'system',
+      reqId: 'SYS-001',
       version: '1.0',
-      classification: 'need',
-      description: 'Customer needs high-performance motor control system',
-      priority: 'high',
-      status: 'done',
-      state: 'released',
-      owner: 'Customer A',
-      attachment: null
-    }
-  },
-  { 
-    id: '2', 
-    type: 'custom',
-    position: { x: 450, y: 100 }, 
-    data: { 
-      label: 'Variable Speed Control', 
-      type: 'platform',
-      reqType: 'platform',
-      reqId: 'PLT-001',
-      version: '1.0',
-      classification: 'capability',
-      description: 'System shall support variable speed from 0-100%',
+      classification: 'system',
+      description: 'Main propulsion control system for vessel motor management',
+      rationale: 'Required to control and monitor all propulsion motors on the vessel',
       priority: 'high',
       status: 'in-progress',
       state: 'open',
-      owner: 'Engineering Team',
+      owner: 'Systems Engineering',
+      attachment: null
+    }
+  },
+  
+  // SUB-SYSTEMS
+  { 
+    id: '2', 
+    type: 'custom',
+    position: { x: 350, y: 80 }, 
+    data: { 
+      label: 'Motor Controller', 
+      type: 'subsystem',
+      itemType: 'subsystem',
+      reqId: 'SUB-001',
+      version: '1.0',
+      classification: 'subsystem',
+      description: 'Controls motor speed and direction',
+      rationale: 'Needed to translate bridge commands to motor actions',
+      priority: 'high',
+      status: 'in-progress',
+      state: 'open',
+      owner: 'Control Systems Team',
       attachment: null
     }
   },
   { 
     id: '3', 
     type: 'custom',
-    position: { x: 800, y: 100 }, 
+    position: { x: 350, y: 320 }, 
+    data: { 
+      label: 'Safety Monitor', 
+      type: 'subsystem',
+      itemType: 'subsystem',
+      reqId: 'SUB-002',
+      version: '1.0',
+      classification: 'subsystem',
+      description: 'Monitors safety conditions and triggers emergency stops',
+      rationale: 'Critical for vessel and crew safety - IMO requirement',
+      priority: 'high',
+      status: 'new',
+      state: 'frozen',
+      owner: 'Safety Team',
+      attachment: null
+    }
+  },
+  
+  // FUNCTIONS
+  { 
+    id: '4', 
+    type: 'custom',
+    position: { x: 650, y: 30 }, 
+    data: { 
+      label: 'Speed Regulation', 
+      type: 'function',
+      itemType: 'function',
+      reqId: 'FUN-001',
+      version: '1.0',
+      classification: 'function',
+      description: 'Regulate motor speed from 0-100%',
+      rationale: 'Core function for vessel maneuverability',
+      priority: 'high',
+      status: 'in-progress',
+      state: 'open',
+      owner: 'Software Team',
+      attachment: null
+    }
+  },
+  { 
+    id: '5', 
+    type: 'custom',
+    position: { x: 650, y: 180 }, 
+    data: { 
+      label: 'Direction Control', 
+      type: 'function',
+      itemType: 'function',
+      reqId: 'FUN-002',
+      version: '1.0',
+      classification: 'function',
+      description: 'Control forward/reverse direction',
+      rationale: 'Essential for docking and maneuvering',
+      priority: 'high',
+      status: 'new',
+      state: 'open',
+      owner: 'Software Team',
+      attachment: null
+    }
+  },
+  { 
+    id: '6', 
+    type: 'custom',
+    position: { x: 650, y: 320 }, 
+    data: { 
+      label: 'Emergency Stop', 
+      type: 'function',
+      itemType: 'function',
+      reqId: 'FUN-003',
+      version: '1.0',
+      classification: 'function',
+      description: 'Immediately stop all motors within 2 seconds',
+      rationale: 'Safety critical - required by maritime regulations',
+      priority: 'high',
+      status: 'in-progress',
+      state: 'frozen',
+      owner: 'Safety Team',
+      attachment: null
+    }
+  },
+  
+  // REQUIREMENTS
+  { 
+    id: '7', 
+    type: 'custom',
+    position: { x: 950, y: 30 }, 
     data: { 
       label: 'PWM Control Algorithm', 
       type: 'project',
@@ -1185,7 +1348,8 @@ const initialNodes = [
       reqId: 'PRJ-001',
       version: '1.0',
       classification: 'requirement',
-      description: 'Implement PWM with 10kHz frequency',
+      description: 'Implement PWM control with 10kHz frequency',
+      rationale: 'Required for smooth speed transitions',
       priority: 'high',
       status: 'new',
       state: 'open',
@@ -1194,28 +1358,29 @@ const initialNodes = [
     }
   },
   { 
-    id: '4', 
+    id: '8', 
     type: 'custom',
-    position: { x: 450, y: 280 }, 
+    position: { x: 950, y: 180 }, 
     data: { 
-      label: 'Safety Stop Function', 
-      type: 'platform',
-      reqType: 'platform',
-      reqId: 'PLT-002',
+      label: 'Direction State Machine', 
+      type: 'project',
+      reqType: 'project',
+      reqId: 'PRJ-002',
       version: '1.0',
-      classification: 'capability',
-      description: 'Emergency stop within 2 seconds',
-      priority: 'high',
+      classification: 'requirement',
+      description: 'Implement state machine for direction changes with safety interlocks',
+      rationale: 'Prevent mechanical damage from sudden direction changes',
+      priority: 'medium',
       status: 'new',
-      state: 'frozen',
-      owner: 'Safety Team',
+      state: 'open',
+      owner: 'Fredrik',
       attachment: null
     }
   },
   { 
-    id: '5', 
+    id: '9', 
     type: 'custom',
-    position: { x: 800, y: 280 }, 
+    position: { x: 950, y: 320 }, 
     data: { 
       label: 'Hardware Interrupt Handler', 
       type: 'project',
@@ -1223,21 +1388,56 @@ const initialNodes = [
       reqId: 'IMP-001',
       version: '1.0',
       classification: 'requirement',
-      description: 'Implement interrupt-based stop signal',
-      priority: 'medium',
-      status: 'new',
+      description: 'Implement interrupt-based stop signal with <10ms latency',
+      rationale: 'Ensures immediate response to emergency stop commands',
+      priority: 'high',
+      status: 'in-progress',
       state: 'open',
-      owner: 'Dev Team',
+      owner: 'Embedded Team',
+      attachment: null
+    }
+  },
+  
+  // CUSTOMER REQUIREMENT
+  { 
+    id: '10', 
+    type: 'custom',
+    position: { x: 50, y: 450 }, 
+    data: { 
+      label: 'Vessel Speed Control', 
+      type: 'platform',
+      reqType: 'customer',
+      reqId: 'CUS-001',
+      version: '1.0',
+      classification: 'need',
+      description: 'Customer requires precise vessel speed control for fuel efficiency',
+      rationale: 'Customer business requirement - reduce fuel costs by 15%',
+      priority: 'high',
+      status: 'done',
+      state: 'released',
+      owner: 'Customer: Nordic Shipping AB',
       attachment: null
     }
   },
 ];
 
 const initialEdges = [
-  { id: 'e1-2', source: '1', target: '2', type: 'custom', data: { relationType: 'addresses', notes: 'Customer need flows to platform capability' } },
-  { id: 'e1-4', source: '1', target: '4', type: 'custom', data: { relationType: 'addresses', notes: 'Safety is a key customer requirement' } },
-  { id: 'e2-3', source: '2', target: '3', type: 'custom', data: { relationType: 'implements', notes: 'PWM algorithm implements speed control' } },
-  { id: 'e4-5', source: '4', target: '5', type: 'custom', data: { relationType: 'implements', notes: '' } },
+  // System contains Sub-Systems
+  { id: 'e1-2', source: '1', target: '2', type: 'custom', data: { relationType: 'contains', notes: 'Motor Controller is part of the main propulsion system' } },
+  { id: 'e1-3', source: '1', target: '3', type: 'custom', data: { relationType: 'contains', notes: 'Safety Monitor is integrated into propulsion system' } },
+  
+  // Sub-Systems provide Functions
+  { id: 'e2-4', source: '2', target: '4', type: 'custom', data: { relationType: 'provides', notes: 'Motor Controller provides speed regulation capability' } },
+  { id: 'e2-5', source: '2', target: '5', type: 'custom', data: { relationType: 'provides', notes: 'Motor Controller handles direction switching' } },
+  { id: 'e3-6', source: '3', target: '6', type: 'custom', data: { relationType: 'provides', notes: 'Safety Monitor triggers emergency stop function' } },
+  
+  // Functions realized by Requirements
+  { id: 'e4-7', source: '4', target: '7', type: 'custom', data: { relationType: 'realizedBy', notes: 'PWM algorithm implements speed regulation' } },
+  { id: 'e5-8', source: '5', target: '8', type: 'custom', data: { relationType: 'realizedBy', notes: 'State machine implements direction control logic' } },
+  { id: 'e6-9', source: '6', target: '9', type: 'custom', data: { relationType: 'realizedBy', notes: 'Interrupt handler implements emergency stop response' } },
+  
+  // Customer need flows to System
+  { id: 'e10-1', source: '10', target: '1', type: 'custom', data: { relationType: 'satisfies', notes: 'Propulsion Control System satisfies customer speed control needs' } },
 ];
 
 // New Object Modal
@@ -1422,18 +1622,19 @@ export default function App() {
   const [reqTypeFilter, setReqTypeFilter] = useState('all');
   const [classificationFilter, setClassificationFilter] = useState('all');
 
-  const [objectName, setObjectName] = useState('Motor Control System');
+  const [objectName, setObjectName] = useState('MPV Propulsion System');
   const [objectVersion, setObjectVersion] = useState('1.0');
-  const [objectDescription, setObjectDescription] = useState('Ship propulsion motor control system');
+  const [objectDescription, setObjectDescription] = useState('Multi-Purpose Vessel propulsion control system');
   const [showNewObjectModal, setShowNewObjectModal] = useState(false);
 
   const [cusIdCounter, setCusIdCounter] = useState(2);  // CUS-001 exists
-  const [pltIdCounter, setPltIdCounter] = useState(3);  // PLT-001, PLT-002 exist
-  const [prjIdCounter, setPrjIdCounter] = useState(2);  // PRJ-001 exists
+  const [pltIdCounter, setPltIdCounter] = useState(1);  // None yet
+  const [prjIdCounter, setPrjIdCounter] = useState(3);  // PRJ-001, PRJ-002 exist
   const [impIdCounter, setImpIdCounter] = useState(2);  // IMP-001 exists
-  const [sysIdCounter, setSysIdCounter] = useState(1);
-  const [subIdCounter, setSubIdCounter] = useState(1);
-  const [funIdCounter, setFunIdCounter] = useState(1);
+  const [sysIdCounter, setSysIdCounter] = useState(2);  // SYS-001 exists
+  const [subIdCounter, setSubIdCounter] = useState(3);  // SUB-001, SUB-002 exist
+  const [funIdCounter, setFunIdCounter] = useState(4);  // FUN-001, FUN-002, FUN-003 exist
+  const [tcIdCounter, setTcIdCounter] = useState(1);
 
 // Save current state to history
   const saveToHistory = useCallback(() => {
@@ -1517,6 +1718,10 @@ export default function App() {
         const funId = `FUN-${String(funIdCounter).padStart(3, '0')}`;
         setFunIdCounter(c => c + 1);
         return funId;
+      case 'testcase':
+        const tcId = `TC-${String(tcIdCounter).padStart(3, '0')}`;
+        setTcIdCounter(c => c + 1);
+        return tcId;  
       case 'customer':
         const cusId = `CUS-${String(cusIdCounter).padStart(3, '0')}`;
         setCusIdCounter(c => c + 1);
@@ -1534,7 +1739,7 @@ export default function App() {
         setPrjIdCounter(c => c + 1);
         return prjId;
     }
-  }, [sysIdCounter, subIdCounter, funIdCounter, cusIdCounter, pltIdCounter, prjIdCounter, impIdCounter]);
+  }, [sysIdCounter, subIdCounter, funIdCounter, tcIdCounter, cusIdCounter, pltIdCounter, prjIdCounter, impIdCounter]);
 
   const stats = useMemo(() => {
     const total = nodes.length;
@@ -1797,6 +2002,37 @@ const addPlatformNode = useCallback(() => {
     setNodeId((id) => id + 1);
   }, [nodeId, handleNodeLabelChange, setNodes, generateItemId]);
 
+  const addTestCaseNode = useCallback(() => {
+    const itemId = generateItemId('testcase');
+    const newNode = {
+      id: String(nodeId),
+      type: 'custom',
+      position: { x: Math.random() * 300 + 500, y: Math.random() * 200 + 350 },
+      data: { 
+        label: 'New Test Case', 
+        type: 'testcase',
+        itemType: 'testcase',
+        reqId: itemId,
+        version: '1.0',
+        classification: 'testcase',
+        description: '',
+        rationale: '',
+        purpose: '',
+        preconditions: '',
+        testSteps: '',
+        expectedResults: '',
+        priority: 'medium',
+        status: 'draft',
+        state: 'open',
+        owner: '',
+        attachment: null,
+        onChange: handleNodeLabelChange
+      },
+    };
+    setNodes((nds) => nds.concat(newNode));
+    setNodeId((id) => id + 1);
+  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId]);
+
   const exportProject = useCallback(() => {
     const project = { 
       objectName,
@@ -1873,6 +2109,7 @@ const createNewObject = (name, version, description) => {
     setPrjIdCounter(1);
     setImpIdCounter(1);
     setSysIdCounter(1);
+    setTcIdCounter(1);
     setSubIdCounter(1);
     setFunIdCounter(1);
     setHistory([]);
@@ -2321,6 +2558,16 @@ const createNewObject = (name, version, description) => {
                 fontWeight: 'bold', fontSize: '11px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
               }}>
                 ⚡ Function
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button onClick={addTestCaseNode} style={{
+                padding: '8px 12px', background: '#27ae60', color: 'white',
+                border: 'none', borderRadius: '6px', cursor: 'pointer',
+                fontWeight: 'bold', fontSize: '11px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }}>
+                🧪 Test Case
               </button>
             </div>
             
