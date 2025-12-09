@@ -190,31 +190,33 @@ function CustomEdge({
         markerEnd={`url(#arrow-${data?.relationType || 'related'})`}
       />
       <EdgeLabelRenderer>
-        <div
-          style={{
-            position: 'absolute',
-            transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-            background: '#2c3e50',
-            padding: '4px 8px',
-            borderRadius: '4px',
-            fontSize: '10px',
-            fontWeight: 'bold',
-            color: relType.color,
-            border: `1px solid ${relType.color}`,
-            pointerEvents: 'all',
-            cursor: 'pointer',
-            boxShadow: selected ? `0 0 8px ${relType.color}` : '0 2px 4px rgba(0,0,0,0.3)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px'
-          }}
-          className="nodrag nopan"
-        >
-          {relType.label}
-          {data?.notes && (
-            <span style={{ fontSize: '8px' }}>📝</span>
-          )}
-        </div>
+        {data?.showLabel !== false && (
+          <div
+            style={{
+              position: 'absolute',
+              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+              background: '#2c3e50',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              fontSize: '10px',
+              fontWeight: 'bold',
+              color: relType.color,
+              border: `1px solid ${relType.color}`,
+              pointerEvents: 'all',
+              cursor: 'pointer',
+              boxShadow: selected ? `0 0 8px ${relType.color}` : '0 2px 4px rgba(0,0,0,0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+            className="nodrag nopan"
+            >
+              {relType.label}
+              {data?.notes && (
+                <span style={{ fontSize: '8px' }}>📝</span>
+              )}
+            </div>
+        )}  
       </EdgeLabelRenderer>
     </>
   );
@@ -295,6 +297,37 @@ function CustomNode({ data, id, selected }) {
     return null;
   };
 
+  // SHAPE FUNCTION - Must be BEFORE the return statement!
+  const getNodeShape = () => {
+    const type = data.itemType || data.type;
+    switch (type) {
+      case 'system':
+        return {
+          borderRadius: '8px',           // Rectangle with slight rounding
+        };
+      case 'subsystem':
+        return {
+          borderRadius: '20px',          // More rounded rectangle (pill-like)
+        };
+      case 'function':
+        return {
+          borderRadius: '50px',          // Oval/Ellipse effect
+          paddingTop: '20px',
+          paddingBottom: '20px',
+        };
+      case 'testcase':
+        return {
+          borderRadius: '0px',           // Sharp corners
+          borderWidth: '4px',
+          borderStyle: 'double',
+        };
+      default:
+        return {
+          borderRadius: '8px',           // Standard rectangle
+        };
+    }
+  };
+
   const handleDoubleClick = () => {
     if (data.state === 'frozen' || data.state === 'released') {
       return;
@@ -326,18 +359,18 @@ function CustomNode({ data, id, selected }) {
     <div style={{
       padding: '15px',
       paddingLeft: (isSystemItem() || isTestItem()) ? '20px' : '15px',
-      borderRadius: '8px',
       border: '3px solid ' + getBorderColor(),
       borderLeft: (isSystemItem() || isTestItem()) ? `6px solid ${getSystemAccentColor()}` : '3px solid ' + getBorderColor(),
       backgroundColor: (isSystemItem() || isTestItem()) ? '#1a2634' : '#2c3e50',
-      color: 'white',
-      minWidth: '200px',
-      maxWidth: '280px',
-      boxShadow: selected ? '0 0 0 3px #f39c12' : (isHighlighted ? '0 0 0 4px #f1c40f, 0 0 20px rgba(241,196,15,0.6)' : '0 4px 6px rgba(0,0,0,0.3)'),
-      position: 'relative',
+      minWidth: '180px',
       opacity: data.isFiltered === false ? 0.3 : 1,
-      transition: 'all 0.2s ease'
+      boxShadow: selected ? '0 0 20px rgba(52, 152, 219, 0.8)' : 
+                 isHighlighted ? '0 0 15px rgba(241, 196, 15, 0.6)' : '0 4px 8px rgba(0,0,0,0.3)',
+      transition: 'all 0.2s ease',
+      position: 'relative',
+      ...getNodeShape()
     }}>
+      
       <Handle 
         type="target" 
         position={Position.Left} 
@@ -385,7 +418,7 @@ function CustomNode({ data, id, selected }) {
           </span>
         </div>
       </div>
-
+      
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -1863,6 +1896,7 @@ export default function App() {
   const [edgePanelPosition, setEdgePanelPosition] = useState({ x: 0, y: 0 });
   const [isListening, setIsListening] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState('');
+  const [showRelationshipLabels, setShowRelationshipLabels] = useState(true);
   
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -2039,18 +2073,16 @@ export default function App() {
     );
   }, [setNodes]);
 
-  const handleNodeClick = useCallback((event, node) => {
+  const handleNodeClick = (event, node) => {
+    // Single click just highlights/selects - doesn't open panel
     setSelectedEdge(null);
-    const rect = event.target.getBoundingClientRect();
-    const newX = rect.right + 20;
-    const newY = rect.top;
-    
-    const adjustedX = newX + 360 > window.innerWidth ? rect.left - 380 : newX;
-    const adjustedY = newY + 500 > window.innerHeight ? window.innerHeight - 520 : newY;
-    
-    setFloatingPanelPosition({ x: adjustedX, y: Math.max(10, adjustedY) });
+  };
+
+  const handleNodeDoubleClick = (event, node) => {
+    // Double click opens the panel
     setSelectedNode(node);
-  }, []);
+    setSelectedEdge(null);
+  };
 
   const handleEdgeClick = useCallback((event, edge) => {
     setSelectedNode(null);
@@ -3169,13 +3201,17 @@ const createNewObject = (name, version, description) => {
       
       <ReactFlow
         nodes={processedNodes}
-        edges={edges}
+        edges={edges.map(e => ({
+            ...e,
+            data: { ...e.data, showLabel: showRelationshipLabels }
+          }))}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeClick={handleNodeClick}
         onEdgeClick={handleEdgeClick}
         onPaneClick={handlePaneClick}
+        onNodeDoubleClick={handleNodeDoubleClick}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
@@ -3237,13 +3273,31 @@ const createNewObject = (name, version, description) => {
                 + Requirement
               </button>
             </div>
-            
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button
+                onClick={() => setShowRelationshipLabels(!showRelationshipLabels)}
+                style={{
+                  padding: '8px 12px',
+                  background: showRelationshipLabels ? '#3498db' : '#7f8c8d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '11px',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                }}
+              >
+                🏷️ {showRelationshipLabels ? 'Labels ON' : 'Labels OFF'}
+              </button>
+            </div>
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               <button onClick={exportProject} style={{
                 padding: '8px 16px', background: '#27ae60', color: 'white',
                 border: 'none', borderRadius: '6px', cursor: 'pointer',
                 fontWeight: 'bold', fontSize: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
               }}>
+
                 💾 Save
               </button>
               <label style={{
