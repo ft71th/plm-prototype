@@ -358,6 +358,76 @@ function CustomNode({ data, id, selected }) {
     }
   };
 
+    // WHITEBOARD MODE - Simplified view
+  if (data.isWhiteboardMode) {
+    return (
+      <div style={{
+        padding: '20px',
+        backgroundColor: getSystemAccentColor(),
+        border: '2px solid #333',
+        minWidth: '120px',
+        minHeight: '60px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        opacity: data.isFiltered === false ? 0.3 : 1,
+        boxShadow: selected ? '0 0 15px rgba(0, 0, 0, 0.4)' : '0 2px 8px rgba(0,0,0,0.2)',
+        transition: 'all 0.2s ease',
+        position: 'relative',
+        ...getNodeShape()
+      }}>
+        <Handle 
+          type="target" 
+          position={Position.Left} 
+          style={{ background: '#333', width: 10, height: 10 }}
+        />
+        <Handle 
+          type="source" 
+          position={Position.Right} 
+          style={{ background: '#333', width: 10, height: 10 }}
+        />
+        
+        {isEditing ? (
+          <input
+            autoFocus
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            style={{
+              width: '100%',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              background: 'rgba(255,255,255,0.9)',
+              color: '#333',
+              border: 'none',
+              borderRadius: '4px',
+              padding: '6px 8px',
+              outline: 'none',
+              textAlign: 'center'
+            }}
+          />
+        ) : (
+          <div 
+            onDoubleClick={handleDoubleClick}
+            style={{
+              fontSize: '14px',
+              fontWeight: 'bold',
+              color: '#fff',
+              textShadow: '1px 1px 2px rgba(0,0,0,0.3)',
+              cursor: 'text',
+              textAlign: 'center'
+            }}
+          >
+            {data.label}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // NORMAL PLM MODE - Full details (existing code below)
   return (
     <div style={{
       padding: '15px',
@@ -2020,7 +2090,9 @@ function TopHeader({
   filtersOpen,
   onFiltersToggle,
   filters,
-  onFilterChange 
+  onFilterChange,
+  isWhiteboardMode,
+  onWhiteboardToggle
 }) {
   return (
     <div style={{
@@ -2136,6 +2208,26 @@ function TopHeader({
         🎛️ Filters {filtersOpen ? '▲' : '▼'}
       </button>
       
+      {/* Whiteboard Toggle */}
+      <button
+        onClick={onWhiteboardToggle}
+        style={{
+          padding: '8px 12px',
+          background: isWhiteboardMode ? '#ecf0f1' : '#2c3e50',
+          color: isWhiteboardMode ? '#2c3e50' : 'white',
+          border: '1px solid #4a5f7f',
+          borderRadius: '6px',
+          cursor: 'pointer',
+          fontSize: '12px',
+          fontWeight: 'bold',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px'
+        }}
+      >
+        {isWhiteboardMode ? '📋 PLM View' : '🎨 Whiteboard'}
+      </button>
+
       {/* Filters Dropdown */}
       {filtersOpen && (
         <div style={{
@@ -2369,6 +2461,7 @@ export default function App() {
   const [isListening, setIsListening] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState('');
   const [showRelationshipLabels, setShowRelationshipLabels] = useState(true);
+  const [isWhiteboardMode, setIsWhiteboardMode] = useState(false);
   
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -2622,10 +2715,10 @@ export default function App() {
 
       return {
         ...node,
-        data: { ...node.data, isFiltered, isHighlighted, onChange: handleNodeLabelChange },
+        data: { ...node.data, isFiltered, isHighlighted, isWhiteboardMode, onChange: handleNodeLabelChange },
       };
     });
-  }, [nodes, searchText, typeFilter, statusFilter, priorityFilter, stateFilter, reqTypeFilter, classificationFilter, handleNodeLabelChange]);
+  }, [nodes, searchText, typeFilter, statusFilter, priorityFilter, stateFilter, reqTypeFilter, classificationFilter, handleNodeLabelChange,isWhiteboardMode ]);
 
   const filteredCount = processedNodes.filter(n => n.data.isFiltered).length;
 
@@ -3472,6 +3565,8 @@ const createNewObject = (name, version, description) => {
           if (filterType === 'priority') setPriorityFilter(value);
           if (filterType === 'classification') setClassificationFilter(value);
         }}
+        isWhiteboardMode={isWhiteboardMode}
+        onWhiteboardToggle={() => setIsWhiteboardMode(!isWhiteboardMode)}
       />
       
       {/* Left Icon Strip */}
@@ -3608,14 +3703,19 @@ const createNewObject = (name, version, description) => {
         edgeTypes={edgeTypes}
         fitView
         style={{ 
-          background: '#1a1a2e',
-          marginTop: '50px',  /* Space for header */
+          background: isWhiteboardMode ? '#f5f5f5' : '#1a1a2e',
+          marginTop: '50px',
           height: 'calc(100vh - 50px)'
         }}
       >
         <Controls style={{ bottom: 20, left: 70 }} />
         <MiniMap style={{ bottom: 20, right: 20 }} />
-        <Background variant="dots" gap={12} size={1} color="#444" />
+        <Background 
+          variant="dots" 
+          gap={12} 
+          size={1} 
+          color={isWhiteboardMode ? '#ccc' : '#444'} 
+        />
         
         {/* Arrow markers for relationships */}
         <svg>
