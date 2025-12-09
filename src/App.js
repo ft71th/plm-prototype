@@ -16,7 +16,10 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import * as XLSX from 'xlsx';
 
-// Keyboard shortcuts
+const defaultEdgeOptions = {
+  type: 'custom',
+  animated: false
+};
 
 // Relationship type definitions
 const RELATIONSHIP_TYPES = {
@@ -1886,6 +1889,475 @@ function NewObjectModal({ onClose, onCreate }) {
   );
 }
 
+// Collapsible Sidebar Component
+function Sidebar({ isOpen, onClose, children }) {
+  return (
+    <>
+      {/* Overlay */}
+      {isOpen && (
+        <div
+          onClick={onClose}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.3)',
+            zIndex: 4000
+          }}
+        />
+      )}
+      
+      {/* Sidebar */}
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: isOpen ? 0 : '-280px',
+        width: '260px',
+        height: '100vh',
+        backgroundColor: '#1a2634',
+        boxShadow: isOpen ? '4px 0 20px rgba(0,0,0,0.5)' : 'none',
+        transition: 'left 0.3s ease',
+        zIndex: 4001,
+        display: 'flex',
+        flexDirection: 'column',
+        color: 'white'
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: '15px',
+          borderBottom: '1px solid #34495e',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <span style={{ fontWeight: 'bold', fontSize: '16px' }}>☰ MENU</span>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'white',
+              fontSize: '20px',
+              cursor: 'pointer'
+            }}
+          >
+            ✕
+          </button>
+        </div>
+        
+        {/* Content */}
+        <div style={{ 
+          flex: 1, 
+          overflowY: 'auto',
+          padding: '10px'
+        }}>
+          {children}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// Sidebar Section Component
+function SidebarSection({ title, children }) {
+  return (
+    <div style={{ marginBottom: '15px' }}>
+      <div style={{
+        fontSize: '11px',
+        color: '#7f8c8d',
+        textTransform: 'uppercase',
+        fontWeight: 'bold',
+        marginBottom: '8px',
+        paddingLeft: '5px'
+      }}>
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// Sidebar Button Component
+function SidebarButton({ icon, label, onClick, active }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        width: '100%',
+        padding: '10px 12px',
+        background: active ? '#3498db' : 'transparent',
+        color: 'white',
+        border: 'none',
+        borderRadius: '6px',
+        cursor: 'pointer',
+        fontSize: '13px',
+        fontWeight: '500',
+        textAlign: 'left',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        marginBottom: '4px',
+        transition: 'background 0.2s'
+      }}
+      onMouseOver={(e) => e.target.style.background = active ? '#3498db' : '#2c3e50'}
+      onMouseOut={(e) => e.target.style.background = active ? '#3498db' : 'transparent'}
+    >
+      <span style={{ fontSize: '16px' }}>{icon}</span>
+      {label}
+    </button>
+  );
+}
+
+// Top Header Bar Component
+function TopHeader({ 
+  objectName, 
+  objectVersion, 
+  onMenuClick, 
+  searchText, 
+  onSearchChange,
+  filtersOpen,
+  onFiltersToggle,
+  filters,
+  onFilterChange 
+}) {
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: '50px',
+      backgroundColor: '#1a2634',
+      borderBottom: '2px solid #34495e',
+      display: 'flex',
+      alignItems: 'center',
+      padding: '0 15px',
+      gap: '15px',
+      zIndex: 3000
+    }}>
+      {/* Menu Button */}
+      <button
+        onClick={onMenuClick}
+        style={{
+          background: 'transparent',
+          border: '1px solid #4a5f7f',
+          color: 'white',
+          fontSize: '18px',
+          cursor: 'pointer',
+          padding: '6px 10px',
+          borderRadius: '6px',
+          display: 'flex',
+          alignItems: 'center'
+        }}
+      >
+        ☰
+      </button>
+      
+      {/* Object Name & Version */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        color: 'white'
+      }}>
+        <span style={{ fontSize: '16px' }}>📦</span>
+        <span style={{ fontWeight: 'bold', fontSize: '14px' }}>{objectName}</span>
+        <span style={{
+          background: '#8e44ad',
+          padding: '2px 8px',
+          borderRadius: '4px',
+          fontSize: '11px',
+          fontWeight: 'bold'
+        }}>
+          v{objectVersion}
+        </span>
+      </div>
+      
+      {/* Spacer */}
+      <div style={{ flex: 1 }} />
+      
+      {/* Search */}
+      <div style={{ position: 'relative' }}>
+        <input
+          type="text"
+          value={searchText}
+          onChange={(e) => onSearchChange(e.target.value)}
+          placeholder="🔍 Search..."
+          style={{
+            padding: '8px 12px',
+            paddingRight: '30px',
+            background: '#2c3e50',
+            color: 'white',
+            border: '1px solid #4a5f7f',
+            borderRadius: '6px',
+            fontSize: '13px',
+            width: '200px'
+          }}
+        />
+        {searchText && (
+          <button
+            onClick={() => onSearchChange('')}
+            style={{
+              position: 'absolute',
+              right: '8px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              background: 'transparent',
+              border: 'none',
+              color: '#7f8c8d',
+              cursor: 'pointer',
+              fontSize: '14px'
+            }}
+          >
+            ✕
+          </button>
+        )}
+      </div>
+      
+      {/* Filters Toggle */}
+      <button
+        onClick={onFiltersToggle}
+        style={{
+          padding: '8px 12px',
+          background: filtersOpen ? '#3498db' : '#2c3e50',
+          color: 'white',
+          border: '1px solid #4a5f7f',
+          borderRadius: '6px',
+          cursor: 'pointer',
+          fontSize: '12px',
+          fontWeight: 'bold',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px'
+        }}
+      >
+        🎛️ Filters {filtersOpen ? '▲' : '▼'}
+      </button>
+      
+      {/* Filters Dropdown */}
+      {filtersOpen && (
+        <div style={{
+          position: 'absolute',
+          top: '50px',
+          right: '15px',
+          background: '#1a2634',
+          border: '1px solid #34495e',
+          borderRadius: '8px',
+          padding: '15px',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '10px',
+          minWidth: '400px'
+        }}>
+          <select
+            value={filters.type}
+            onChange={(e) => onFilterChange('type', e.target.value)}
+            style={{
+              padding: '8px',
+              background: '#2c3e50',
+              color: 'white',
+              border: '1px solid #4a5f7f',
+              borderRadius: '4px',
+              fontSize: '12px'
+            }}
+          >
+            <option value="all">All Types</option>
+            <option value="customer">🟣 Customer</option>
+            <option value="platform">🔷 Platform</option>
+            <option value="project">🔶 Project</option>
+            <option value="implementation">🟢 Implementation</option>
+          </select>
+          
+          <select
+            value={filters.state}
+            onChange={(e) => onFilterChange('state', e.target.value)}
+            style={{
+              padding: '8px',
+              background: '#2c3e50',
+              color: 'white',
+              border: '1px solid #4a5f7f',
+              borderRadius: '4px',
+              fontSize: '12px'
+            }}
+          >
+            <option value="all">All States</option>
+            <option value="open">📝 Open</option>
+            <option value="frozen">🔒 Frozen</option>
+            <option value="released">✅ Released</option>
+          </select>
+          
+          <select
+            value={filters.priority}
+            onChange={(e) => onFilterChange('priority', e.target.value)}
+            style={{
+              padding: '8px',
+              background: '#2c3e50',
+              color: 'white',
+              border: '1px solid #4a5f7f',
+              borderRadius: '4px',
+              fontSize: '12px'
+            }}
+          >
+            <option value="all">All Priorities</option>
+            <option value="high">🔴 High</option>
+            <option value="medium">🟡 Medium</option>
+            <option value="low">🟢 Low</option>
+          </select>
+          
+          <select
+            value={filters.classification}
+            onChange={(e) => onFilterChange('classification', e.target.value)}
+            style={{
+              padding: '8px',
+              background: '#2c3e50',
+              color: 'white',
+              border: '1px solid #4a5f7f',
+              borderRadius: '4px',
+              fontSize: '12px'
+            }}
+          >
+            <option value="all">All Classifications</option>
+            <option value="need">🎯 Need</option>
+            <option value="capability">⚙️ Capability</option>
+            <option value="requirement">📋 Requirement</option>
+          </select>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Left Icon Strip Component
+function LeftIconStrip({ 
+  onAddSystem, 
+  onAddSubSystem, 
+  onAddFunction, 
+  onAddTestCase,
+  onAddRequirement,
+  onAddPlatform,
+  onVoice,
+  isListening,
+  voiceStatus
+}) {
+  const iconButtonStyle = {
+    width: '44px',
+    height: '44px',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '18px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'transform 0.1s, box-shadow 0.1s'
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      left: '10px',
+      top: '70px',  // Below header
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '8px',
+      zIndex: 2500
+    }}>
+      {/* System Engineering */}
+      <button 
+        onClick={onAddSystem} 
+        title="Add System"
+        style={{ ...iconButtonStyle, background: '#1abc9c' }}
+      >
+        🔷
+      </button>
+      <button 
+        onClick={onAddSubSystem} 
+        title="Add Sub-System"
+        style={{ ...iconButtonStyle, background: '#3498db' }}
+      >
+        🔶
+      </button>
+      <button 
+        onClick={onAddFunction} 
+        title="Add Function"
+        style={{ ...iconButtonStyle, background: '#00bcd4' }}
+      >
+        ⚡
+      </button>
+      
+      {/* Separator */}
+      <div style={{ height: '1px', background: '#4a5f7f', margin: '4px 0' }} />
+      
+      {/* Test */}
+      <button 
+        onClick={onAddTestCase} 
+        title="Add Test Case"
+        style={{ ...iconButtonStyle, background: '#27ae60' }}
+      >
+        🧪
+      </button>
+      
+      {/* Separator */}
+      <div style={{ height: '1px', background: '#4a5f7f', margin: '4px 0' }} />
+      
+      {/* Requirements */}
+      <button 
+        onClick={onAddRequirement} 
+        title="Add Requirement"
+        style={{ ...iconButtonStyle, background: '#e67e22' }}
+      >
+        📋
+      </button>
+      <button 
+        onClick={onAddPlatform} 
+        title="Add Platform"
+        style={{ ...iconButtonStyle, background: '#9b59b6' }}
+      >
+        🟣
+      </button>
+      
+      {/* Separator */}
+      <div style={{ height: '1px', background: '#4a5f7f', margin: '4px 0' }} />
+      
+      {/* Voice */}
+      <button 
+        onClick={onVoice} 
+        title={isListening ? 'Listening...' : 'Voice Command'}
+        disabled={isListening}
+        style={{ 
+          ...iconButtonStyle, 
+          background: isListening ? '#e74c3c' : '#3498db',
+          animation: isListening ? 'pulse 1s infinite' : 'none'
+        }}
+      >
+        🎤
+      </button>
+      
+      {/* Voice Status */}
+      {voiceStatus && (
+        <div style={{
+          background: '#2c3e50',
+          padding: '6px 10px',
+          borderRadius: '6px',
+          fontSize: '10px',
+          color: voiceStatus.includes('✅') ? '#27ae60' : 
+                 voiceStatus.includes('❌') ? '#e74c3c' : '#3498db',
+          maxWidth: '120px',
+          wordBreak: 'break-word'
+        }}>
+          {voiceStatus}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
+// State declarations //
 export default function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -1923,6 +2395,8 @@ export default function App() {
   const [subIdCounter, setSubIdCounter] = useState(3);  // SUB-001, SUB-002 exist
   const [funIdCounter, setFunIdCounter] = useState(4);  // FUN-001, FUN-002, FUN-003 exist
   const [tcIdCounter, setTcIdCounter] = useState(1);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
 // Save current state to history
   const saveToHistory = useCallback(() => {
@@ -2975,450 +3449,196 @@ const createNewObject = (name, version, description) => {
   };
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: '#1e1e1e', position: 'relative' }}>
-      {/* Arrow markers for different relationship types */}
-      <svg style={{ position: 'absolute', width: 0, height: 0 }}>
-        <defs>
-          {Object.entries(RELATIONSHIP_TYPES).map(([key, value]) => (
-            <marker
-              key={key}
-              id={`arrow-${key}`}
-              viewBox="0 0 20 20"
-              refX="20"
-              refY="10"
-              markerWidth="10"
-              markerHeight="10"
-              orient="auto-start-reverse"
-            >
-              <path d="M 0 0 L 20 10 L 0 20 z" fill={value.color} />
-            </marker>
-          ))}
-        </defs>
-      </svg>
-
-      <div style={{
-        position: 'absolute',
-        top: 10,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: 1000,
-        padding: '12px 24px',
-        background: 'linear-gradient(135deg, #1a252f 0%, #2C3E50 100%)',
-        color: 'white',
-        borderRadius: 10,
-        boxShadow: '0 4px 15px rgba(0,0,0,0.4)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '20px',
-        border: '1px solid #3d5a73'
-      }}>
-        <div>
-          <div style={{ fontSize: '10px', color: '#7f8c8d', textTransform: 'uppercase', letterSpacing: '1px' }}>
-            Object Definition
-          </div>
-          <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
-            🚢 {objectName}
-          </div>
-        </div>
-        <div style={{
-          width: '1px',
-          height: '35px',
-          background: '#4a5f7f'
-        }} />
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '10px', color: '#7f8c8d' }}>Version</div>
-          <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#3498db' }}>{objectVersion}</div>
-        </div>
-        <button
-          onClick={() => setShowNewObjectModal(true)}
-          style={{
-            padding: '8px 12px',
-            background: '#e74c3c',
-            color: 'white', 
-            border: 'none',
+    <div style={{ width: '100vw', height: '100vh', background: '#1a1a2e' }}>
+      
+      {/* Top Header */}
+      <TopHeader
+        objectName={objectName}
+        objectVersion={objectVersion}
+        onMenuClick={() => setSidebarOpen(true)}
+        searchText={searchText}
+        onSearchChange={setSearchText}
+        filtersOpen={filtersOpen}
+        onFiltersToggle={() => setFiltersOpen(!filtersOpen)}
+        filters={{
+          type: reqTypeFilter,
+          state: stateFilter,
+          priority: priorityFilter,
+          classification: classificationFilter
+        }}
+        onFilterChange={(filterType, value) => {
+          if (filterType === 'type') setReqTypeFilter(value);
+          if (filterType === 'state') setStateFilter(value);
+          if (filterType === 'priority') setPriorityFilter(value);
+          if (filterType === 'classification') setClassificationFilter(value);
+        }}
+      />
+      
+      {/* Left Icon Strip */}
+      <LeftIconStrip
+        onAddSystem={addSystemNode}
+        onAddSubSystem={addSubSystemNode}
+        onAddFunction={addFunctionNode}
+        onAddTestCase={addTestCaseNode}
+        onAddRequirement={addRequirementNode}
+        onAddPlatform={addPlatformNode}
+        onVoice={startVoiceRecognition}
+        isListening={isListening}
+        voiceStatus={voiceStatus}
+      />
+      
+      {/* Sidebar */}
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)}>
+        <SidebarSection title="📁 Project">
+          <SidebarButton icon="💾" label="Save Project" onClick={() => { exportProject(); setSidebarOpen(false); }} />
+          <label style={{ display: 'block' }}>
+            <SidebarButton icon="📂" label="Load Project" onClick={() => {}} />
+            <input 
+              type="file" 
+              accept=".json" 
+              onChange={(e) => { importProject(e); setSidebarOpen(false); }} 
+              style={{ display: 'none' }} 
+            />
+          </label>
+          <SidebarButton icon="📊" label="Export to Excel" onClick={() => { exportToExcel(); setSidebarOpen(false); }} />
+          <SidebarButton icon="🆕" label="New Object" onClick={() => { setShowNewObjectModal(true); setSidebarOpen(false); }} />
+        </SidebarSection>
+        
+        <SidebarSection title="👁️ View">
+          <SidebarButton 
+            icon="🏷️" 
+            label={showRelationshipLabels ? 'Labels: ON' : 'Labels: OFF'} 
+            onClick={() => setShowRelationshipLabels(!showRelationshipLabels)}
+            active={showRelationshipLabels}
+          />
+        </SidebarSection>
+        
+        <SidebarSection title="📊 Statistics">
+          <div style={{ 
+            padding: '10px', 
+            background: '#2c3e50', 
             borderRadius: '6px',
-            cursor: 'pointer',
-            fontSize: '11px',
-            fontWeight: 'bold'
-          }}
-        >
-          + New Object
-        </button>
-      </div>
-      
-      {/* Search and Filter Bar */}
-      <div style={{
-        position: 'absolute',
-        top: 60,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: 1000,
-        display: 'flex',
-        gap: '8px',
-        alignItems: 'center',
-        background: '#34495e',
-        padding: '12px 16px',
-        borderRadius: '8px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-        flexWrap: 'wrap',
-        maxWidth: '95vw',
-        justifyContent: 'center'
-      }}>
-        <input
-          type="text"
-          placeholder="🔍 Search..."
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          style={{
-            padding: '8px 12px',
-            background: '#2c3e50',
-            color: 'white',
-            border: '1px solid #4a5f7f',
-            borderRadius: '4px',
-            fontSize: '13px',
-            width: '140px',
-            outline: 'none'
-          }}
-        />
-        
-        <select value={stateFilter} onChange={(e) => setStateFilter(e.target.value)} style={{
-          padding: '8px', background: '#2c3e50', color: 'white',
-          border: '1px solid #4a5f7f', borderRadius: '4px', fontSize: '12px', cursor: 'pointer'
-        }}>
-          <option value="all">All States</option>
-          <option value="open">📝 Open</option>
-          <option value="frozen">🔒 Frozen</option>
-          <option value="released">✅ Released</option>
-        </select>
-
-        <select value={reqTypeFilter} onChange={(e) => setReqTypeFilter(e.target.value)} style={{
-          padding: '8px', background: '#2c3e50', color: 'white',
-          border: '1px solid #4a5f7f', borderRadius: '4px', fontSize: '12px', cursor: 'pointer'
-        }}>
-          <option value="all">All Req Types</option>
-          <option value="customer">🟣 Customer</option>
-          <option value="platform">🔷 Platform</option>
-          <option value="project">🔶 Project</option>
-          <option value="implementation">🟢 Implementation</option>
-        </select>
-
-        <select value={classificationFilter} onChange={(e) => setClassificationFilter(e.target.value)} style={{
-          padding: '8px', background: '#2c3e50', color: 'white',
-          border: '1px solid #4a5f7f', borderRadius: '4px', fontSize: '12px', cursor: 'pointer'
-        }}>
-          <option value="all">All Classes</option>
-          <option value="need">🎯 Need</option>
-          <option value="capability">⚙️ Capability</option>
-          <option value="requirement">📋 Requirement</option>
-        </select>
-        
-        <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} style={{
-          padding: '8px', background: '#2c3e50', color: 'white',
-          border: '1px solid #4a5f7f', borderRadius: '4px', fontSize: '12px', cursor: 'pointer'
-        }}>
-          <option value="all">All Priority</option>
-          <option value="high">🔴 High</option>
-          <option value="medium">🟡 Medium</option>
-          <option value="low">🟢 Low</option>
-        </select>
-        
-        <div style={{
-          padding: '8px 12px',
-          background: '#2c3e50',
-          borderRadius: '4px',
-          fontSize: '12px',
-          color: '#bdc3c7',
-          fontWeight: 'bold'
-        }}>
-          {filteredCount} / {nodes.length}
-        </div>
-        
-        {(searchText || stateFilter !== 'all' || reqTypeFilter !== 'all' || classificationFilter !== 'all' || priorityFilter !== 'all') && (
-          <button onClick={clearFilters} style={{
-            padding: '8px 12px', background: '#e74c3c', color: 'white',
-            border: 'none', borderRadius: '4px', cursor: 'pointer',
-            fontSize: '11px', fontWeight: 'bold'
+            fontSize: '12px'
           }}>
-            Clear All
-          </button>
-        )}
-      </div>
-
-      {/* Statistics Panel */}
-      <div style={{
-        position: 'absolute',
-        bottom: 20,
-        right: 20,
-        zIndex: 1000,
-        background: '#2c3e50',
-        padding: '16px',
-        borderRadius: '8px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-        color: 'white',
-        minWidth: '240px'
-      }}>
-        <div style={{
-          fontSize: '14px',
-          fontWeight: 'bold',
-          marginBottom: '12px',
-          borderBottom: '2px solid #34495e',
-          paddingBottom: '8px'
-        }}>
-          📊 Statistics
-        </div>
+            <div style={{ marginBottom: '6px' }}>
+              <span style={{ color: '#7f8c8d' }}>Total Items:</span>
+              <span style={{ float: 'right', fontWeight: 'bold' }}>{nodes.length}</span>
+            </div>
+            <div style={{ marginBottom: '6px' }}>
+              <span style={{ color: '#7f8c8d' }}>Filtered:</span>
+              <span style={{ float: 'right', fontWeight: 'bold' }}>{filteredCount}</span>
+            </div>
+            <div>
+              <span style={{ color: '#7f8c8d' }}>Relationships:</span>
+              <span style={{ float: 'right', fontWeight: 'bold' }}>{edges.length}</span>
+            </div>
+          </div>
+        </SidebarSection>
         
-        <div style={{ fontSize: '12px', lineHeight: '1.8' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>Total Requirements:</span>
-            <span style={{ fontWeight: 'bold' }}>{stats.total}</span>
+        <SidebarSection title="↩️ History">
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={undo}
+              disabled={historyIndex <= 0}
+              style={{
+                flex: 1,
+                padding: '8px',
+                background: historyIndex <= 0 ? '#34495e' : '#3498db',
+                color: historyIndex <= 0 ? '#666' : 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: historyIndex <= 0 ? 'not-allowed' : 'pointer',
+                fontWeight: 'bold'
+              }}
+            >
+              ⏪ Undo
+            </button>
+            <button
+              onClick={redo}
+              disabled={historyIndex >= history.length - 1}
+              style={{
+                flex: 1,
+                padding: '8px',
+                background: historyIndex >= history.length - 1 ? '#34495e' : '#3498db',
+                color: historyIndex >= history.length - 1 ? '#666' : 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: historyIndex >= history.length - 1 ? 'not-allowed' : 'pointer',
+                fontWeight: 'bold'
+              }}
+            >
+              Redo ⏩
+            </button>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>📝 Open:</span>
-            <span style={{ fontWeight: 'bold' }}>{stats.stateOpen}</span>
+          <div style={{ fontSize: '10px', color: '#7f8c8d', marginTop: '6px', textAlign: 'center' }}>
+            Ctrl+Z / Ctrl+Y
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>🔒 Frozen:</span>
-            <span style={{ fontWeight: 'bold' }}>{stats.stateFrozen}</span>
+        </SidebarSection>
+        
+        <SidebarSection title="💡 Help">
+          <div style={{ 
+            padding: '10px', 
+            background: '#2c3e50', 
+            borderRadius: '6px',
+            fontSize: '11px',
+            color: '#bdc3c7'
+          }}>
+            <div><strong>Double-click:</strong> Edit node</div>
+            <div><strong>Connect:</strong> Drag from handle</div>
+            <div><strong>Delete:</strong> Select + Del</div>
+            <div><strong>Duplicate:</strong> Ctrl+D</div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>✅ Released:</span>
-            <span style={{ fontWeight: 'bold' }}>{stats.stateReleased}</span>
-          </div>
-          
-          <div style={{ borderTop: '1px solid #34495e', marginTop: '10px', paddingTop: '10px' }}>
-            <div style={{ fontWeight: 'bold', marginBottom: '6px' }}>🔗 Relationships ({stats.connections})</div>
-            {Object.entries(stats.relationshipCounts).map(([type, count]) => (
-              <div key={type} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
-                <span style={{ color: RELATIONSHIP_TYPES[type]?.color || '#95a5a6' }}>
-                  {RELATIONSHIP_TYPES[type]?.label || type}:
-                </span>
-                <span>{count}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+        </SidebarSection>
+      </Sidebar>
       
+      {/* ReactFlow Canvas */}
       <ReactFlow
         nodes={processedNodes}
         edges={edges.map(e => ({
-            ...e,
-            data: { ...e.data, showLabel: showRelationshipLabels }
-          }))}
+          ...e,
+          data: { ...e.data, showLabel: showRelationshipLabels }
+        }))}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeClick={handleNodeClick}
-        onEdgeClick={handleEdgeClick}
-        onPaneClick={handlePaneClick}
         onNodeDoubleClick={handleNodeDoubleClick}
+        onEdgeClick={handleEdgeClick}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
-        deleteKeyCode="Delete"
+        style={{ 
+          background: '#1a1a2e',
+          marginTop: '50px',  /* Space for header */
+          height: 'calc(100vh - 50px)'
+        }}
       >
-        <Controls />
-        <MiniMap />
+        <Controls style={{ bottom: 20, left: 70 }} />
+        <MiniMap style={{ bottom: 20, right: 20 }} />
         <Background variant="dots" gap={12} size={1} color="#444" />
         
-        <Panel position="top-left">
-          <div style={{ display: 'flex', gap: '10px', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <button onClick={addSystemNode} style={{
-                padding: '8px 12px', background: '#1abc9c', color: 'white',
-                border: 'none', borderRadius: '6px', cursor: 'pointer',
-                fontWeight: 'bold', fontSize: '11px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-              }}>
-                🔷 System
-              </button>
-              <button onClick={addSubSystemNode} style={{
-                padding: '8px 12px', background: '#3498db', color: 'white',
-                border: 'none', borderRadius: '6px', cursor: 'pointer',
-                fontWeight: 'bold', fontSize: '11px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-              }}>
-                🔶 Sub-Sys
-              </button>
-              <button onClick={addFunctionNode} style={{
-                padding: '8px 12px', background: '#00bcd4', color: 'white',
-                border: 'none', borderRadius: '6px', cursor: 'pointer',
-                fontWeight: 'bold', fontSize: '11px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-              }}>
-                ⚡ Function
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <button onClick={addTestCaseNode} style={{
-                padding: '8px 12px', background: '#27ae60', color: 'white',
-                border: 'none', borderRadius: '6px', cursor: 'pointer',
-                fontWeight: 'bold', fontSize: '11px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-              }}>
-                🧪 Test Case
-              </button>
-            </div>
-            
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <button onClick={addPlatformNode} style={{
-                padding: '8px 12px', background: '#9b59b6', color: 'white',
-                border: 'none', borderRadius: '6px', cursor: 'pointer',
-                fontWeight: 'bold', fontSize: '11px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-              }}>
-                + Platform
-              </button>
-              <button onClick={addRequirementNode} style={{
-                padding: '8px 12px', background: '#e67e22', color: 'white',
-                border: 'none', borderRadius: '6px', cursor: 'pointer',
-                fontWeight: 'bold', fontSize: '11px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-              }}>
-                + Requirement
-              </button>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <button
-                onClick={() => setShowRelationshipLabels(!showRelationshipLabels)}
-                style={{
-                  padding: '8px 12px',
-                  background: showRelationshipLabels ? '#3498db' : '#7f8c8d',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                  fontSize: '11px',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                }}
+        {/* Arrow markers for relationships */}
+        <svg>
+          <defs>
+            {Object.entries(RELATIONSHIP_TYPES).map(([key, value]) => (
+              <marker
+                key={key}
+                id={`arrow-${key}`}
+                viewBox="0 0 20 20"
+                refX="20"
+                refY="10"
+                markerWidth="6"
+                markerHeight="6"
+                orient="auto-start-reverse"
               >
-                🏷️ {showRelationshipLabels ? 'Labels ON' : 'Labels OFF'}
-              </button>
-            </div>
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              <button onClick={exportProject} style={{
-                padding: '8px 16px', background: '#27ae60', color: 'white',
-                border: 'none', borderRadius: '6px', cursor: 'pointer',
-                fontWeight: 'bold', fontSize: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-              }}>
-
-                💾 Save
-              </button>
-              <label style={{
-                padding: '8px 16px', background: '#9b59b6', color: 'white',
-                border: 'none', borderRadius: '6px', cursor: 'pointer',
-                fontWeight: 'bold', fontSize: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                display: 'inline-block'
-              }}>
-                📂 Load
-                <input type="file" accept=".json" onChange={importProject} style={{ display: 'none' }} />
-              </label>
-              <button onClick={exportToExcel} style={{
-                padding: '8px 16px', background: '#16a085', color: 'white',
-                border: 'none', borderRadius: '6px', cursor: 'pointer',
-                fontWeight: 'bold', fontSize: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-              }}>
-                📊 Excel
-              </button>
-            </div>
-            
-            <div style={{
-              background: '#2c3e50',
-              padding: '10px',
-              borderRadius: '6px',
-              fontSize: '11px',
-              color: '#bdc3c7'
-            }}>
-              💡 <strong>Smart Relationships:</strong><br/>
-              Connect nodes → Auto-detects relationship type!<br/>
-              Click relationship label → Change type manually
-            </div>
-
-            <div style={{
-              background: '#2c3e50',
-              padding: '8px 10px',
-              borderRadius: '6px',
-              fontSize: '10px',
-              color: '#bdc3c7',
-              display: 'flex',
-              gap: '10px',
-              alignItems: 'center'
-            }}>
-              <button
-                onClick={undo}
-                disabled={historyIndex <= 0}
-                style={{
-                  padding: '4px 8px',
-                  background: historyIndex <= 0 ? '#34495e' : '#3498db',
-                  color: historyIndex <= 0 ? '#666' : 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: historyIndex <= 0 ? 'not-allowed' : 'pointer',
-                  fontSize: '11px',
-                  fontWeight: 'bold'
-                }}
-              >
-                ⏪ Undo
-              </button>
-              <button
-                onClick={redo}
-                disabled={historyIndex >= history.length - 1}
-                style={{
-                  padding: '4px 8px',
-                  background: historyIndex >= history.length - 1 ? '#34495e' : '#3498db',
-                  color: historyIndex >= history.length - 1 ? '#666' : 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: historyIndex >= history.length - 1 ? 'not-allowed' : 'pointer',
-                  fontSize: '11px',
-                  fontWeight: 'bold'
-                }}
-              >
-                Redo ⏩
-              </button>
-              <span style={{ fontSize: '9px', color: '#7f8c8d' }}>
-                Ctrl+Z / Ctrl+Y
-              </span>
-            </div>
-            <div style={{
-              display: 'flex',
-              gap: '8px',
-              alignItems: 'center'
-            }}>
-              <button
-                onClick={startVoiceRecognition}
-                disabled={isListening}
-                style={{
-                  padding: '8px 16px',
-                  background: isListening ? '#e74c3c' : '#3498db',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: isListening ? 'not-allowed' : 'pointer',
-                  fontWeight: 'bold',
-                  fontSize: '12px',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  animation: isListening ? 'pulse 1s infinite' : 'none'
-                }}
-              >
-                🎤 {isListening ? 'Listening...' : 'Voice'}
-              </button>
-              {voiceStatus && (
-                <span style={{
-                  fontSize: '11px',
-                  color: voiceStatus.includes('✅') ? '#27ae60' : 
-                         voiceStatus.includes('❌') ? '#e74c3c' : 
-                         voiceStatus.includes('❓') ? '#f39c12' : '#3498db',
-                  fontWeight: 'bold'
-                }}>
-                  {voiceStatus}
-                </span>
-              )}
-                          
-            </div>
-          </div>
-        </Panel>
+                <path d="M 0 0 L 20 10 L 0 20 z" fill={value.color} />
+              </marker>
+            ))}
+          </defs>
+        </svg>
       </ReactFlow>
 
+      {/* Floating Panel for Nodes */}
       {selectedNode && (
         <FloatingPanel
           node={selectedNode}
@@ -3428,6 +3648,7 @@ const createNewObject = (name, version, description) => {
         />
       )}
 
+      {/* Relationship Panel for Edges */}
       {selectedEdge && (
         <RelationshipPanel
           edge={selectedEdge}
@@ -3437,6 +3658,7 @@ const createNewObject = (name, version, description) => {
         />
       )}
       
+      {/* New Object Modal */}
       {showNewObjectModal && (
         <NewObjectModal
           onClose={() => setShowNewObjectModal(false)}
