@@ -301,7 +301,7 @@ function CustomEdge({
                   ? (
                       <>
                         {data?.customLabel || '+ Add label'}
-                        {data?.busWidth && (
+                        {data?.busWidth && !data?.customLabel?.includes('[') && (
                           <span style={{ 
                             fontSize: '9px', 
                             color: '#666',
@@ -459,7 +459,6 @@ function CustomNode({ data, id, selected }) {
     }
   };
 
-    // WHITEBOARD MODE - Simplified view
     // WHITEBOARD MODE - Simplified view with port labels
   if (data.isWhiteboardMode) {
     const ports = data.ports || [];
@@ -682,12 +681,22 @@ function CustomNode({ data, id, selected }) {
               <Handle 
                 type="target" 
                 position={Position.Left} 
-                style={{ background: '#555', width: 12, height: 12 }}
+                style={{ 
+                  background: '#27ae60', 
+                  width: 10, 
+                  height: 10,
+                  border: '2px solid #1a1a2e'
+                }}
               />
               <Handle 
                 type="source" 
                 position={Position.Right} 
-                style={{ background: '#555', width: 12, height: 12 }}
+                style={{ 
+                  background: '#e67e22', 
+                  width: 10, 
+                  height: 10,
+                  border: '2px solid #1a1a2e'
+                }}
               />
             </>
           );
@@ -704,38 +713,40 @@ function CustomNode({ data, id, selected }) {
           <>
             {/* Input ports on left */}
             {inputPorts.map((port, index) => (
-              <Handle
-                key={port.id}
-                type="target"
-                position={Position.Left}
-                id={port.id}
-                style={{
-                  background: '#27ae60',
-                  width: 10,
-                  height: 10,
-                  top: getHandlePosition(index, inputPorts.length),
-                  border: '2px solid #1a1a2e'
-                }}
-                title={port.name}
-              />
+              <React.Fragment key={port.id}>
+                <Handle
+                  type="target"
+                  position={Position.Left}
+                  id={port.id}
+                  style={{
+                    background: '#27ae60',
+                    width: 10,
+                    height: 10,
+                    top: getHandlePosition(index, inputPorts.length),
+                    border: '2px solid #1a1a2e'
+                  }}
+                  title={`${port.name}${port.width ? ` [${port.width-1}:0]` : ''} (${port.type || 'signal'})`}
+                />
+              </React.Fragment>
             ))}
             
             {/* Output ports on right */}
             {outputPorts.map((port, index) => (
-              <Handle
-                key={port.id}
-                type="source"
-                position={Position.Right}
-                id={port.id}
-                style={{
-                  background: '#e67e22',
-                  width: 10,
-                  height: 10,
-                  top: getHandlePosition(index, outputPorts.length),
-                  border: '2px solid #1a1a2e'
-                }}
-                title={port.name}
-              />
+              <React.Fragment key={port.id}>
+                <Handle
+                  type="source"
+                  position={Position.Right}
+                  id={port.id}
+                  style={{
+                    background: '#e67e22',
+                    width: 10,
+                    height: 10,
+                    top: getHandlePosition(index, outputPorts.length),
+                    border: '2px solid #1a1a2e'
+                  }}
+                  title={`${port.name}${port.width ? ` [${port.width-1}:0]` : ''} (${port.type || 'signal'})`}
+                />
+              </React.Fragment>
             ))}
           </>
         );
@@ -798,6 +809,24 @@ function CustomNode({ data, id, selected }) {
           {data.priority === 'low' && '🟢'}
         </div>
       </div>
+
+      {/* Port count indicator */}
+      {data.ports && data.ports.length > 0 && (
+        <span style={{
+          background: '#9b59b6',
+          padding: '2px 6px',
+          borderRadius: '4px',
+          fontSize: '9px',
+          fontWeight: 'bold',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '3px',
+          width: 'fit-content',
+          alignSelf: 'flex-start'
+        }}>
+          🔌 {data.ports.filter(p => p.direction === 'input').length}/{data.ports.filter(p => p.direction === 'output').length}
+        </span>
+      )}
       
  {isEditing ? (
         <input
@@ -2807,7 +2836,7 @@ function TopHeader({
   filters,
   onFilterChange,
   isWhiteboardMode,
-  onWhiteboardToggle,
+  onViewpointToggle,
   whiteboards,
   activeWhiteboardId,
   showWhiteboardDropdown,
@@ -2940,6 +2969,27 @@ function TopHeader({
         onNewWhiteboard={onNewWhiteboard}
         onDelete={onDeleteWhiteboard}
       />
+
+      {/* Viewpoint Toggle */}
+      <button
+        onClick={onViewpointToggle}
+        style={{
+          padding: '6px 10px',
+          background: isWhiteboardMode ? '#ecf0f1' : '#2c3e50',
+          color: isWhiteboardMode ? '#2c3e50' : '#ecf0f1',
+          border: '1px solid #4a5f7f',
+          borderRadius: '6px',
+          cursor: 'pointer',
+          fontSize: '11px',
+          fontWeight: 'bold',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}
+        title="Toggle viewpoint"
+      >
+        {isWhiteboardMode ? '📋 PLM' : '🎨 Simple'}
+      </button>
 
       {/* Filters Dropdown */}
       {filtersOpen && (
@@ -3378,7 +3428,7 @@ export default function App() {
   const [showRelationshipLabels, setShowRelationshipLabels] = useState(true);
   const [isWhiteboardMode, setIsWhiteboardMode] = useState(false);
   const [whiteboards, setWhiteboards] = useState([
-    { id: 'plm', name: 'PLM View', type: 'plm' }
+    { id: 'plm', name: 'Project', type: 'plm' }
   ]);
   const [activeWhiteboardId, setActiveWhiteboardId] = useState('plm');
   const [whiteboardNodes, setWhiteboardNodes] = useState({});  // { wb1: [...nodes], wb2: [...nodes] }
@@ -3544,13 +3594,33 @@ export default function App() {
     const sourcePort = sourceNode?.data?.ports?.find(p => p.id === params.sourceHandle);
     const targetPort = targetNode?.data?.ports?.find(p => p.id === params.targetHandle);
     
-    // Auto-generate signal name from ports
-    const signalName = sourcePort?.name || targetPort?.name || '';
+    // Smart signal name generation
+    let signalName = '';
+    if (sourcePort && targetPort) {
+      // Both ports exist
+      const sourceName = sourcePort.name.replace(/\[\d+:\d+\]/, '').trim();
+      const targetName = targetPort.name.replace(/\[\d+:\d+\]/, '').trim();
+      
+      if (sourceName.toLowerCase() === targetName.toLowerCase()) {
+        // Same name - just use it
+        signalName = sourceName;
+      } else {
+        // Different names - show connection
+        signalName = `${sourceName} → ${targetName}`;
+      }
+    } else if (sourcePort) {
+      signalName = sourcePort.name.replace(/\[\d+:\d+\]/, '').trim();
+    } else if (targetPort) {
+      signalName = targetPort.name.replace(/\[\d+:\d+\]/, '').trim();
+    }
+    
+    // Use larger bus width if different
+    const busWidth = Math.max(sourcePort?.width || 0, targetPort?.width || 0) || null;
     
     const newEdge = {
       ...params,
-      sourceHandle: params.sourceHandle || null,  // Ensure at root level
-      targetHandle: params.targetHandle || null,  // Ensure at root level
+      sourceHandle: params.sourceHandle || null,
+      targetHandle: params.targetHandle || null,
       type: 'custom',
       data: { 
         relationType, 
@@ -3562,7 +3632,7 @@ export default function App() {
         targetPortName: targetPort?.name || null,
         signalName: signalName,
         signalType: sourcePort?.type || targetPort?.type || null,
-        busWidth: sourcePort?.width || targetPort?.width || null,
+        busWidth: busWidth,
       },
     };
     
@@ -4315,8 +4385,11 @@ const createNewObject = (name, version, description) => {
       type: 'whiteboard'
     };
     
-    // Save current whiteboard data if not PLM
-    if (activeWhiteboardId !== 'plm') {
+    // IMPORTANT: Save current PLM data before switching
+    if (activeWhiteboardId === 'plm') {
+      setWhiteboardNodes(prev => ({ ...prev, 'plm': nodes }));
+      setWhiteboardEdges(prev => ({ ...prev, 'plm': edges }));
+    } else {
       setWhiteboardNodes(prev => ({ ...prev, [activeWhiteboardId]: nodes }));
       setWhiteboardEdges(prev => ({ ...prev, [activeWhiteboardId]: edges }));
     }
@@ -4327,7 +4400,7 @@ const createNewObject = (name, version, description) => {
     setWhiteboardEdges(prev => ({ ...prev, [newId]: [] }));
     
     // Switch to the new whiteboard immediately
-    setNodes([]);  // Empty canvas for new whiteboard
+    setNodes([]);
     setEdges([]);
     setIsWhiteboardMode(true);
     setActiveWhiteboardId(newId);
@@ -4337,28 +4410,40 @@ const createNewObject = (name, version, description) => {
   }, [whiteboards.length, activeWhiteboardId, nodes, edges, setNodes, setEdges]);
 
   const switchWhiteboard = useCallback((whiteboardId) => {
-    // Save current whiteboard data if it's not PLM
-    if (activeWhiteboardId !== 'plm') {
+    // Save current view's data before switching
+    if (activeWhiteboardId === 'plm') {
+      // Save PLM data to a special key
+      setWhiteboardNodes(prev => ({ ...prev, 'plm': nodes }));
+      setWhiteboardEdges(prev => ({ ...prev, 'plm': edges }));
+    } else {
+      // Save current whiteboard data
       setWhiteboardNodes(prev => ({ ...prev, [activeWhiteboardId]: nodes }));
       setWhiteboardEdges(prev => ({ ...prev, [activeWhiteboardId]: edges }));
     }
     
-    // Load new whiteboard data
-    if (whiteboardId === 'plm') {
-      // PLM uses the main nodes/edges (already in state)
-      setIsWhiteboardMode(false);
-    } else {
-      const wbNodes = whiteboardNodes[whiteboardId] || [];
-      const wbEdges = whiteboardEdges[whiteboardId] || [];
-      setNodes(wbNodes);
-      setEdges(wbEdges);
-      setIsWhiteboardMode(true);
-    }
-    
-    setActiveWhiteboardId(whiteboardId);
-    setShowWhiteboardDropdown(false);
-    setSelectedNode(null);
-    setSelectedEdge(null);
+    // Small delay to ensure state is saved before loading new view
+    setTimeout(() => {
+      if (whiteboardId === 'plm') {
+        // Load PLM data
+        const plmNodes = whiteboardNodes['plm'] || nodes;
+        const plmEdges = whiteboardEdges['plm'] || edges;
+        setNodes(plmNodes);
+        setEdges(plmEdges);
+        setIsWhiteboardMode(false);
+      } else {
+        // Load whiteboard data
+        const wbNodes = whiteboardNodes[whiteboardId] || [];
+        const wbEdges = whiteboardEdges[whiteboardId] || [];
+        setNodes(wbNodes);
+        setEdges(wbEdges);
+        setIsWhiteboardMode(true);
+      }
+      
+      setActiveWhiteboardId(whiteboardId);
+      setShowWhiteboardDropdown(false);
+      setSelectedNode(null);
+      setSelectedEdge(null);
+    }, 50);
   }, [activeWhiteboardId, nodes, edges, whiteboardNodes, whiteboardEdges, setNodes, setEdges]);
 
 
@@ -4595,6 +4680,7 @@ const createNewObject = (name, version, description) => {
           if (filterType === 'priority') setPriorityFilter(value);
           if (filterType === 'classification') setClassificationFilter(value);
         }}
+        onViewpointToggle={() => setIsWhiteboardMode(!isWhiteboardMode)}
         isWhiteboardMode={isWhiteboardMode}
         onWhiteboardToggle={() => setIsWhiteboardMode(!isWhiteboardMode)}
         whiteboards={whiteboards}
