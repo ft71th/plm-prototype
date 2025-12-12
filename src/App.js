@@ -3679,7 +3679,7 @@ export default function App() {
     setSelectedEdge(null);
   }, []);
 
-  const updateNodeData = (nodeId, field, value) => {
+  const updateNodeData = useCallback((nodeId, field, value) => {
     setNodes((nds) =>
       nds.map((node) => {
         if (node.id === nodeId) {
@@ -3688,10 +3688,13 @@ export default function App() {
         return node;
       })
     );
-    if (selectedNode && selectedNode.id === nodeId) {
-      setSelectedNode({ ...selectedNode, data: { ...selectedNode.data, [field]: value } });
-    }
-  };
+    setSelectedNode((current) => {
+      if (current && current.id === nodeId) {
+        return { ...current, data: { ...current.data, [field]: value } };
+      }
+      return current;
+    });
+  }, [setNodes]);
 
   const updateEdgeData = (edgeId, field, value) => {
     setEdges((eds) =>
@@ -4714,13 +4717,22 @@ const createNewObject = (name, version, description) => {
         <SidebarSection title="📁 Project">
           <SidebarButton icon="💾" label="Save Project" onClick={() => { exportProject(); setSidebarOpen(false); }} />
           <label style={{ display: 'block' }}>
-            <SidebarButton icon="📂" label="Load Project" onClick={() => {}} />
-            <input 
-              type="file" 
-              accept=".json" 
-              onChange={(e) => { importProject(e); setSidebarOpen(false); }} 
-              style={{ display: 'none' }} 
-            />
+            <SidebarButton 
+            icon="📂" 
+            label="Load Project" 
+            onClick={() => document.getElementById('load-project-input').click()} 
+          />
+          <input 
+            id="load-project-input"
+            type="file" 
+            accept=".json" 
+            onChange={(e) => { 
+              importProject(e); 
+              setSidebarOpen(false);
+              e.target.value = '';  // Reset so same file can be loaded again
+            }} 
+            style={{ display: 'none' }} 
+          />
           </label>
           <SidebarButton icon="📊" label="Export to Excel" onClick={() => { exportToExcel(); setSidebarOpen(false); }} />
           <SidebarButton icon="🆕" label="New Object" onClick={() => { setShowNewObjectModal(true); setSidebarOpen(false); }} />
