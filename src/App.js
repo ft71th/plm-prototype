@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, useMemo } from 'react';
+import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import ReactFlow, {
   MiniMap,
   Controls,
@@ -149,6 +149,7 @@ function inferRelationshipType(sourceNode, targetNode) {
   return 'related';
 }
 // Custom Edge Component with label and click handling
+// Custom Edge Component with inline editing
 function CustomEdge({
   id,
   sourceX,
@@ -160,6 +161,10 @@ function CustomEdge({
   data,
   selected,
 }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [labelText, setLabelText] = useState(data?.customLabel || '');
+  const clickTimeout = useRef(null);
+
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
     sourceY,
@@ -175,6 +180,56 @@ function CustomEdge({
     if (relType.style === 'dashed') return '8 4';
     if (relType.style === 'dotted') return '2 2';
     return '0';
+  };
+
+  // Update local state when data changes
+  useEffect(() => {
+    setLabelText(data?.customLabel || '');
+  }, [data?.customLabel]);
+
+  const handleSave = () => {
+    if (data?.onLabelChange) {
+      data.onLabelChange(id, labelText);
+    }
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleSave();
+    }
+    if (e.key === 'Escape') {
+      setLabelText(data?.customLabel || '');
+      setIsEditing(false);
+    }
+  };
+
+  const handleClick = (e) => {
+    e.stopPropagation();
+    
+    // Clear any existing timeout
+    if (clickTimeout.current) {
+      clearTimeout(clickTimeout.current);
+      clickTimeout.current = null;
+      // Double click detected - open panel
+      if (data?.onEdgeDoubleClick) {
+        data.onEdgeDoubleClick(id, e);
+      }
+    } else {
+      // Single click - wait to see if it's a double click
+      clickTimeout.current = setTimeout(() => {
+        clickTimeout.current = null;
+        // Single click confirmed - start editing (only in whiteboard mode)
+        if (data?.isWhiteboardMode) {
+          setIsEditing(true);
+        } else {
+          // In PLM mode, single click opens panel
+          if (data?.onEdgeDoubleClick) {
+            data.onEdgeDoubleClick(id, e);
+          }
+        }
+      }, 250);
+    }
   };
 
   return (
@@ -198,28 +253,61 @@ function CustomEdge({
             style={{
               position: 'absolute',
               transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-              background: '#2c3e50',
-              padding: '4px 8px',
+              background: data?.isWhiteboardMode ? '#fff' : '#2c3e50',
+              padding: data?.isWhiteboardMode ? '4px 10px' : '4px 8px',
               borderRadius: '4px',
-              fontSize: '10px',
+              fontSize: data?.isWhiteboardMode ? '12px' : '10px',
               fontWeight: 'bold',
-              color: relType.color,
-              border: `1px solid ${relType.color}`,
+              color: data?.isWhiteboardMode ? '#333' : relType.color,
+              border: data?.isWhiteboardMode 
+                ? (isEditing ? '2px solid #3498db' : '1px solid #999')
+                : `1px solid ${relType.color}`,
               pointerEvents: 'all',
               cursor: 'pointer',
-              boxShadow: selected ? `0 0 8px ${relType.color}` : '0 2px 4px rgba(0,0,0,0.3)',
+              boxShadow: selected ? `0 0 8px ${relType.color}` : '0 2px 4px rgba(0,0,0,0.2)',
               display: 'flex',
               alignItems: 'center',
-              gap: '4px'
+              gap: '4px',
+              minWidth: data?.isWhiteboardMode ? '80px' : 'auto'
             }}
             className="nodrag nopan"
-            >
-              {relType.label}
-              {data?.notes && (
-                <span style={{ fontSize: '8px' }}>📝</span>
-              )}
-            </div>
-        )}  
+            onClick={handleClick}
+          >
+            {isEditing && data?.isWhiteboardMode ? (
+              <input
+                autoFocus
+                type="text"
+                value={labelText}
+                onChange={(e) => setLabelText(e.target.value)}
+                onBlur={handleSave}
+                onKeyDown={handleKeyDown}
+                onClick={(e) => e.stopPropagation()}
+                placeholder="Enter label..."
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  outline: 'none',
+                  color: '#333',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  width: '100%',
+                  minWidth: '60px',
+                  textAlign: 'center'
+                }}
+              />
+            ) : (
+              <>
+                {data?.isWhiteboardMode 
+                  ? (data?.customLabel || '+ Add label')
+                  : relType.label
+                }
+                {!data?.isWhiteboardMode && data?.notes && (
+                  <span style={{ fontSize: '8px' }}>📝</span>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </EdgeLabelRenderer>
     </>
   );
@@ -773,6 +861,38 @@ function RelationshipPanel({ edge, onClose, onUpdate, position }) {
           textTransform: 'uppercase',
           fontWeight: 'bold'
         }}>
+
+        {/* Custom Label - for Whiteboard mode */}
+      <div style={{ marginBottom: '15px' }}>
+        <label style={{
+          display: 'block',
+          fontSize: '11px',
+          color: '#3498db',
+          marginBottom: '6px',
+          textTransform: 'uppercase',
+          fontWeight: 'bold'
+        }}>
+          🏷️ Custom Label (Whiteboard)
+        </label>
+        <input
+          type="text"
+          value={edge.data?.customLabel || ''}
+          onChange={(e) => onUpdate(edge.id, 'customLabel', e.target.value)}
+          placeholder="e.g., clock signal, data bus..."
+          style={{
+            width: '100%',
+            padding: '8px',
+            background: '#34495e',
+            color: 'white',
+            border: '1px solid #3498db',
+            borderRadius: '4px',
+            fontSize: '13px'
+          }}
+        />
+        <div style={{ fontSize: '9px', color: '#7f8c8d', marginTop: '4px' }}>
+          Shown instead of relationship type in Whiteboard mode
+        </div>
+      </div>  
           📝 Notes / Rationale
         </label>
         <textarea
@@ -2620,7 +2740,11 @@ export default function App() {
     const newEdge = {
       ...params,
       type: 'custom',
-      data: { relationType, notes: '' },
+      data: { 
+        relationType, 
+        notes: '',
+        customLabel: ''  // NEW: For whiteboard mode
+      },
     };
     
     setEdges((eds) => addEdge(newEdge, eds));
@@ -3548,11 +3672,19 @@ const createNewObject = (name, version, description) => {
       <TopHeader
         objectName={objectName}
         objectVersion={objectVersion}
-        onMenuClick={() => setSidebarOpen(true)}
+        onMenuClick={() => {
+          setSidebarOpen(true);
+          setSelectedNode(null);
+          setSelectedEdge(null);
+        }}
         searchText={searchText}
         onSearchChange={setSearchText}
         filtersOpen={filtersOpen}
-        onFiltersToggle={() => setFiltersOpen(!filtersOpen)}
+        onFiltersToggle={() => {
+          setFiltersOpen(!filtersOpen);
+          setSelectedNode(null);
+          setSelectedEdge(null);
+        }}
         filters={{
           type: reqTypeFilter,
           state: stateFilter,
@@ -3691,7 +3823,25 @@ const createNewObject = (name, version, description) => {
         nodes={processedNodes}
         edges={edges.map(e => ({
           ...e,
-          data: { ...e.data, showLabel: showRelationshipLabels }
+          data: { 
+            ...e.data, 
+            showLabel: showRelationshipLabels,
+            isWhiteboardMode: isWhiteboardMode,
+            onLabelChange: (edgeId, newLabel) => {
+              setEdges(eds => eds.map(edge => 
+                edge.id === edgeId 
+                  ? { ...edge, data: { ...edge.data, customLabel: newLabel } }
+                  : edge
+              ));
+            },
+            onEdgeDoubleClick: (edgeId, event) => {
+              const edge = edges.find(ed => ed.id === edgeId);
+              if (edge) {
+                setSelectedEdge(edge);
+                setEdgePanelPosition({ x: event.clientX, y: event.clientY });
+              }
+            }
+          }
         }))}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
@@ -3699,6 +3849,12 @@ const createNewObject = (name, version, description) => {
         onNodeClick={handleNodeClick}
         onNodeDoubleClick={handleNodeDoubleClick}
         onEdgeClick={handleEdgeClick}
+        onPaneClick={() => {
+          setSelectedNode(null);
+          setSelectedEdge(null);
+          setFiltersOpen(false);
+        }}
+        deleteKeyCode={['Backspace', 'Delete']}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
