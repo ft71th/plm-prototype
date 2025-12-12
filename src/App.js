@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import ReactFlow, {
   MiniMap,
   Controls,
@@ -298,7 +298,20 @@ function CustomEdge({
             ) : (
               <>
                 {data?.isWhiteboardMode 
-                  ? (data?.customLabel || '+ Add label')
+                  ? (
+                      <>
+                        {data?.customLabel || '+ Add label'}
+                        {data?.busWidth && (
+                          <span style={{ 
+                            fontSize: '9px', 
+                            color: '#666',
+                            marginLeft: '4px'
+                          }}>
+                            [{data.busWidth - 1}:0]
+                          </span>
+                        )}
+                      </>
+                    )
                   : relType.label
                 }
                 {!data?.isWhiteboardMode && data?.notes && (
@@ -447,14 +460,46 @@ function CustomNode({ data, id, selected }) {
   };
 
     // WHITEBOARD MODE - Simplified view
+    // WHITEBOARD MODE - Simplified view with port labels
   if (data.isWhiteboardMode) {
+    const ports = data.ports || [];
+    const inputPorts = ports.filter(p => p.direction === 'input');
+    const outputPorts = ports.filter(p => p.direction === 'output');
+    
+    const getHandlePosition = (index, total) => {
+      if (total === 1) return '50%';
+      const spacing = 100 / (total + 1);
+      return `${spacing * (index + 1)}%`;
+    };
+
+    // Calculate dimensions based on content
+    const maxPorts = Math.max(inputPorts.length, outputPorts.length, 1);
+    const nodeHeight = Math.max(80, maxPorts * 32 + 40);
+    
+    // Calculate width based on longest port names + label
+    const getTextWidth = (text) => text ? text.length * 7 : 0;
+    const longestInput = inputPorts.reduce((max, p) => {
+      const name = p.name + (p.width ? `[${p.width-1}:0]` : '');
+      return Math.max(max, getTextWidth(name));
+    }, 0);
+    const longestOutput = outputPorts.reduce((max, p) => {
+      const name = p.name + (p.width ? `[${p.width-1}:0]` : '');
+      return Math.max(max, getTextWidth(name));
+    }, 0);
+    const labelWidth = getTextWidth(data.label);
+    
+    // Total width = left ports + padding + label + padding + right ports
+    const nodeWidth = Math.max(
+      140,  // Minimum width
+      longestInput + labelWidth + longestOutput + 60  // ports + label + spacing
+    );
+
     return (
       <div style={{
-        padding: '20px',
+        width: `${nodeWidth}px`,
+        minHeight: `${nodeHeight}px`,
         backgroundColor: getSystemAccentColor(),
         border: '2px solid #333',
-        minWidth: '120px',
-        minHeight: '60px',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
@@ -465,52 +510,144 @@ function CustomNode({ data, id, selected }) {
         position: 'relative',
         ...getNodeShape()
       }}>
-        <Handle 
-          type="target" 
-          position={Position.Left} 
-          style={{ background: '#333', width: 10, height: 10 }}
-        />
-        <Handle 
-          type="source" 
-          position={Position.Right} 
-          style={{ background: '#333', width: 10, height: 10 }}
-        />
         
-        {isEditing ? (
-          <input
-            autoFocus
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-            style={{
-              width: '100%',
-              fontSize: '14px',
-              fontWeight: 'bold',
-              background: 'rgba(255,255,255,0.9)',
-              color: '#333',
-              border: 'none',
-              borderRadius: '4px',
-              padding: '6px 8px',
-              outline: 'none',
-              textAlign: 'center'
-            }}
-          />
+        {/* Handles and Labels */}
+        {ports.length === 0 ? (
+          <>
+            <Handle 
+              type="target" 
+              position={Position.Left} 
+              style={{ background: '#333', width: 10, height: 10 }}
+            />
+            <Handle 
+              type="source" 
+              position={Position.Right} 
+              style={{ background: '#333', width: 10, height: 10 }}
+            />
+          </>
         ) : (
-          <div 
-            onDoubleClick={handleDoubleClick}
-            style={{
-              fontSize: '14px',
-              fontWeight: 'bold',
-              color: '#fff',
-              textShadow: '1px 1px 2px rgba(0,0,0,0.3)',
-              cursor: 'text',
-              textAlign: 'center'
-            }}
-          >
-            {data.label}
-          </div>
+          <>
+            {/* Input ports - left side */}
+            {inputPorts.map((port, index) => {
+              const topPos = getHandlePosition(index, inputPorts.length);
+              const portLabel = port.name + (port.width ? `[${port.width-1}:0]` : '');
+              return (
+                <React.Fragment key={port.id}>
+                  <Handle
+                    type="target"
+                    position={Position.Left}
+                    id={port.id}
+                    style={{
+                      background: '#27ae60',
+                      width: 10,
+                      height: 10,
+                      top: topPos,
+                      border: '2px solid #fff'
+                    }}
+                  />
+                  <div style={{
+                    position: 'absolute',
+                    left: '16px',
+                    top: topPos,
+                    transform: 'translateY(-50%)',
+                    fontSize: '10px',
+                    color: '#fff',
+                    textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                    whiteSpace: 'nowrap',
+                    fontWeight: '500',
+                    pointerEvents: 'none'
+                  }}>
+                    {portLabel}
+                  </div>
+                </React.Fragment>
+              );
+            })}
+            
+            {/* Output ports - right side */}
+            {outputPorts.map((port, index) => {
+              const topPos = getHandlePosition(index, outputPorts.length);
+              const portLabel = port.name + (port.width ? `[${port.width-1}:0]` : '');
+              return (
+                <React.Fragment key={port.id}>
+                  <Handle
+                    type="source"
+                    position={Position.Right}
+                    id={port.id}
+                    style={{
+                      background: '#e67e22',
+                      width: 10,
+                      height: 10,
+                      top: topPos,
+                      border: '2px solid #fff'
+                    }}
+                  />
+                  <div style={{
+                    position: 'absolute',
+                    right: '16px',
+                    top: topPos,
+                    transform: 'translateY(-50%)',
+                    fontSize: '10px',
+                    color: '#fff',
+                    textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                    whiteSpace: 'nowrap',
+                    textAlign: 'right',
+                    fontWeight: '500',
+                    pointerEvents: 'none'
+                  }}>
+                    {portLabel}
+                  </div>
+                </React.Fragment>
+              );
+            })}
+          </>
         )}
+
+        {/* Center content - Node name */}
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          textAlign: 'center',
+          maxWidth: `${nodeWidth - longestInput - longestOutput - 40}px`,
+          padding: '0 10px'
+        }}>
+          {isEditing ? (
+            <input
+              autoFocus
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              onBlur={handleBlur}
+              onKeyDown={handleKeyDown}
+              style={{
+                width: '100%',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                background: 'rgba(255,255,255,0.9)',
+                color: '#333',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '6px 8px',
+                outline: 'none',
+                textAlign: 'center'
+              }}
+            />
+          ) : (
+            <div 
+              onDoubleClick={handleDoubleClick}
+              style={{
+                fontSize: '14px',
+                fontWeight: 'bold',
+                color: '#fff',
+                textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
+                cursor: 'text',
+                wordBreak: 'break-word'
+              }}
+            >
+              {data.label}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -532,16 +669,77 @@ function CustomNode({ data, id, selected }) {
       ...getNodeShape()
     }}>
       
-      <Handle 
-        type="target" 
-        position={Position.Left} 
-        style={{ background: '#555', width: 12, height: 12 }}
-      />
-      <Handle 
-        type="source" 
-        position={Position.Right} 
-        style={{ background: '#555', width: 12, height: 12 }}
-      />
+      {/* Dynamic Port Handles */}
+      {(() => {
+        const ports = data.ports || [];
+        const inputPorts = ports.filter(p => p.direction === 'input');
+        const outputPorts = ports.filter(p => p.direction === 'output');
+        
+        // If no ports defined, show default handles
+        if (ports.length === 0) {
+          return (
+            <>
+              <Handle 
+                type="target" 
+                position={Position.Left} 
+                style={{ background: '#555', width: 12, height: 12 }}
+              />
+              <Handle 
+                type="source" 
+                position={Position.Right} 
+                style={{ background: '#555', width: 12, height: 12 }}
+              />
+            </>
+          );
+        }
+        
+        // Calculate positions for multiple handles
+        const getHandlePosition = (index, total) => {
+          if (total === 1) return '50%';
+          const spacing = 100 / (total + 1);
+          return `${spacing * (index + 1)}%`;
+        };
+        
+        return (
+          <>
+            {/* Input ports on left */}
+            {inputPorts.map((port, index) => (
+              <Handle
+                key={port.id}
+                type="target"
+                position={Position.Left}
+                id={port.id}
+                style={{
+                  background: '#27ae60',
+                  width: 10,
+                  height: 10,
+                  top: getHandlePosition(index, inputPorts.length),
+                  border: '2px solid #1a1a2e'
+                }}
+                title={port.name}
+              />
+            ))}
+            
+            {/* Output ports on right */}
+            {outputPorts.map((port, index) => (
+              <Handle
+                key={port.id}
+                type="source"
+                position={Position.Right}
+                id={port.id}
+                style={{
+                  background: '#e67e22',
+                  width: 10,
+                  height: 10,
+                  top: getHandlePosition(index, outputPorts.length),
+                  border: '2px solid #1a1a2e'
+                }}
+                title={port.name}
+              />
+            ))}
+          </>
+        );
+      })()}
       
       <div style={{
         display: 'flex',
@@ -892,7 +1090,60 @@ function RelationshipPanel({ edge, onClose, onUpdate, position }) {
         <div style={{ fontSize: '9px', color: '#7f8c8d', marginTop: '4px' }}>
           Shown instead of relationship type in Whiteboard mode
         </div>
-      </div>  
+      </div>
+
+      {/* Signal Info - shown when ports are connected */}
+      {(edge.data?.signalType || edge.data?.busWidth) && (
+        <div style={{ 
+          marginBottom: '15px',
+          padding: '10px',
+          background: '#1a2634',
+          borderRadius: '6px'
+        }}>
+          <label style={{
+            display: 'block',
+            fontSize: '11px',
+            color: '#9b59b6',
+            marginBottom: '8px',
+            textTransform: 'uppercase',
+            fontWeight: 'bold'
+          }}>
+            📡 Signal Info
+          </label>
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: '1fr 1fr', 
+            gap: '8px',
+            fontSize: '12px'
+          }}>
+            {edge.data?.signalType && (
+              <div>
+                <span style={{ color: '#7f8c8d' }}>Type: </span>
+                <span style={{ color: '#3498db', fontWeight: 'bold' }}>
+                  {edge.data.signalType}
+                </span>
+              </div>
+            )}
+            {edge.data?.busWidth && (
+              <div>
+                <span style={{ color: '#7f8c8d' }}>Width: </span>
+                <span style={{ color: '#e67e22', fontWeight: 'bold' }}>
+                  {edge.data.busWidth}-bit
+                </span>
+              </div>
+            )}
+          </div>
+          {edge.data?.sourcePort && (
+            <div style={{ marginTop: '6px', fontSize: '10px', color: '#7f8c8d' }}>
+              From port: <span style={{ color: '#27ae60' }}>{edge.data.sourcePort}</span>
+              {edge.data?.targetPort && (
+                <> → To port: <span style={{ color: '#e67e22' }}>{edge.data.targetPort}</span></>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
           📝 Notes / Rationale
         </label>
         <textarea
@@ -914,6 +1165,339 @@ function RelationshipPanel({ edge, onClose, onUpdate, position }) {
             resize: 'vertical'
           }}
         />
+      </div>
+    </div>
+  );
+}
+
+// Port Editor Component for managing interfaces
+function PortEditor({ ports = [], onChange, disabled }) {
+  const [newPortName, setNewPortName] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+
+  const addPort = (direction) => {
+    if (!newPortName.trim()) return;
+    
+    // Auto-infer type from name
+    const inferType = (name) => {
+      const n = name.toLowerCase();
+      if (n.includes('clk') || n.includes('clock')) return 'clock';
+      if (n.includes('rst') || n.includes('reset')) return 'reset';
+      if (n.includes('en') || n.includes('enable')) return 'control';
+      if (n.match(/\[\d+:\d+\]/) || n.includes('bus') || n.includes('data')) return 'bus';
+      return 'signal';
+    };
+
+    // Extract bus width from name like "data[7:0]"
+    const extractWidth = (name) => {
+      const match = name.match(/\[(\d+):(\d+)\]/);
+      if (match) {
+        return Math.abs(parseInt(match[1]) - parseInt(match[2])) + 1;
+      }
+      return null;
+    };
+
+    // Clean name (remove bus notation for display)
+    const cleanName = newPortName.replace(/\[\d+:\d+\]/, '').trim();
+    
+    const newPort = {
+      id: `port-${Date.now()}`,
+      name: cleanName || newPortName,
+      direction: direction,
+      type: inferType(newPortName),
+      width: extractWidth(newPortName),
+    };
+    
+    onChange([...ports, newPort]);
+    setNewPortName('');
+    setIsAdding(false);
+  };
+
+  const removePort = (portId) => {
+    onChange(ports.filter(p => p.id !== portId));
+  };
+
+  const updatePort = (portId, field, value) => {
+    onChange(ports.map(p => 
+      p.id === portId ? { ...p, [field]: value } : p
+    ));
+  };
+
+  const inputPorts = ports.filter(p => p.direction === 'input');
+  const outputPorts = ports.filter(p => p.direction === 'output');
+
+  return (
+    <div style={{ marginBottom: '15px' }}>
+      <label style={{
+        display: 'block',
+        marginBottom: '8px',
+        fontSize: '11px',
+        color: '#3498db',
+        textTransform: 'uppercase',
+        fontWeight: 'bold'
+      }}>
+        🔌 Interfaces / Ports
+      </label>
+
+      {/* Input Ports */}
+      <div style={{ marginBottom: '10px' }}>
+        <div style={{ 
+          fontSize: '10px', 
+          color: '#27ae60', 
+          fontWeight: 'bold',
+          marginBottom: '4px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}>
+          ○ INPUTS ({inputPorts.length})
+        </div>
+        {inputPorts.map(port => (
+          <div key={port.id} style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '4px 8px',
+            background: '#1a3a1a',
+            borderRadius: '4px',
+            marginBottom: '4px',
+            fontSize: '12px'
+          }}>
+            <span style={{ color: '#27ae60' }}>○</span>
+            <input
+              type="text"
+              value={port.name}
+              onChange={(e) => updatePort(port.id, 'name', e.target.value)}
+              disabled={disabled}
+              style={{
+                flex: 1,
+                background: 'transparent',
+                border: 'none',
+                color: 'white',
+                fontSize: '12px',
+                outline: 'none'
+              }}
+            />
+            {port.width && (
+              <span style={{ color: '#7f8c8d', fontSize: '10px' }}>
+                [{port.width - 1}:0]
+              </span>
+            )}
+            <span style={{ 
+              color: '#7f8c8d', 
+              fontSize: '9px',
+              background: '#2c3e50',
+              padding: '2px 6px',
+              borderRadius: '3px'
+            }}>
+              {port.type}
+            </span>
+            {!disabled && (
+              <button
+                onClick={() => removePort(port.id)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#e74c3c',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  padding: '0 4px'
+                }}
+              >
+                ×
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Output Ports */}
+      <div style={{ marginBottom: '10px' }}>
+        <div style={{ 
+          fontSize: '10px', 
+          color: '#e67e22', 
+          fontWeight: 'bold',
+          marginBottom: '4px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}>
+          ● OUTPUTS ({outputPorts.length})
+        </div>
+        {outputPorts.map(port => (
+          <div key={port.id} style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '4px 8px',
+            background: '#3a2a1a',
+            borderRadius: '4px',
+            marginBottom: '4px',
+            fontSize: '12px'
+          }}>
+            <span style={{ color: '#e67e22' }}>●</span>
+            <input
+              type="text"
+              value={port.name}
+              onChange={(e) => updatePort(port.id, 'name', e.target.value)}
+              disabled={disabled}
+              style={{
+                flex: 1,
+                background: 'transparent',
+                border: 'none',
+                color: 'white',
+                fontSize: '12px',
+                outline: 'none'
+              }}
+            />
+            {port.width && (
+              <span style={{ color: '#7f8c8d', fontSize: '10px' }}>
+                [{port.width - 1}:0]
+              </span>
+            )}
+            <span style={{ 
+              color: '#7f8c8d', 
+              fontSize: '9px',
+              background: '#2c3e50',
+              padding: '2px 6px',
+              borderRadius: '3px'
+            }}>
+              {port.type}
+            </span>
+            {!disabled && (
+              <button
+                onClick={() => removePort(port.id)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#e74c3c',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  padding: '0 4px'
+                }}
+              >
+                ×
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Add Port UI */}
+      {!disabled && (
+        <>
+          {isAdding ? (
+            <div style={{
+              background: '#34495e',
+              padding: '10px',
+              borderRadius: '6px'
+            }}>
+              <input
+                autoFocus
+                type="text"
+                value={newPortName}
+                onChange={(e) => setNewPortName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setIsAdding(false);
+                    setNewPortName('');
+                  }
+                }}
+                placeholder="Port name (e.g., clk, data[7:0], enable)"
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  background: '#2c3e50',
+                  color: 'white',
+                  border: '1px solid #4a5f7f',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  marginBottom: '8px'
+                }}
+              />
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => addPort('input')}
+                  disabled={!newPortName.trim()}
+                  style={{
+                    flex: 1,
+                    padding: '6px',
+                    background: newPortName.trim() ? '#27ae60' : '#34495e',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: newPortName.trim() ? 'pointer' : 'not-allowed',
+                    fontSize: '11px',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  ○ Add Input
+                </button>
+                <button
+                  onClick={() => addPort('output')}
+                  disabled={!newPortName.trim()}
+                  style={{
+                    flex: 1,
+                    padding: '6px',
+                    background: newPortName.trim() ? '#e67e22' : '#34495e',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: newPortName.trim() ? 'pointer' : 'not-allowed',
+                    fontSize: '11px',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  ● Add Output
+                </button>
+              </div>
+              <button
+                onClick={() => {
+                  setIsAdding(false);
+                  setNewPortName('');
+                }}
+                style={{
+                  width: '100%',
+                  marginTop: '6px',
+                  padding: '6px',
+                  background: 'transparent',
+                  color: '#7f8c8d',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '11px'
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsAdding(true)}
+              style={{
+                width: '100%',
+                padding: '8px',
+                background: '#34495e',
+                color: '#3498db',
+                border: '1px dashed #3498db',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: 'bold'
+              }}
+            >
+              + Add Port
+            </button>
+          )}
+        </>
+      )}
+
+      {/* Help text */}
+      <div style={{ 
+        fontSize: '9px', 
+        color: '#7f8c8d', 
+        marginTop: '8px' 
+      }}>
+        💡 Tip: Use "clk", "rst", "data[7:0]" - type auto-detected!
       </div>
     </div>
   );
@@ -1283,6 +1867,17 @@ return (
             }}
           />
         </div>
+        
+        {/* Port Editor - for System Engineering items */}
+        {(node.data.itemType === 'system' || 
+          node.data.itemType === 'subsystem' || 
+          node.data.itemType === 'function') && (
+          <PortEditor
+            ports={node.data.ports || []}
+            onChange={(newPorts) => onUpdate(node.id, 'ports', newPorts)}
+            disabled={!isEditable}
+          />
+        )}
 
         <div style={{ marginBottom: '15px' }}>
           <label style={{
@@ -2945,13 +3540,29 @@ export default function App() {
     const targetNode = nodes.find(n => n.id === params.target);
     const relationType = inferRelationshipType(sourceNode, targetNode);
     
+    // Get port info if connecting to specific handles
+    const sourcePort = sourceNode?.data?.ports?.find(p => p.id === params.sourceHandle);
+    const targetPort = targetNode?.data?.ports?.find(p => p.id === params.targetHandle);
+    
+    // Auto-generate signal name from ports
+    const signalName = sourcePort?.name || targetPort?.name || '';
+    
     const newEdge = {
       ...params,
+      sourceHandle: params.sourceHandle || null,  // Ensure at root level
+      targetHandle: params.targetHandle || null,  // Ensure at root level
       type: 'custom',
       data: { 
         relationType, 
         notes: '',
-        customLabel: ''  // NEW: For whiteboard mode
+        customLabel: signalName,
+        sourcePortId: params.sourceHandle || null,
+        targetPortId: params.targetHandle || null,
+        sourcePortName: sourcePort?.name || null,
+        targetPortName: targetPort?.name || null,
+        signalName: signalName,
+        signalType: sourcePort?.type || targetPort?.type || null,
+        busWidth: sourcePort?.width || targetPort?.width || null,
       },
     };
     
@@ -3121,6 +3732,7 @@ const addPlatformNode = useCallback(() => {
         classification: 'system',
         description: '',
         rationale: '',
+        ports: [],
         priority: 'high',
         status: 'new',
         state: 'open',
@@ -3148,6 +3760,7 @@ const addPlatformNode = useCallback(() => {
         classification: 'subsystem',
         description: '',
         rationale: '',
+        ports: [],
         priority: 'medium',
         status: 'new',
         state: 'open',
@@ -3175,6 +3788,7 @@ const addPlatformNode = useCallback(() => {
         classification: 'function',
         description: '',
         rationale: '',
+        ports: [],  // NEW: Empty ports array
         priority: 'medium',
         status: 'new',
         state: 'open',
