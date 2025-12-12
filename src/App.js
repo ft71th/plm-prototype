@@ -618,6 +618,7 @@ function CustomNode({ data, id, selected }) {
               onChange={(e) => setLabel(e.target.value)}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
+              onFocus={(e) => e.target.select()}
               style={{
                 width: '100%',
                 fontSize: '14px',
@@ -835,6 +836,7 @@ function CustomNode({ data, id, selected }) {
           onChange={(e) => setLabel(e.target.value)}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
+          onFocus={(e) => e.target.select()}
           style={{
             width: '100%',
             fontSize: '14px',
@@ -1298,6 +1300,7 @@ function PortEditor({ ports = [], onChange, disabled }) {
               value={port.name}
               onChange={(e) => updatePort(port.id, 'name', e.target.value)}
               disabled={disabled}
+              onFocus={(e) => e.target.select()}
               style={{
                 flex: 1,
                 background: 'transparent',
@@ -1706,6 +1709,7 @@ return (
               value={node.data.version || '1.0'}
               onChange={(e) => onUpdate(node.id, 'version', e.target.value)}
               disabled={!isEditable}
+              onFocus={(e) => e.target.select()}
               style={{
                 flex: 1,
                 padding: '8px',
