@@ -2212,7 +2212,14 @@ function TopHeader({
   filters,
   onFilterChange,
   isWhiteboardMode,
-  onWhiteboardToggle
+  onWhiteboardToggle,
+  whiteboards,
+  activeWhiteboardId,
+  showWhiteboardDropdown,
+  onWhiteboardDropdownToggle,
+  onWhiteboardSelect,
+  onNewWhiteboard,
+  onDeleteWhiteboard
 }) {
   return (
     <div style={{
@@ -2328,25 +2335,16 @@ function TopHeader({
         🎛️ Filters {filtersOpen ? '▲' : '▼'}
       </button>
       
-      {/* Whiteboard Toggle */}
-      <button
-        onClick={onWhiteboardToggle}
-        style={{
-          padding: '8px 12px',
-          background: isWhiteboardMode ? '#ecf0f1' : '#2c3e50',
-          color: isWhiteboardMode ? '#2c3e50' : 'white',
-          border: '1px solid #4a5f7f',
-          borderRadius: '6px',
-          cursor: 'pointer',
-          fontSize: '12px',
-          fontWeight: 'bold',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px'
-        }}
-      >
-        {isWhiteboardMode ? '📋 PLM View' : '🎨 Whiteboard'}
-      </button>
+      {/* Whiteboard Selector - replaces the old toggle */}
+      <WhiteboardSelector
+        whiteboards={whiteboards}
+        activeId={activeWhiteboardId}
+        isOpen={showWhiteboardDropdown}
+        onToggle={onWhiteboardDropdownToggle}
+        onSelect={onWhiteboardSelect}
+        onNewWhiteboard={onNewWhiteboard}
+        onDelete={onDeleteWhiteboard}
+      />
 
       {/* Filters Dropdown */}
       {filtersOpen && (
@@ -2567,7 +2565,209 @@ function LeftIconStrip({
   );
 }
 
+// Whiteboard Selector Dropdown
+function WhiteboardSelector({ 
+  whiteboards, 
+  activeId, 
+  isOpen, 
+  onToggle, 
+  onSelect, 
+  onNewWhiteboard,
+  onRename,
+  onDelete 
+}) {
+  const [newBoardName, setNewBoardName] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  
+  const activeBoard = whiteboards.find(wb => wb.id === activeId);
+  
+  const handleCreate = () => {
+    if (newBoardName.trim()) {
+      onNewWhiteboard(newBoardName.trim());
+      setNewBoardName('');
+      setIsCreating(false);
+    }
+  };
 
+  return (
+    <div style={{ position: 'relative' }}>
+      {/* Dropdown Button */}
+      <button
+        onClick={onToggle}
+        style={{
+          padding: '8px 14px',
+          background: activeBoard?.type === 'whiteboard' ? '#ecf0f1' : '#2c3e50',
+          color: activeBoard?.type === 'whiteboard' ? '#2c3e50' : 'white',
+          border: '1px solid #4a5f7f',
+          borderRadius: '6px',
+          cursor: 'pointer',
+          fontSize: '12px',
+          fontWeight: 'bold',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          minWidth: '160px'
+        }}
+      >
+        <span>{activeBoard?.type === 'whiteboard' ? '🎨' : '📋'}</span>
+        <span style={{ flex: 1, textAlign: 'left' }}>{activeBoard?.name || 'Select View'}</span>
+        <span>{isOpen ? '▲' : '▼'}</span>
+      </button>
+      
+      {/* Dropdown Menu */}
+      {isOpen && (
+        <div style={{
+          position: 'absolute',
+          top: '100%',
+          left: 0,
+          marginTop: '4px',
+          background: '#1a2634',
+          border: '1px solid #34495e',
+          borderRadius: '8px',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+          minWidth: '220px',
+          zIndex: 5000,
+          overflow: 'hidden'
+        }}>
+          {/* PLM View */}
+          <div
+            onClick={() => onSelect('plm')}
+            style={{
+              padding: '10px 14px',
+              cursor: 'pointer',
+              background: activeId === 'plm' ? '#3498db' : 'transparent',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              borderBottom: '1px solid #34495e'
+            }}
+          >
+            <span>📋</span>
+            <span style={{ fontWeight: 'bold', color: 'white' }}>PLM View</span>
+            {activeId === 'plm' && <span style={{ marginLeft: 'auto' }}>✓</span>}
+          </div>
+          
+          {/* Whiteboard List */}
+          {whiteboards.filter(wb => wb.type === 'whiteboard').map(wb => (
+            <div
+              key={wb.id}
+              onClick={() => onSelect(wb.id)}
+              style={{
+                padding: '10px 14px',
+                cursor: 'pointer',
+                background: activeId === wb.id ? '#3498db' : 'transparent',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                color: 'white'
+              }}
+            >
+              <span>🎨</span>
+              <span style={{ flex: 1 }}>{wb.name}</span>
+              {activeId === wb.id && <span>✓</span>}
+              {wb.type === 'whiteboard' && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(wb.id);
+                  }}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#e74c3c',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    padding: '2px 6px'
+                  }}
+                >
+                  🗑️
+                </button>
+              )}
+            </div>
+          ))}
+          
+          {/* Separator */}
+          <div style={{ height: '1px', background: '#34495e' }} />
+          
+          {/* New Whiteboard */}
+          {isCreating ? (
+            <div style={{ padding: '10px 14px' }}>
+              <input
+                autoFocus
+                type="text"
+                value={newBoardName}
+                onChange={(e) => setNewBoardName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreate();
+                  if (e.key === 'Escape') setIsCreating(false);
+                }}
+                placeholder="Whiteboard name..."
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  background: '#2c3e50',
+                  color: 'white',
+                  border: '1px solid #3498db',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  marginBottom: '8px'
+                }}
+              />
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={handleCreate}
+                  style={{
+                    flex: 1,
+                    padding: '6px',
+                    background: '#27ae60',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  Create
+                </button>
+                <button
+                  onClick={() => setIsCreating(false)}
+                  style={{
+                    flex: 1,
+                    padding: '6px',
+                    background: '#7f8c8d',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '11px'
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div
+              onClick={() => setIsCreating(true)}
+              style={{
+                padding: '10px 14px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                color: '#27ae60'
+              }}
+            >
+              <span>➕</span>
+              <span style={{ fontWeight: 'bold' }}>New Whiteboard</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // State declarations //
 export default function App() {
@@ -2582,6 +2782,13 @@ export default function App() {
   const [voiceStatus, setVoiceStatus] = useState('');
   const [showRelationshipLabels, setShowRelationshipLabels] = useState(true);
   const [isWhiteboardMode, setIsWhiteboardMode] = useState(false);
+  const [whiteboards, setWhiteboards] = useState([
+    { id: 'plm', name: 'PLM View', type: 'plm' }
+  ]);
+  const [activeWhiteboardId, setActiveWhiteboardId] = useState('plm');
+  const [whiteboardNodes, setWhiteboardNodes] = useState({});  // { wb1: [...nodes], wb2: [...nodes] }
+  const [whiteboardEdges, setWhiteboardEdges] = useState({});  // { wb1: [...edges], wb2: [...edges] }
+  const [showWhiteboardDropdown, setShowWhiteboardDropdown] = useState(false);
   
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -2610,6 +2817,7 @@ export default function App() {
   const [tcIdCounter, setTcIdCounter] = useState(1);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+
 
 // Save current state to history
   const saveToHistory = useCallback(() => {
@@ -3485,6 +3693,82 @@ const createNewObject = (name, version, description) => {
     setHistoryIndex(-1);
   };
 
+  const createNewWhiteboard = useCallback((name) => {
+    const newId = `wb-${Date.now()}`;
+    const newWhiteboard = {
+      id: newId,
+      name: name || `Whiteboard ${whiteboards.length}`,
+      type: 'whiteboard'
+    };
+    
+    // Save current whiteboard data if not PLM
+    if (activeWhiteboardId !== 'plm') {
+      setWhiteboardNodes(prev => ({ ...prev, [activeWhiteboardId]: nodes }));
+      setWhiteboardEdges(prev => ({ ...prev, [activeWhiteboardId]: edges }));
+    }
+    
+    // Add new whiteboard to list
+    setWhiteboards(prev => [...prev, newWhiteboard]);
+    setWhiteboardNodes(prev => ({ ...prev, [newId]: [] }));
+    setWhiteboardEdges(prev => ({ ...prev, [newId]: [] }));
+    
+    // Switch to the new whiteboard immediately
+    setNodes([]);  // Empty canvas for new whiteboard
+    setEdges([]);
+    setIsWhiteboardMode(true);
+    setActiveWhiteboardId(newId);
+    setShowWhiteboardDropdown(false);
+    setSelectedNode(null);
+    setSelectedEdge(null);
+  }, [whiteboards.length, activeWhiteboardId, nodes, edges, setNodes, setEdges]);
+
+  const switchWhiteboard = useCallback((whiteboardId) => {
+    // Save current whiteboard data if it's not PLM
+    if (activeWhiteboardId !== 'plm') {
+      setWhiteboardNodes(prev => ({ ...prev, [activeWhiteboardId]: nodes }));
+      setWhiteboardEdges(prev => ({ ...prev, [activeWhiteboardId]: edges }));
+    }
+    
+    // Load new whiteboard data
+    if (whiteboardId === 'plm') {
+      // PLM uses the main nodes/edges (already in state)
+      setIsWhiteboardMode(false);
+    } else {
+      const wbNodes = whiteboardNodes[whiteboardId] || [];
+      const wbEdges = whiteboardEdges[whiteboardId] || [];
+      setNodes(wbNodes);
+      setEdges(wbEdges);
+      setIsWhiteboardMode(true);
+    }
+    
+    setActiveWhiteboardId(whiteboardId);
+    setShowWhiteboardDropdown(false);
+    setSelectedNode(null);
+    setSelectedEdge(null);
+  }, [activeWhiteboardId, nodes, edges, whiteboardNodes, whiteboardEdges, setNodes, setEdges]);
+
+
+  const deleteWhiteboard = useCallback((whiteboardId) => {
+    if (whiteboardId === 'plm') return; // Can't delete PLM view
+    
+    // If deleting active whiteboard, switch to PLM
+    if (activeWhiteboardId === whiteboardId) {
+      switchWhiteboard('plm');
+    }
+    
+    setWhiteboards(prev => prev.filter(wb => wb.id !== whiteboardId));
+    setWhiteboardNodes(prev => {
+      const newNodes = { ...prev };
+      delete newNodes[whiteboardId];
+      return newNodes;
+    });
+    setWhiteboardEdges(prev => {
+      const newEdges = { ...prev };
+      delete newEdges[whiteboardId];
+      return newEdges;
+    });
+  }, [activeWhiteboardId, switchWhiteboard]);
+
   const duplicateNode = useCallback((nodeToDuplicate) => {
     if (!nodeToDuplicate) return;
     
@@ -3699,6 +3983,13 @@ const createNewObject = (name, version, description) => {
         }}
         isWhiteboardMode={isWhiteboardMode}
         onWhiteboardToggle={() => setIsWhiteboardMode(!isWhiteboardMode)}
+        whiteboards={whiteboards}
+        activeWhiteboardId={activeWhiteboardId}
+        showWhiteboardDropdown={showWhiteboardDropdown}
+        onWhiteboardDropdownToggle={() => setShowWhiteboardDropdown(!showWhiteboardDropdown)}
+        onWhiteboardSelect={switchWhiteboard}
+        onNewWhiteboard={createNewWhiteboard}
+        onDeleteWhiteboard={deleteWhiteboard}
       />
       
       {/* Left Icon Strip */}
@@ -3853,6 +4144,7 @@ const createNewObject = (name, version, description) => {
           setSelectedNode(null);
           setSelectedEdge(null);
           setFiltersOpen(false);
+          setShowWhiteboardDropdown(false);
         }}
         deleteKeyCode={['Backspace', 'Delete']}
         nodeTypes={nodeTypes}
