@@ -896,19 +896,7 @@ function CustomNode({ data, id, selected }) {
         </>
       )}
       
-      {!isEditing && data.description && (
-        <div style={{
-          fontSize: '11px',
-          color: '#bdc3c7',
-          fontStyle: 'italic',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap'
-        }}>
-          {data.description}
-        </div>
-      )}
-
+     
       {(data.state === 'frozen' || data.state === 'released') && (
         <div style={{
           position: 'absolute',
@@ -1606,7 +1594,8 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
     onUpdate(node.id, 'attachment', null);
   };
 
-  
+console.log('Node itemType:', node.data.itemType);
+
 return (
     <div
       style={{
@@ -1821,6 +1810,39 @@ return (
           </select>
         </div>
 
+        {/* REQUIREMENT ORIGIN - Only for requirements */}
+        {node.data.itemType === 'requirement' && (
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{
+              display: 'block',
+              fontSize: '11px',
+              color: '#3498db',
+              marginBottom: '6px',
+              textTransform: 'uppercase',
+              fontWeight: 'bold'
+            }}>
+              Origin
+            </label>
+            <select
+              value={node.data.origin || 'internal'}
+              onChange={(e) => onUpdate(node.id, 'origin', e.target.value)}
+              disabled={!isEditable}
+              style={{
+                width: '100%',
+                padding: '10px',
+                background: '#34495e',
+                color: 'white',
+                border: '1px solid #4a5f7f',
+                borderRadius: '6px',
+                fontSize: '13px'
+              }}
+            >
+              <option value="internal">🏠 Internal</option>
+              <option value="external">🌐 External</option>
+            </select>
+          </div>
+        )}
+
         {/* REQUIREMENT TYPE - Only for requirements */}
         {node.data.itemType === 'requirement' && (
           <div style={{ marginBottom: '15px' }}>
@@ -1899,7 +1921,7 @@ return (
             )}
           </select>
         </div>
-
+            
         <div style={{ marginBottom: '15px' }}>
           <label style={{
             display: 'block',
@@ -2072,8 +2094,6 @@ return (
               cursor: isEditable ? 'text' : 'not-allowed'
             }}
           />
-        </div>
-
         </div>
 
         {/* Rationale field - for all items */}
@@ -2252,7 +2272,7 @@ return (
           marginBottom: '15px'
         }}>
           <div><strong>ID:</strong> {node.id}</div>
-        
+        </div>
 
         {(node.data.itemType === 'testcase' || node.data.type === 'testcase') && (
           <button
@@ -4419,19 +4439,22 @@ const addPlatformNode = useCallback(() => {
         y: centerY + (Math.random() * 100 - 50) 
       };
     }
-    const reqId = generateItemId ('project');
+    const itemId = generateItemId('project');
     const newNode = {
       id: String(nodeId),
       type: 'custom',
-      position: { x: Math.random() * 400 + 300, y: Math.random() * 400 },
+      position: position,
       data: { 
-        label: 'New Requirement', 
-        type: 'project',
-        reqType: 'project',
-        reqId: reqId,
+        label: 'New Requirement',
+        type: 'requirement',
+        itemType: 'requirement',
+        reqId: itemId,
         version: '1.0',
+        reqType: 'project',
+        origin: 'internal',
         classification: 'requirement',
         description: '',
+        rationale: '',
         priority: 'medium',
         status: 'new',
         state: 'open',
@@ -4461,7 +4484,7 @@ const addPlatformNode = useCallback(() => {
     const newNode = {
       id: String(nodeId),
       type: 'custom',
-      position: { x: Math.random() * 300 + 50, y: Math.random() * 200 + 50 },
+      position: position,
       data: { 
         label: 'New System', 
         type: 'system',
@@ -4501,7 +4524,7 @@ const addPlatformNode = useCallback(() => {
     const newNode = {
       id: String(nodeId),
       type: 'custom',
-      position: { x: Math.random() * 300 + 200, y: Math.random() * 200 + 150 },
+      position: position,
       data: { 
         label: 'New Sub-System', 
         type: 'subsystem',
@@ -4541,7 +4564,7 @@ const addPlatformNode = useCallback(() => {
     const newNode = {
       id: String(nodeId),
       type: 'custom',
-      position: { x: Math.random() * 300 + 350, y: Math.random() * 200 + 250 },
+      position: position,
       data: { 
         label: 'New Function', 
         type: 'function',
@@ -4581,7 +4604,7 @@ const addPlatformNode = useCallback(() => {
     const newNode = {
       id: String(nodeId),
       type: 'custom',
-      position: { x: Math.random() * 300 + 500, y: Math.random() * 200 + 350 },
+      position: position,
       data: { 
         label: 'New Test Case', 
         type: 'testcase',
@@ -5315,8 +5338,37 @@ const createNewObject = (name, version, description) => {
           if (project.objectVersion) setObjectVersion(project.objectVersion);
           if (project.objectDescription) setObjectDescription(project.objectDescription);
           
-          // Load nodes and edges
-          setNodes(project.nodes || []);
+           // Load nodes and edges (add missing fields for backwards compatibility)
+          const updatedNodes = (project.nodes || []).map(node => {
+            // Determine correct itemType
+            let itemType = node.data.itemType || node.data.type;
+            
+            // Normalize: project/customer/platform/implementation are all "requirement" itemType
+            if (['project', 'customer', 'platform', 'implementation'].includes(itemType)) {
+              itemType = 'requirement';
+            }
+            
+            // Detect from reqId prefix if still not set
+            if (!itemType || itemType === 'requirement') {
+              if (node.data.reqId?.startsWith('SYS')) itemType = 'system';
+              else if (node.data.reqId?.startsWith('SUB')) itemType = 'subsystem';
+              else if (node.data.reqId?.startsWith('FUN')) itemType = 'function';
+              else if (node.data.reqId?.startsWith('TC')) itemType = 'testcase';
+              else itemType = 'requirement';
+            }
+            
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                itemType: itemType,
+                origin: node.data.origin || 'internal',
+                classification: node.data.classification || 'requirement',
+                onChange: handleNodeLabelChange
+              }
+            };
+          });
+          setNodes(updatedNodes);
           setEdges(project.edges || []);
           
           // Calculate max node ID
