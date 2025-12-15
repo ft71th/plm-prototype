@@ -459,6 +459,7 @@ function CustomNode({ data, id, selected }) {
     }
   };
 
+  
     // WHITEBOARD MODE - Simplified view with port labels
   if (data.isWhiteboardMode) {
     const ports = data.ports || [];
@@ -494,21 +495,22 @@ function CustomNode({ data, id, selected }) {
     );
 
     return (
-      <div style={{
-        width: `${nodeWidth}px`,
-        minHeight: `${nodeHeight}px`,
-        backgroundColor: getSystemAccentColor(),
-        border: '2px solid #333',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        opacity: data.isFiltered === false ? 0.3 : 1,
-        boxShadow: selected ? '0 0 15px rgba(0, 0, 0, 0.4)' : '0 2px 8px rgba(0,0,0,0.2)',
-        transition: 'all 0.2s ease',
-        position: 'relative',
-        ...getNodeShape()
-      }}>
+      <div 
+        style={{
+          width: `${nodeWidth}px`,
+          minHeight: `${nodeHeight}px`,
+          backgroundColor: getSystemAccentColor(),
+          border: '2px solid #333',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          opacity: data.isFiltered === false ? 0.3 : 1,
+          boxShadow: selected ? '0 0 15px rgba(0, 0, 0, 0.4)' : '0 2px 8px rgba(0,0,0,0.2)',
+          transition: 'all 0.2s ease',
+          position: 'relative',
+          ...getNodeShape()
+        }}>
         
         {/* Handles and Labels */}
         {ports.length === 0 ? (
@@ -654,20 +656,22 @@ function CustomNode({ data, id, selected }) {
 
   // NORMAL PLM MODE - Full details (existing code below)
   return (
-    <div style={{
-      padding: '15px',
-      paddingLeft: (isSystemItem() || isTestItem()) ? '20px' : '15px',
-      border: '3px solid ' + getBorderColor(),
-      borderLeft: (isSystemItem() || isTestItem()) ? `6px solid ${getSystemAccentColor()}` : '3px solid ' + getBorderColor(),
-      backgroundColor: (isSystemItem() || isTestItem()) ? '#1a2634' : '#2c3e50',
-      minWidth: '180px',
-      opacity: data.isFiltered === false ? 0.3 : 1,
-      boxShadow: selected ? '0 0 20px rgba(52, 152, 219, 0.8)' : 
-                 isHighlighted ? '0 0 15px rgba(241, 196, 15, 0.6)' : '0 4px 8px rgba(0,0,0,0.3)',
-      transition: 'all 0.2s ease',
-      position: 'relative',
-      ...getNodeShape()
-    }}>
+    <div 
+      style={{
+        padding: '15px',
+        paddingLeft: (isSystemItem() || isTestItem()) ? '20px' : '15px',
+        border: '3px solid ' + getBorderColor(),
+        borderLeft: (isSystemItem() || isTestItem()) ? `6px solid ${getSystemAccentColor()}` : '3px solid ' + getBorderColor(),
+        backgroundColor: (isSystemItem() || isTestItem()) ? '#1a2634' : '#2c3e50',
+        minWidth: '180px',
+        opacity: data.isFiltered === false ? 0.3 : 1,
+        boxShadow: selected ? '0 0 20px rgba(52, 152, 219, 0.8)' : 
+                  isHighlighted ? '0 0 15px rgba(241, 196, 15, 0.6)' : '0 4px 8px rgba(0,0,0,0.3)',
+        transition: 'all 0.2s ease',
+        position: 'relative',
+        alignItems: 'center',
+        ...getNodeShape()
+      }}>
       
       {/* Dynamic Port Handles */}
       {(() => {
@@ -1749,29 +1753,41 @@ return (
           </div>
         </div>
 
+        {/* TITLE */}
         <div style={{ marginBottom: '15px' }}>
           <label style={{
             display: 'block',
             marginBottom: '6px',
             fontSize: '11px',
-            color: '#bdc3c7',
+            color: '#3498db',
             textTransform: 'uppercase',
             fontWeight: 'bold'
           }}>
             Title
           </label>
-          <div style={{
-            padding: '8px',
-            background: '#34495e',
-            borderRadius: '4px',
-            fontSize: '14px',
-            fontWeight: 'bold'
-          }}>
-            {node.data.label}
-          </div>
-          <div style={{ fontSize: '9px', color: '#95a5a6', marginTop: '4px' }}>
-            {isEditable ? 'Double-click node to edit' : 'Cannot edit - requirement is frozen/released'}
-          </div>
+          <input
+            type="text"
+            value={node.data.label || ''}
+            onChange={(e) => onUpdate(node.id, 'label', e.target.value)}
+            disabled={!isEditable}
+            onFocus={(e) => e.target.select()}
+            style={{
+              width: '100%',
+              padding: '10px',
+              background: isEditable ? '#34495e' : '#2c3e50',
+              color: isEditable ? 'white' : '#7f8c8d',
+              border: '1px solid #4a5f7f',
+              borderRadius: '6px',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              cursor: isEditable ? 'text' : 'not-allowed'
+            }}
+          />
+          {!isEditable && (
+            <div style={{ fontSize: '9px', color: '#95a5a6', marginTop: '4px' }}>
+              Cannot edit - item is frozen/released
+            </div>
+          )}
         </div>
 
         <div style={{ marginBottom: '15px' }}>
@@ -1805,45 +1821,48 @@ return (
           </select>
         </div>
 
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{
-            display: 'block',
-            marginBottom: '6px',
-            fontSize: '11px',
-            color: '#bdc3c7',
-            textTransform: 'uppercase',
-            fontWeight: 'bold'
-          }}>
-            Requirement Type
-          </label>
-          <select
-            value={node.data.reqType || 'project'}
-            onChange={(e) => onUpdate(node.id, 'reqType', e.target.value)}
-            disabled={!isEditable}
-            style={{
-              width: '100%',
-              padding: '8px',
-              background: isEditable ? '#34495e' : '#2c3e50',
-              color: 'white',
-              border: '1px solid #4a5f7f',
-              borderRadius: '4px',
-              fontSize: '13px',
-              cursor: isEditable ? 'pointer' : 'not-allowed'
-            }}
-          >
-            <option value="customer">🟣 Customer Requirement</option>
-            <option value="platform">🔷 Platform Requirement</option>
-            <option value="project">🔶 Project Requirement</option>
-            <option value="implementation">🟢 Implementation Requirement</option>
-          </select>
-        </div>
+        {/* REQUIREMENT TYPE - Only for requirements */}
+        {node.data.itemType === 'requirement' && (
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{
+              display: 'block',
+              fontSize: '11px',
+              color: '#3498db',
+              marginBottom: '6px',
+              textTransform: 'uppercase',
+              fontWeight: 'bold'
+            }}>
+              Requirement Type
+            </label>
+            <select
+              value={node.data.reqType || 'project'}
+              onChange={(e) => onUpdate(node.id, 'reqType', e.target.value)}
+              disabled={!isEditable}
+              style={{
+                width: '100%',
+                padding: '10px',
+                background: '#34495e',
+                color: 'white',
+                border: '1px solid #4a5f7f',
+                borderRadius: '6px',
+                fontSize: '13px'
+              }}
+            >
+              <option value="customer">🟣 Customer Requirement</option>
+              <option value="platform">🔷 Platform Requirement</option>
+              <option value="project">🔶 Project Requirement</option>
+              <option value="implementation">🟢 Implementation Requirement</option>
+            </select>
+          </div>
+        )}
 
+        {/* CLASSIFICATION */}
         <div style={{ marginBottom: '15px' }}>
           <label style={{
             display: 'block',
-            marginBottom: '6px',
             fontSize: '11px',
-            color: '#bdc3c7',
+            color: '#3498db',
+            marginBottom: '6px',
             textTransform: 'uppercase',
             fontWeight: 'bold'
           }}>
@@ -1855,18 +1874,29 @@ return (
             disabled={!isEditable}
             style={{
               width: '100%',
-              padding: '8px',
-              background: isEditable ? '#34495e' : '#2c3e50',
+              padding: '10px',
+              background: '#34495e',
               color: 'white',
               border: '1px solid #4a5f7f',
-              borderRadius: '4px',
-              fontSize: '13px',
-              cursor: isEditable ? 'pointer' : 'not-allowed'
+              borderRadius: '6px',
+              fontSize: '13px'
             }}
           >
-            <option value="need">🎯 Need (High-level goal)</option>
-            <option value="capability">⚙️ Capability (System ability)</option>
-            <option value="requirement">📋 Requirement (Specific spec)</option>
+            {/* Options for System/Sub-System/Function */}
+            {(node.data.itemType === 'system' || 
+              node.data.itemType === 'subsystem' || 
+              node.data.itemType === 'function') ? (
+              <>
+                <option value="platform">🔷 Platform</option>
+                <option value="project">🔶 Project</option>
+              </>
+            ) : (
+              <>
+                <option value="need">🎯 Need (High-level goal)</option>
+                <option value="capability">⚙️ Capability</option>
+                <option value="requirement">📋 Requirement</option>
+              </>
+            )}
           </select>
         </div>
 
@@ -3467,6 +3497,9 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
+  const reactFlowWrapper = useRef(null);
+  const [reactFlowInstance, setReactFlowInstance] = useState(null);
+
 
 // Save current state to history
   const saveToHistory = useCallback(() => {
@@ -3643,19 +3676,28 @@ export default function App() {
     setEdges((eds) => addEdge(newEdge, eds));
   }, [nodes, setEdges]);
 
-  const handleNodeLabelChange = useCallback((nodeId, newLabel) => {
+  const handleNodeLabelChange = useCallback((nodeId, field, value) => {
+  // Support both old format (nodeId, labelValue) and new format (nodeId, field, value)
+  if (value === undefined) {
+    // Old format: handleNodeLabelChange(id, 'new label')
     setNodes((nds) =>
-      nds.map((node) => {
-        if (node.id === nodeId) {
-          if (node.data.state === 'frozen' || node.data.state === 'released') {
-            return node;
-          }
-          return { ...node, data: { ...node.data, label: newLabel } };
-        }
-        return node;
-      })
+      nds.map((node) =>
+        node.id === nodeId
+          ? { ...node, data: { ...node.data, label: field } }
+          : node
+      )
     );
-  }, [setNodes]);
+  } else {
+    // New format: handleNodeLabelChange(id, 'width', 200)
+    setNodes((nds) =>
+      nds.map((node) =>
+        node.id === nodeId
+          ? { ...node, data: { ...node.data, [field]: value } }
+          : node
+      )
+    );
+  }
+}, [setNodes]);
 
   const handleNodeClick = (event, node) => {
     // Single click just highlights/selects - doesn't open panel
@@ -3663,9 +3705,23 @@ export default function App() {
   };
 
   const handleNodeDoubleClick = (event, node) => {
-    // Double click opens the panel
     setSelectedNode(node);
     setSelectedEdge(null);
+    
+    // Position panel to the right of the clicked node
+    const nodeElement = event.target.closest('.react-flow__node');
+    if (nodeElement) {
+      const rect = nodeElement.getBoundingClientRect();
+      setFloatingPanelPosition({
+        x: rect.right + 20,  // 20px to the right of node
+        y: rect.top
+      });
+    } else {
+      setFloatingPanelPosition({
+        x: event.clientX + 20,
+        y: event.clientY
+      });
+    }
   };
 
   const handleEdgeClick = useCallback((event, edge) => {
@@ -3769,6 +3825,18 @@ const addPlatformNode = useCallback(() => {
   }, [nodeId, handleNodeLabelChange, setNodes, generateItemId ]);
 
  const addRequirementNode = useCallback(() => {
+    // Get current viewport center
+    let position = { x: Math.random() * 300 + 100, y: Math.random() * 200 + 100 };
+    
+    if (reactFlowInstance) {
+      const viewport = reactFlowInstance.getViewport();
+      const centerX = (-viewport.x + window.innerWidth / 2) / viewport.zoom;
+      const centerY = (-viewport.y + window.innerHeight / 2) / viewport.zoom;
+      position = { 
+        x: centerX + (Math.random() * 100 - 50), 
+        y: centerY + (Math.random() * 100 - 50) 
+      };
+    }
     const reqId = generateItemId ('project');
     const newNode = {
       id: String(nodeId),
@@ -3792,9 +3860,21 @@ const addPlatformNode = useCallback(() => {
     };
     setNodes((nds) => nds.concat(newNode));
     setNodeId((id) => id + 1);
-  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId ]);
+  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId, reactFlowInstance]);
 
   const addSystemNode = useCallback(() => {
+    // Get current viewport center
+    let position = { x: Math.random() * 300 + 100, y: Math.random() * 200 + 100 };
+    
+    if (reactFlowInstance) {
+      const viewport = reactFlowInstance.getViewport();
+      const centerX = (-viewport.x + window.innerWidth / 2) / viewport.zoom;
+      const centerY = (-viewport.y + window.innerHeight / 2) / viewport.zoom;
+      position = { 
+        x: centerX + (Math.random() * 100 - 50), 
+        y: centerY + (Math.random() * 100 - 50) 
+      };
+    }
     const itemId = generateItemId('system');
     const newNode = {
       id: String(nodeId),
@@ -3820,9 +3900,21 @@ const addPlatformNode = useCallback(() => {
     };
     setNodes((nds) => nds.concat(newNode));
     setNodeId((id) => id + 1);
-  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId]);
+  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId, reactFlowInstance]);
 
   const addSubSystemNode = useCallback(() => {
+    // Get current viewport center
+    let position = { x: Math.random() * 300 + 100, y: Math.random() * 200 + 100 };
+    
+    if (reactFlowInstance) {
+      const viewport = reactFlowInstance.getViewport();
+      const centerX = (-viewport.x + window.innerWidth / 2) / viewport.zoom;
+      const centerY = (-viewport.y + window.innerHeight / 2) / viewport.zoom;
+      position = { 
+        x: centerX + (Math.random() * 100 - 50), 
+        y: centerY + (Math.random() * 100 - 50) 
+      };
+    }
     const itemId = generateItemId('subsystem');
     const newNode = {
       id: String(nodeId),
@@ -3848,9 +3940,21 @@ const addPlatformNode = useCallback(() => {
     };
     setNodes((nds) => nds.concat(newNode));
     setNodeId((id) => id + 1);
-  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId]);
+  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId, reactFlowInstance]);
 
   const addFunctionNode = useCallback(() => {
+    // Get current viewport center
+    let position = { x: Math.random() * 300 + 100, y: Math.random() * 200 + 100 };
+    
+    if (reactFlowInstance) {
+      const viewport = reactFlowInstance.getViewport();
+      const centerX = (-viewport.x + window.innerWidth / 2) / viewport.zoom;
+      const centerY = (-viewport.y + window.innerHeight / 2) / viewport.zoom;
+      position = { 
+        x: centerX + (Math.random() * 100 - 50), 
+        y: centerY + (Math.random() * 100 - 50) 
+      };
+    }
     const itemId = generateItemId('function');
     const newNode = {
       id: String(nodeId),
@@ -3876,9 +3980,21 @@ const addPlatformNode = useCallback(() => {
     };
     setNodes((nds) => nds.concat(newNode));
     setNodeId((id) => id + 1);
-  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId]);
+  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId, reactFlowInstance]);
 
   const addTestCaseNode = useCallback(() => {
+    // Get current viewport center
+    let position = { x: Math.random() * 300 + 100, y: Math.random() * 200 + 100 };
+    
+    if (reactFlowInstance) {
+      const viewport = reactFlowInstance.getViewport();
+      const centerX = (-viewport.x + window.innerWidth / 2) / viewport.zoom;
+      const centerY = (-viewport.y + window.innerHeight / 2) / viewport.zoom;
+      position = { 
+        x: centerX + (Math.random() * 100 - 50), 
+        y: centerY + (Math.random() * 100 - 50) 
+      };
+    }
     const itemId = generateItemId('testcase');
     const newNode = {
       id: String(nodeId),
@@ -3907,7 +4023,7 @@ const addPlatformNode = useCallback(() => {
     };
     setNodes((nds) => nds.concat(newNode));
     setNodeId((id) => id + 1);
-  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId]);
+  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId, reactFlowInstance]);
 
   const exportProject = useCallback(() => {
     const project = { 
@@ -4544,7 +4660,12 @@ const createNewObject = (name, version, description) => {
       // Ctrl+D = Duplicate selected node
       if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
         e.preventDefault();
-        if (selectedNode) {
+        // Find selected nodes from ReactFlow's selection
+        const selectedNodes = nodes.filter(n => n.selected);
+        if (selectedNodes.length > 0) {
+          duplicateNode(selectedNodes[0]);
+        } else if (selectedNode) {
+          // Fallback to panel's selected node
           duplicateNode(selectedNode);
         }
       }
@@ -4850,6 +4971,7 @@ const createNewObject = (name, version, description) => {
             }
           }
         }))}
+        onInit={setReactFlowInstance}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
