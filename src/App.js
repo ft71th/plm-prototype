@@ -4026,22 +4026,31 @@ const addPlatformNode = useCallback(() => {
   }, [nodeId, handleNodeLabelChange, setNodes, generateItemId, reactFlowInstance]);
 
   const exportProject = useCallback(() => {
-    const project = { 
-      objectName,
-      objectVersion,
-      objectDescription,
-      nodes, 
-      edges 
-    };
-    const dataStr = JSON.stringify(project, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'plm-project.json';
-    link.click();
-    URL.revokeObjectURL(url);
-  }, [nodes, edges, objectName, objectVersion, objectDescription]);
+  // Ask user for filename
+  const defaultName = objectName.replace(/[^a-z0-9]/gi, '_') || 'project';
+  const filename = prompt('Save project as:', defaultName);
+  
+  if (!filename) return;  // User cancelled
+  
+  const data = {
+    objectName,
+    objectVersion,
+    nodes,
+    edges,
+    whiteboards,
+    whiteboardNodes,
+    whiteboardEdges,
+    savedAt: new Date().toISOString()
+  };
+  
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${filename}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+}, [objectName, objectVersion, nodes, edges, whiteboards, whiteboardNodes, whiteboardEdges]);
 
  const exportToExcel = useCallback(() => {
     // Prepare data for Excel
