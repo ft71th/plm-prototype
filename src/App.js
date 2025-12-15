@@ -2869,8 +2869,8 @@ function TopHeader({
   onFiltersToggle,
   filters,
   onFilterChange,
-  isWhiteboardMode,
-  onViewpointToggle,
+  viewMode,
+  onViewModeChange,
   whiteboards,
   activeWhiteboardId,
   showWhiteboardDropdown,
@@ -3005,25 +3005,56 @@ function TopHeader({
       />
 
       {/* Viewpoint Toggle */}
-      <button
-        onClick={onViewpointToggle}
-        style={{
-          padding: '6px 10px',
-          background: isWhiteboardMode ? '#ecf0f1' : '#2c3e50',
-          color: isWhiteboardMode ? '#2c3e50' : '#ecf0f1',
-          border: '1px solid #4a5f7f',
-          borderRadius: '6px',
-          cursor: 'pointer',
-          fontSize: '11px',
-          fontWeight: 'bold',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '4px'
-        }}
-        title="Toggle viewpoint"
-      >
-        {isWhiteboardMode ? '📋 PLM' : '🎨 Simple'}
-      </button>
+      <div style={{ display: 'flex', gap: '2px' }}>
+        <button
+          onClick={() => onViewModeChange('plm')}
+          style={{
+            padding: '6px 10px',
+            background: viewMode === 'plm' ? '#3498db' : '#2c3e50',
+            color: 'white',
+            border: '1px solid #4a5f7f',
+            borderRadius: '6px 0 0 6px',
+            cursor: 'pointer',
+            fontSize: '11px',
+            fontWeight: 'bold'
+          }}
+          title="PLM View - Full details"
+        >
+          📋 PLM
+        </button>
+        <button
+          onClick={() => onViewModeChange('whiteboard')}
+          style={{
+            padding: '6px 10px',
+            background: viewMode === 'whiteboard' ? '#3498db' : '#2c3e50',
+            color: 'white',
+            border: '1px solid #4a5f7f',
+            borderRadius: '0',
+            cursor: 'pointer',
+            fontSize: '11px',
+            fontWeight: 'bold'
+          }}
+          title="Whiteboard - Simplified"
+        >
+          🎨 Simple
+        </button>
+        <button
+          onClick={() => onViewModeChange('document')}
+          style={{
+            padding: '6px 10px',
+            background: viewMode === 'document' ? '#3498db' : '#2c3e50',
+            color: 'white',
+            border: '1px solid #4a5f7f',
+            borderRadius: '0 6px 6px 0',
+            cursor: 'pointer',
+            fontSize: '11px',
+            fontWeight: 'bold'
+          }}
+          title="Document View"
+        >
+          📄 Doc
+        </button>
+      </div>
 
       {/* Filters Dropdown */}
       {filtersOpen && (
@@ -3447,6 +3478,323 @@ function WhiteboardSelector({
     </div>
   );
 }
+// Document View Component
+function DocumentView({ nodes, edges, onNodeClick }) {
+  
+  // Build hierarchy from nodes and edges
+  const buildHierarchy = () => {
+    // Find root nodes (nodes with no incoming "contains" edges)
+    const containsEdges = edges.filter(e => 
+      e.data?.relationType === 'contains' || 
+      e.data?.relationType === 'provides'
+    );
+    
+    const childIds = new Set(containsEdges.map(e => e.target));
+    const rootNodes = nodes.filter(n => !childIds.has(n.id));
+    
+    // Sort by position (left to right, top to bottom)
+    rootNodes.sort((a, b) => {
+      if (Math.abs(a.position.y - b.position.y) < 50) {
+        return a.position.x - b.position.x;
+      }
+      return a.position.y - b.position.y;
+    });
+    
+    // Recursive function to get children
+    const getChildren = (nodeId) => {
+      const childEdges = containsEdges.filter(e => e.source === nodeId);
+      const children = childEdges.map(e => nodes.find(n => n.id === e.target)).filter(Boolean);
+      children.sort((a, b) => {
+        if (Math.abs(a.position.y - b.position.y) < 50) {
+          return a.position.x - b.position.x;
+        }
+        return a.position.y - b.position.y;
+      });
+      return children;
+    };
+    
+    // Build tree structure
+    const buildTree = (node, level = 0) => {
+      const children = getChildren(node.id);
+      return {
+        node,
+        level,
+        children: children.map(child => buildTree(child, level + 1))
+      };
+    };
+    
+    return rootNodes.map(root => buildTree(root, 0));
+  };
+
+  // Get related requirements for a node
+  const getRelatedRequirements = (nodeId) => {
+    const relatedEdges = edges.filter(e => 
+      (e.source === nodeId || e.target === nodeId) &&
+      (e.data?.relationType === 'realizes' || 
+       e.data?.relationType === 'satisfies' ||
+       e.data?.relationType === 'allocated')
+    );
+    
+    const relatedIds = relatedEdges.map(e => e.source === nodeId ? e.target : e.source);
+    return nodes.filter(n => relatedIds.includes(n.id) && n.data?.itemType === 'requirement');
+  };
+
+  // Generate section number
+  const getSectionNumber = (indices) => {
+    return indices.map(i => i + 1).join('.');
+  };
+
+  // Get item type color
+  const getTypeColor = (itemType) => {
+    switch(itemType) {
+      case 'system': return '#1abc9c';
+      case 'subsystem': return '#3498db';
+      case 'function': return '#00bcd4';
+      case 'requirement': return '#e67e22';
+      case 'testcase': return '#27ae60';
+      default: return '#9b59b6';
+    }
+  };
+
+  // Get item type label
+  const getTypeLabel = (itemType) => {
+    switch(itemType) {
+      case 'system': return 'SYSTEM';
+      case 'subsystem': return 'SUB-SYSTEM';
+      case 'function': return 'FUNCTION';
+      case 'requirement': return 'REQUIREMENT';
+      case 'testcase': return 'TEST CASE';
+      default: return 'ITEM';
+    }
+  };
+
+  const hierarchy = buildHierarchy();
+
+  // Render a node section
+  const renderSection = (item, indices = []) => {
+    const { node, children } = item;
+    const sectionNum = getSectionNumber(indices);
+    const requirements = getRelatedRequirements(node.id);
+    
+    return (
+      <div key={node.id} style={{ marginBottom: '24px' }}>
+        {/* Section Header */}
+        <div 
+          onClick={() => onNodeClick(node)}
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '12px',
+            cursor: 'pointer',
+            padding: '12px',
+            borderRadius: '8px',
+            background: 'rgba(52, 152, 219, 0.05)',
+            borderLeft: `4px solid ${getTypeColor(node.data?.itemType)}`,
+            marginBottom: '8px',
+            transition: 'background 0.2s'
+          }}
+          onMouseOver={(e) => e.currentTarget.style.background = 'rgba(52, 152, 219, 0.15)'}
+          onMouseOut={(e) => e.currentTarget.style.background = 'rgba(52, 152, 219, 0.05)'}
+        >
+          {/* Section Number */}
+          <div style={{
+            fontSize: indices.length === 1 ? '24px' : indices.length === 2 ? '20px' : '16px',
+            fontWeight: 'bold',
+            color: '#3498db',
+            minWidth: '60px'
+          }}>
+            {sectionNum}
+          </div>
+          
+          {/* Content */}
+          <div style={{ flex: 1 }}>
+            {/* Type Badge */}
+            <span style={{
+              display: 'inline-block',
+              background: getTypeColor(node.data?.itemType),
+              color: 'white',
+              padding: '2px 8px',
+              borderRadius: '4px',
+              fontSize: '10px',
+              fontWeight: 'bold',
+              marginBottom: '6px'
+            }}>
+              {getTypeLabel(node.data?.itemType)}
+            </span>
+            
+            {/* Title */}
+            <h3 style={{
+              margin: '4px 0',
+              fontSize: indices.length === 1 ? '20px' : indices.length === 2 ? '17px' : '15px',
+              color: '#ecf0f1'
+            }}>
+              {node.data?.label}
+            </h3>
+            
+            {/* ID */}
+            <div style={{ fontSize: '12px', color: '#3498db', marginBottom: '8px' }}>
+              {node.data?.reqId} • v{node.data?.version || '1.0'}
+            </div>
+            
+            {/* Description */}
+            {node.data?.description && (
+              <p style={{
+                margin: '8px 0',
+                color: '#bdc3c7',
+                fontSize: '14px',
+                lineHeight: '1.6'
+              }}>
+                {node.data.description}
+              </p>
+            )}
+            
+            {/* Rationale */}
+            {node.data?.rationale && (
+              <div style={{
+                margin: '8px 0',
+                padding: '10px',
+                background: 'rgba(241, 196, 15, 0.1)',
+                borderRadius: '4px',
+                fontSize: '13px'
+              }}>
+                <strong style={{ color: '#f1c40f' }}>💡 Rationale:</strong>
+                <span style={{ color: '#bdc3c7', marginLeft: '8px' }}>{node.data.rationale}</span>
+              </div>
+            )}
+            
+            {/* Related Requirements */}
+            {requirements.length > 0 && (
+              <div style={{ marginTop: '12px' }}>
+                <div style={{ fontSize: '12px', color: '#7f8c8d', marginBottom: '6px' }}>
+                  Related Requirements:
+                </div>
+                {requirements.map(req => (
+                  <div 
+                    key={req.id}
+                    onClick={(e) => { e.stopPropagation(); onNodeClick(req); }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '4px 10px',
+                      background: '#2c3e50',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      marginRight: '8px',
+                      marginBottom: '4px',
+                      cursor: 'pointer',
+                      color: '#e67e22'
+                    }}
+                  >
+                    📋 {req.data?.reqId}: {req.data?.label}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* Children */}
+        {children.length > 0 && (
+          <div style={{ marginLeft: '24px' }}>
+            {children.map((child, idx) => renderSection(child, [...indices, idx]))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: '50px',
+      left: '60px',
+      right: 0,
+      bottom: 0,
+      background: '#1a1a2e',
+      overflowY: 'auto',
+      padding: '40px'
+    }}>
+      {/* Document Container */}
+      <div style={{
+        maxWidth: '900px',
+        margin: '0 auto',
+        background: '#1e2a3a',
+        borderRadius: '12px',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+        padding: '40px 50px'
+      }}>
+        {/* Document Header */}
+        <div style={{
+          textAlign: 'center',
+          marginBottom: '40px',
+          paddingBottom: '30px',
+          borderBottom: '2px solid #34495e'
+        }}>
+          <h1 style={{
+            fontSize: '28px',
+            color: '#ecf0f1',
+            margin: '0 0 10px 0'
+          }}>
+            📄 System Documentation
+          </h1>
+          <p style={{
+            color: '#7f8c8d',
+            fontSize: '14px'
+          }}>
+            Auto-generated from PLM data • {nodes.length} items • {edges.length} relationships
+          </p>
+        </div>
+        
+        {/* Table of Contents */}
+        <div style={{
+          marginBottom: '40px',
+          padding: '20px',
+          background: '#2c3e50',
+          borderRadius: '8px'
+        }}>
+          <h2 style={{ color: '#3498db', fontSize: '16px', marginBottom: '15px' }}>
+            📑 Table of Contents
+          </h2>
+          {hierarchy.map((item, idx) => (
+            <div key={item.node.id} style={{ marginBottom: '6px' }}>
+              <a 
+                href={`#section-${item.node.id}`}
+                style={{ color: '#ecf0f1', textDecoration: 'none', fontSize: '14px' }}
+              >
+                {idx + 1}. {item.node.data?.label}
+              </a>
+            </div>
+          ))}
+        </div>
+        
+        {/* Content */}
+        <div>
+          {hierarchy.length === 0 ? (
+            <div style={{ textAlign: 'center', color: '#7f8c8d', padding: '40px' }}>
+              No items to display. Create some nodes in PLM or Whiteboard view.
+            </div>
+          ) : (
+            hierarchy.map((item, idx) => renderSection(item, [idx]))
+          )}
+        </div>
+        
+        {/* Footer */}
+        <div style={{
+          marginTop: '40px',
+          paddingTop: '20px',
+          borderTop: '2px solid #34495e',
+          textAlign: 'center',
+          color: '#7f8c8d',
+          fontSize: '12px'
+        }}>
+          Generated on {new Date().toLocaleDateString()} • PLM Prototype
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 // State declarations //
 export default function App() {
@@ -3460,7 +3808,7 @@ export default function App() {
   const [isListening, setIsListening] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState('');
   const [showRelationshipLabels, setShowRelationshipLabels] = useState(true);
-  const [isWhiteboardMode, setIsWhiteboardMode] = useState(false);
+  const [viewMode, setViewMode] = useState('plm');
   const [whiteboards, setWhiteboards] = useState([
     { id: 'plm', name: 'Project', type: 'plm' }
   ]);
@@ -3791,10 +4139,10 @@ export default function App() {
 
       return {
         ...node,
-        data: { ...node.data, isFiltered, isHighlighted, isWhiteboardMode, onChange: handleNodeLabelChange },
+        data: { ...node.data, isFiltered, isHighlighted, isWhiteboardMode: viewMode === 'whiteboard', onChange: handleNodeLabelChange },
       };
     });
-  }, [nodes, searchText, typeFilter, statusFilter, priorityFilter, stateFilter, reqTypeFilter, classificationFilter, handleNodeLabelChange,isWhiteboardMode ]);
+  }, [nodes, searchText, typeFilter, statusFilter, priorityFilter, stateFilter, reqTypeFilter, classificationFilter, handleNodeLabelChange,viewMode ]);
 
   const filteredCount = processedNodes.filter(n => n.data.isFiltered).length;
 
@@ -4534,7 +4882,7 @@ const createNewObject = (name, version, description) => {
     // Switch to the new whiteboard immediately
     setNodes([]);
     setEdges([]);
-    setIsWhiteboardMode(true);
+    setViewMode('whiteboard')
     setActiveWhiteboardId(newId);
     setShowWhiteboardDropdown(false);
     setSelectedNode(null);
@@ -4561,14 +4909,14 @@ const createNewObject = (name, version, description) => {
         const plmEdges = whiteboardEdges['plm'] || edges;
         setNodes(plmNodes);
         setEdges(plmEdges);
-        setIsWhiteboardMode(false);
+        setViewMode('plm');
       } else {
         // Load whiteboard data
         const wbNodes = whiteboardNodes[whiteboardId] || [];
         const wbEdges = whiteboardEdges[whiteboardId] || [];
         setNodes(wbNodes);
         setEdges(wbEdges);
-        setIsWhiteboardMode(true);
+        setViewMode('whiteboard');
       }
       
       setActiveWhiteboardId(whiteboardId);
@@ -4817,9 +5165,8 @@ const createNewObject = (name, version, description) => {
           if (filterType === 'priority') setPriorityFilter(value);
           if (filterType === 'classification') setClassificationFilter(value);
         }}
-        onViewpointToggle={() => setIsWhiteboardMode(!isWhiteboardMode)}
-        isWhiteboardMode={isWhiteboardMode}
-        onWhiteboardToggle={() => setIsWhiteboardMode(!isWhiteboardMode)}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
         whiteboards={whiteboards}
         activeWhiteboardId={activeWhiteboardId}
         showWhiteboardDropdown={showWhiteboardDropdown}
@@ -4955,7 +5302,18 @@ const createNewObject = (name, version, description) => {
         </SidebarSection>
       </Sidebar>
       
-      {/* ReactFlow Canvas */}
+      {/* Show Document View OR Canvas */}
+      {viewMode === 'document' ? (
+        <DocumentView 
+          nodes={nodes} 
+          edges={edges} 
+          onNodeClick={(node) => {
+            setSelectedNode(node);
+            setFloatingPanelPosition({ x: window.innerWidth - 350, y: 100 });
+          }}
+        />
+      ) : (
+      
       <ReactFlow
         nodes={processedNodes}
         edges={edges.map(e => ({
@@ -4963,7 +5321,7 @@ const createNewObject = (name, version, description) => {
           data: { 
             ...e.data, 
             showLabel: showRelationshipLabels,
-            isWhiteboardMode: isWhiteboardMode,
+            isWhiteboardMode: viewMode === 'whiteboard',
             onLabelChange: (edgeId, newLabel) => {
               setEdges(eds => eds.map(edge => 
                 edge.id === edgeId 
@@ -4998,7 +5356,7 @@ const createNewObject = (name, version, description) => {
         edgeTypes={edgeTypes}
         fitView
         style={{ 
-          background: isWhiteboardMode ? '#f5f5f5' : '#1a1a2e',
+          background: viewMode === 'whiteboard' ? '#f5f5f5' : '#1a1a2e',
           marginTop: '50px',
           height: 'calc(100vh - 50px)'
         }}
@@ -5009,7 +5367,7 @@ const createNewObject = (name, version, description) => {
           variant="dots" 
           gap={12} 
           size={1} 
-          color={isWhiteboardMode ? '#ccc' : '#444'} 
+          color={viewMode === 'whiteboard' ? '#ccc' : '#444'} 
         />
         
         {/* Arrow markers for relationships */}
@@ -5032,6 +5390,7 @@ const createNewObject = (name, version, description) => {
           </defs>
         </svg>
       </ReactFlow>
+      )}
 
       {/* Floating Panel for Nodes */}
       {selectedNode && (
