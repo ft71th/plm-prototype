@@ -3523,7 +3523,7 @@ function DocumentView({ nodes, edges, onNodeClick }) {
       };
     };
     
-    return rootNodes.map(root => buildTree(root, 0));
+        return rootNodes.map(root => buildTree(root, 0));
   };
 
   // Get related requirements for a node
@@ -3704,6 +3704,199 @@ function DocumentView({ nodes, edges, onNodeClick }) {
     );
   };
 
+  // Export to Word
+  const exportToWord = async () => {
+    const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import('docx');
+    
+    const docChildren = [];
+    
+    // Title
+    docChildren.push(
+      new Paragraph({
+        children: [new TextRun({ text: 'System Documentation', bold: true, size: 48 })],
+        heading: HeadingLevel.TITLE,
+        spacing: { after: 400 }
+      })
+    );
+    
+    // Subtitle
+    docChildren.push(
+      new Paragraph({
+        children: [new TextRun({ 
+          text: `Generated on ${new Date().toLocaleDateString()} • ${nodes.length} items`, 
+          color: '666666',
+          size: 24 
+        })],
+        spacing: { after: 600 }
+      })
+    );
+
+    // Recursive function to add sections
+    const addSection = (item, indices) => {
+      const { node, children } = item;
+      const sectionNum = indices.map(i => i + 1).join('.');
+      const level = indices.length;
+      
+      // Section heading
+      docChildren.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: `${sectionNum}  `, bold: true }),
+            new TextRun({ text: node.data?.label || 'Untitled', bold: true })
+          ],
+          heading: level === 1 ? HeadingLevel.HEADING_1 : 
+                   level === 2 ? HeadingLevel.HEADING_2 : HeadingLevel.HEADING_3,
+          spacing: { before: 400, after: 200 }
+        })
+      );
+      
+      // Type and ID
+      docChildren.push(
+        new Paragraph({
+          children: [
+            new TextRun({ 
+              text: `[${(node.data?.itemType || 'item').toUpperCase()}] ${node.data?.reqId || ''} • v${node.data?.version || '1.0'}`,
+              color: '3498db',
+              size: 20
+            })
+          ],
+          spacing: { after: 200 }
+        })
+      );
+      
+      // Description
+      if (node.data?.description) {
+        docChildren.push(
+          new Paragraph({
+            children: [new TextRun({ text: node.data.description })],
+            spacing: { after: 200 }
+          })
+        );
+      }
+      
+      // Rationale
+      if (node.data?.rationale) {
+        docChildren.push(
+          new Paragraph({
+            children: [
+              new TextRun({ text: 'Rationale: ', bold: true, color: 'f1c40f' }),
+              new TextRun({ text: node.data.rationale })
+            ],
+            spacing: { after: 300 }
+          })
+        );
+      }
+      
+      // Children
+      children.forEach((child, idx) => addSection(child, [...indices, idx]));
+    };
+
+    // Add all sections
+    hierarchy.forEach((item, idx) => addSection(item, [idx]));
+
+    const doc = new Document({
+      sections: [{
+        properties: {},
+        children: docChildren
+      }]
+    });
+
+    const blob = await Packer.toBlob(doc);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `System_Documentation_${new Date().toISOString().split('T')[0]}.docx`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Export to PDF (Word-style, clean)
+  const exportToPDF = async () => {
+    const html2pdf = (await import('html2pdf.js')).default;
+    
+    // Build clean HTML for PDF
+    let htmlContent = `
+      <div style="font-family: Arial, sans-serif; color: #333; padding: 20px;">
+        <h1 style="text-align: center; color: #000; border-bottom: 2px solid #333; padding-bottom: 15px;">
+          System Documentation
+        </h1>
+        <p style="text-align: center; color: #666; margin-bottom: 30px;">
+          Generated on ${new Date().toLocaleDateString()} • ${nodes.length} items • ${edges.length} relationships
+        </p>
+    `;
+
+    // Recursive function to add sections
+    const addSection = (item, indices) => {
+      const { node, children } = item;
+      const sectionNum = indices.map(i => i + 1).join('.');
+      const level = indices.length;
+      const indent = (level - 1) * 20;
+      
+      const fontSize = level === 1 ? '18px' : level === 2 ? '15px' : '13px';
+      const marginTop = level === 1 ? '25px' : '15px';
+      
+      htmlContent += `
+        <div style="margin-left: ${indent}px; margin-top: ${marginTop};">
+          <h${level + 1} style="color: #000; font-size: ${fontSize}; margin-bottom: 5px;">
+            ${sectionNum} ${node.data?.label || 'Untitled'}
+          </h${level + 1}>
+          <p style="color: #333; font-size: 11px; margin: 0 0 8px 0;">
+            [${(node.data?.itemType || 'item').toUpperCase()}] ${node.data?.reqId || ''} • v${node.data?.version || '1.0'}
+          </p>
+      `;
+      
+      if (node.data?.description) {
+        htmlContent += `
+          <p style="color: #333; font-size: 12px; line-height: 1.6; margin: 8px 0;">
+            ${node.data.description}
+          </p>
+        `;
+      }
+      
+      if (node.data?.rationale) {
+        htmlContent += `
+          <p style="color: #333; font-size: 11px; margin: 10px 0;">
+            <strong>Rationale:</strong> ${node.data.rationale}
+          </p>
+        `;
+      }
+      
+      htmlContent += `</div>`;
+      
+      // Add children
+      children.forEach((child, idx) => addSection(child, [...indices, idx]));
+    };
+
+    // Add all sections
+    hierarchy.forEach((item, idx) => addSection(item, [idx]));
+
+    htmlContent += `
+        <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; text-align: center; color: #999; font-size: 10px;">
+          PLM Prototype • Generated ${new Date().toLocaleString()}
+        </div>
+      </div>
+    `;
+
+    // Create temporary element
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlContent;
+    tempDiv.style.background = 'white';
+    document.body.appendChild(tempDiv);
+
+    const opt = {
+      margin: [15, 15, 15, 15],
+      filename: `System_Documentation_${new Date().toISOString().split('T')[0]}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+    
+    await html2pdf().set(opt).from(tempDiv).save();
+    
+    // Clean up
+    document.body.removeChild(tempDiv);
+  };
+
   return (
     <div style={{
       position: 'fixed',
@@ -3740,10 +3933,51 @@ function DocumentView({ nodes, edges, onNodeClick }) {
           </h1>
           <p style={{
             color: '#7f8c8d',
-            fontSize: '14px'
+            fontSize: '14px',
+            marginBottom: '20px'
           }}>
             Auto-generated from PLM data • {nodes.length} items • {edges.length} relationships
           </p>
+          
+          {/* Export Buttons */}
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+            <button
+              onClick={exportToWord}
+              style={{
+                padding: '10px 20px',
+                background: '#3498db',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              📥 Export Word
+            </button>
+            <button
+              onClick={exportToPDF}
+              style={{
+                padding: '10px 20px',
+                background: '#e74c3c',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              📥 Export PDF
+            </button>
+          </div>
         </div>
         
         {/* Table of Contents */}
@@ -3769,7 +4003,7 @@ function DocumentView({ nodes, edges, onNodeClick }) {
         </div>
         
         {/* Content */}
-        <div>
+        <div id="document-content">
           {hierarchy.length === 0 ? (
             <div style={{ textAlign: 'center', color: '#7f8c8d', padding: '40px' }}>
               No items to display. Create some nodes in PLM or Whiteboard view.
