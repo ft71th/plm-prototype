@@ -1,5 +1,6 @@
 // src/Login.js - Login and Register component
 import React, { useState } from 'react';
+import { NorthlightLogo } from './NorthlightLogo';
 import { auth } from './api';
 
 function Login({ onLogin }) {
@@ -22,8 +23,13 @@ function Login({ onLogin }) {
       } else {
         result = await auth.login(email, password);
       }
+      console.log('Login result:', result);
+      console.log('Token:', result.token);
       
       auth.saveSession(result.user, result.token);
+      
+      console.log('Saved token:', localStorage.getItem('plm_token'));
+
       onLogin(result.user);
     } catch (err) {
       setError(err.message);
@@ -51,12 +57,7 @@ function Login({ onLogin }) {
       }}>
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-          <h1 style={{ color: '#3498db', margin: 0, fontSize: '28px' }}>
-            📋 PLM Prototype
-          </h1>
-          <p style={{ color: '#7f8c8d', marginTop: '8px' }}>
-            {isRegister ? 'Create your account' : 'Sign in to continue'}
-          </p>
+          <NorthlightLogo size={60} animated={true} />
         </div>
 
         {/* Error */}
@@ -74,7 +75,7 @@ function Login({ onLogin }) {
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} action="#">
           {isRegister && (
             <div style={{ marginBottom: '20px' }}>
               <label style={{ display: 'block', color: '#bdc3c7', marginBottom: '6px', fontSize: '13px' }}>
@@ -82,6 +83,8 @@ function Login({ onLogin }) {
               </label>
               <input
                 type="text"
+                name="name"
+                autoComplete="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
@@ -106,6 +109,8 @@ function Login({ onLogin }) {
             </label>
             <input
               type="email"
+              name="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -129,6 +134,8 @@ function Login({ onLogin }) {
             </label>
             <input
               type="password"
+              name="password"
+              autoComplete={isRegister ? "new-password" : "current-password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required

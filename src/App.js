@@ -1,5 +1,6 @@
 import Login from './Login';
 import { auth, projects, realtime } from './api';
+import { NorthlightSplash, NorthlightLogo } from './NorthlightLogo';
 import React, { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import ProjectSelector from './ProjectSelector';
 import ReactFlow, {
@@ -942,7 +943,7 @@ function VoiceTextArea({ value, onChange, placeholder, disabled, style, minHeigh
         setIsRecording(false);
       });
       // Auto-stop recording state after 5 seconds (safety)
-      setTimeout(() => setIsRecording(false), 5000);
+      setTimeout(() => setIsRecording(false), 3000);
     }
   };
 
@@ -2918,17 +2919,27 @@ function TopHeader({
       background: '#2c3e50',
       borderBottom: '2px solid #34495e',
       height: '50px',
+      position: 'relative',
+      zIndex: 100,
       gap: '15px'
     }}>
       {/* LEFT SECTION - Menu & Project Name */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '300px' }}>
-        <button onClick={onMenuClick} style={{ /* hamburger styles */ }}>
-          ☰
-        </button>
-        <span>🎯 {objectName}</span>
-        <span style={{ /* version badge styles */ }}>v{objectVersion}</span>
-      </div>
-      
+      <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+        <button onClick={onMenuClick}>☰</button>
+        <NorthlightLogo size={30} showText={false} animated={false} />
+        <span style={{ color: 'white', fontWeight: 'bold' }}>
+          🎯 {objectName}
+        </span>
+        <span style={{
+          background: '#3498db',
+          padding: '2px 8px',
+          borderRadius: '4px',
+          fontSize: '11px',
+          color: 'white'
+        }}>
+          v{objectVersion}
+        </span>
+      </div> 
      
       {/* CENTER SECTION - Search */}
       <div style={{ flex: 1, maxWidth: '400px' }}>
@@ -3026,7 +3037,7 @@ function TopHeader({
         <div style={{
           position: 'absolute',
           top: '50px',
-          right: '15px',
+          right: '300px',
           background: '#1a2634',
           border: '1px solid #34495e',
           borderRadius: '8px',
@@ -3035,6 +3046,7 @@ function TopHeader({
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
           gap: '10px',
+          zIndex: 1000,
           minWidth: '400px'
         }}>
           <select
@@ -4253,6 +4265,7 @@ export default function App() {
 
   const reactFlowWrapper = useRef(null);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
+  const [showSplash, setShowSplash] = useState(true);
 
   // Auth state
   const [user, setUser] = useState(null);
@@ -4260,7 +4273,7 @@ export default function App() {
   const [currentProject, setCurrentProject] = useState(null);
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const [showChangePassword, setShowChangePassword] = useState(false);
-
+  const [showSaveToast, setShowSaveToast] = useState(false);
 
 
    // Handle login
@@ -4330,7 +4343,10 @@ export default function App() {
     if (!currentProject) {
       alert('No project open');
       return;
+      
     }
+    setShowSaveToast(true);
+    setTimeout(() => setShowSaveToast(false), 2000);
     
     try {
       await projects.save(currentProject.id, {
@@ -5476,16 +5492,28 @@ const createNewObject = (name, version, description) => {
   // Check if user is already logged in
   useEffect(() => {
     const checkAuth = async () => {
-      if (auth.isLoggedIn()) {
+      const token = localStorage.getItem('plm_token');
+      const savedUser = localStorage.getItem('plm_user');
+      
+      console.log('Auth check - Token exists:', !!token, 'User exists:', !!savedUser);
+      
+      if (token && savedUser) {
         try {
           const userData = await auth.me();
           setUser(userData);
           realtime.connect();
         } catch (err) {
           console.error('Auth check failed:', err);
-          auth.logout();
+          // Token is invalid - clear everything
+          localStorage.removeItem('plm_token');
+          localStorage.removeItem('plm_user');
+          setUser(null);
         }
+      } else {
+        // No token - make sure user is null
+        setUser(null);
       }
+      
       setIsAuthChecking(false);
     };
     checkAuth();
@@ -5681,8 +5709,12 @@ const createNewObject = (name, version, description) => {
     setReqTypeFilter('all');
     setClassificationFilter('all');
   };
-
+  
+  if (showSplash) {
+      return <NorthlightSplash onComplete={() => setShowSplash(false)} duration={5000} />;
+    }
   // Show loading while checking auth
+  
   if (isAuthChecking) {
     return (
       <div style={{
@@ -5699,6 +5731,11 @@ const createNewObject = (name, version, description) => {
     );
   }
 
+  // Show login if NOT authenticated (user is null or undefined)
+  if (!user) {
+    return <Login onLogin={handleLogin} />;
+  }
+
   // Show project selector if no project open
   if (!currentProject) {
     return (
@@ -5710,9 +5747,11 @@ const createNewObject = (name, version, description) => {
     );
   }
 
+  
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: '#1a1a2e' }}>
+    
+    <div style={{ width: '100vw', height: '100vh', background: '#1a1a2e',overflow: 'hidden' }}>
       
       {/* Top Header */}
       <TopHeader
@@ -5955,7 +5994,19 @@ const createNewObject = (name, version, description) => {
         }}
       >
         <Controls style={{ bottom: 20, left: 70 }} />
-        <MiniMap style={{ bottom: 20, right: 20 }} />
+        <MiniMap 
+          style={{ 
+            position: 'absolute',
+            bottom: 120,
+            right: 10,
+            width: 150,
+            height: 100,
+            background: '#ecf0f1',
+            borderRadius: '8px',
+            border: '1px solid #34495e'
+          }}
+          maskColor="rgba(0,0,0,0.2)"
+        />
         <Background 
           variant="dots" 
           gap={12} 
@@ -6001,6 +6052,26 @@ const createNewObject = (name, version, description) => {
             onSuccess={() => alert('Password changed successfully!')}
           />
         )}
+
+      {/* Save Toast */}
+      {showSaveToast && (
+        <div style={{
+          position: 'fixed',
+          bottom: '30px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: '#27ae60',
+          color: 'white',
+          padding: '12px 24px',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+          zIndex: 9999,
+          fontSize: '14px',
+          fontWeight: 'bold'
+        }}>
+          ✅ Project saved successfully!
+        </div>
+      )}  
 
       {/* Relationship Panel for Edges */}
       {selectedEdge && (

@@ -14,6 +14,8 @@ const getToken = () => localStorage.getItem('plm_token');
 const apiFetch = async (endpoint, options = {}) => {
   const token = getToken();
   
+  console.log('API Call:', endpoint, 'Token exists:', !!token);
+  
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
     headers: {

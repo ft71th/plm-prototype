@@ -1,5 +1,6 @@
 // src/ProjectSelector.js - Project list and selector
 import React, { useState, useEffect } from 'react';
+import { NorthlightLogo } from './NorthlightLogo';
 import { projects } from './api';
 
 function ProjectSelector({ user, onSelectProject, onLogout }) {
@@ -93,12 +94,7 @@ function ProjectSelector({ user, onSelectProject, onLogout }) {
         margin: '0 auto 40px auto'
       }}>
         <div>
-          <h1 style={{ color: 'white', margin: 0, fontSize: '28px' }}>
-            📋 PLM Prototype
-          </h1>
-          <p style={{ color: '#7f8c8d', margin: '8px 0 0 0' }}>
-            Welcome back, {user?.name}!
-          </p>
+          <NorthlightLogo size={50} animated={true} />
         </div>
         <button
           onClick={onLogout}
