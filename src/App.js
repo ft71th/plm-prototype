@@ -1,3 +1,5 @@
+import Login from './Login';
+import { auth, projects, realtime } from './api';
 import React, { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import ReactFlow, {
   MiniMap,
@@ -148,6 +150,7 @@ function inferRelationshipType(sourceNode, targetNode) {
   // Default
   return 'related';
 }
+
 // Custom Edge Component with label and click handling
 // Custom Edge Component with inline editing
 function CustomEdge({
@@ -921,6 +924,8 @@ function CustomNode({ data, id, selected }) {
     </div>
   );
 }
+
+
 
 // Voice-enabled text input helper
 function VoiceTextArea({ value, onChange, placeholder, disabled, style, minHeight = '80px' }) {
@@ -2889,6 +2894,9 @@ function TopHeader({
   onFiltersToggle,
   filters,
   onFilterChange,
+  user,
+  handleLogout,
+  onLogout,
   viewMode,
   onViewModeChange,
   whiteboards,
@@ -2899,120 +2907,55 @@ function TopHeader({
   onNewWhiteboard,
   onDeleteWhiteboard
 }) {
-  return (
+    return (
     <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      height: '50px',
-      backgroundColor: '#1a2634',
-      borderBottom: '2px solid #34495e',
       display: 'flex',
       alignItems: 'center',
-      padding: '0 15px',
-      gap: '15px',
-      zIndex: 3000
+      justifyContent: 'space-between',
+      padding: '8px 15px',
+      background: '#2c3e50',
+      borderBottom: '2px solid #34495e',
+      height: '50px',
+      gap: '15px'
     }}>
-      {/* Menu Button */}
-      <button
-        onClick={onMenuClick}
-        style={{
-          background: 'transparent',
-          border: '1px solid #4a5f7f',
-          color: 'white',
-          fontSize: '18px',
-          cursor: 'pointer',
-          padding: '6px 10px',
-          borderRadius: '6px',
-          display: 'flex',
-          alignItems: 'center'
-        }}
-      >
-        ☰
-      </button>
-      
-      {/* Object Name & Version */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        color: 'white'
-      }}>
-        <span style={{ fontSize: '16px' }}>📦</span>
-        <span style={{ fontWeight: 'bold', fontSize: '14px' }}>{objectName}</span>
-        <span style={{
-          background: '#8e44ad',
-          padding: '2px 8px',
-          borderRadius: '4px',
-          fontSize: '11px',
-          fontWeight: 'bold'
-        }}>
-          v{objectVersion}
-        </span>
+      {/* LEFT SECTION - Menu & Project Name */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '300px' }}>
+        <button onClick={onMenuClick} style={{ /* hamburger styles */ }}>
+          ☰
+        </button>
+        <span>🎯 {objectName}</span>
+        <span style={{ /* version badge styles */ }}>v{objectVersion}</span>
       </div>
       
-      {/* Spacer */}
-      <div style={{ flex: 1 }} />
-      
-      {/* Search */}
-      <div style={{ position: 'relative' }}>
+     
+      {/* CENTER SECTION - Search */}
+      <div style={{ flex: 1, maxWidth: '400px' }}>
         <input
           type="text"
+          placeholder="🔍 Search..."
           value={searchText}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="🔍 Search..."
           style={{
+            width: '100%',
             padding: '8px 12px',
-            paddingRight: '30px',
-            background: '#2c3e50',
-            color: 'white',
+            background: '#34495e',
             border: '1px solid #4a5f7f',
             borderRadius: '6px',
-            fontSize: '13px',
-            width: '200px'
+            color: 'white',
+            fontSize: '13px'
           }}
         />
-        {searchText && (
-          <button
-            onClick={() => onSearchChange('')}
-            style={{
-              position: 'absolute',
-              right: '8px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              background: 'transparent',
-              border: 'none',
-              color: '#7f8c8d',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
-          >
-            ✕
-          </button>
-        )}
       </div>
       
-      {/* Filters Toggle */}
-      <button
-        onClick={onFiltersToggle}
-        style={{
-          padding: '8px 12px',
-          background: filtersOpen ? '#3498db' : '#2c3e50',
-          color: 'white',
-          border: '1px solid #4a5f7f',
-          borderRadius: '6px',
-          cursor: 'pointer',
-          fontSize: '12px',
-          fontWeight: 'bold',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px'
-        }}
-      >
-        🎛️ Filters {filtersOpen ? '▲' : '▼'}
-      </button>
+      {/* RIGHT SECTION - Filters, Viewpoints, User */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        
+        {/* Filters Button */}
+        <button onClick={onFiltersToggle} style={{ /* filter button styles */ }}>
+          🎛️ Filters ▼
+        </button>
       
+            
       {/* Whiteboard Selector - replaces the old toggle */}
       <WhiteboardSelector
         whiteboards={whiteboards}
@@ -3166,6 +3109,35 @@ function TopHeader({
           </select>
         </div>
       )}
+             {/* User info & Logout */}
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '10px',
+          marginLeft: 'auto',
+          paddingRight: '15px'
+        }}>
+          <span style={{ color: '#bdc3c7', fontSize: '12px' }}>
+            👤 {user?.name || user?.email}
+          </span>
+          <button
+            onClick={onLogout}
+            style={{
+              padding: '6px 12px',
+              background: '#e74c3c',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '11px',
+              fontWeight: 'bold'
+            }}
+          >
+            Logout
+          </button>
+        </div>
+      </div>  {/* This is the existing closing div */}
+      
     </div>
   );
 }
@@ -4102,6 +4074,25 @@ export default function App() {
   const reactFlowWrapper = useRef(null);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
 
+  // Auth state
+  const [user, setUser] = useState(null);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const [currentProjectId, setCurrentProjectId] = useState(null);
+
+
+
+   // Handle login
+  const handleLogin = (userData) => {
+    setUser(userData);
+    realtime.connect();
+  };
+
+  // Handle logout
+  const handleLogout = () => {
+    auth.logout();
+    setUser(null);
+    setCurrentProjectId(null);
+  };
 
 // Save current state to history
   const saveToHistory = useCallback(() => {
@@ -5228,6 +5219,24 @@ const createNewObject = (name, version, description) => {
     setNodeId((id) => id + 1);
   }, [nodeId, handleNodeLabelChange, setNodes, generateItemId ]);
 
+  // Check if user is already logged in
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (auth.isLoggedIn()) {
+        try {
+          const userData = await auth.me();
+          setUser(userData);
+          realtime.connect();
+        } catch (err) {
+          console.error('Auth check failed:', err);
+          auth.logout();
+        }
+      }
+      setIsAuthChecking(false);
+    };
+    checkAuth();
+  }, []);
+
  // Expose duplicateNode and generateFATProtocol to window for FloatingPanel buttons
   useEffect(() => {
     window.duplicateNodeFunction = duplicateNode;
@@ -5419,6 +5428,29 @@ const createNewObject = (name, version, description) => {
     setClassificationFilter('all');
   };
 
+  // Show loading while checking auth
+  if (isAuthChecking) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#1a1a2e',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'white',
+        fontSize: '18px'
+      }}>
+        Loading...
+      </div>
+    );
+  }
+
+  // Show login if not authenticated
+  if (!user) {
+    return <Login onLogin={handleLogin} />;
+  }
+
+
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#1a1a2e' }}>
       
@@ -5460,6 +5492,8 @@ const createNewObject = (name, version, description) => {
         onWhiteboardSelect={switchWhiteboard}
         onNewWhiteboard={createNewWhiteboard}
         onDeleteWhiteboard={deleteWhiteboard}
+        user={user}
+        onLogout={handleLogout}
       />
       
       {/* Left Icon Strip */}
