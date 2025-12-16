@@ -48,6 +48,13 @@ export const auth = {
   
   me: () => apiFetch('/auth/me'),
   
+
+  changePassword: (currentPassword, newPassword) => 
+    apiFetch('/auth/change-password', {
+      method: 'PUT',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
+
   logout: () => {
     localStorage.removeItem('plm_token');
     localStorage.removeItem('plm_user');

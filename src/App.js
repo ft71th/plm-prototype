@@ -1,6 +1,7 @@
 import Login from './Login';
 import { auth, projects, realtime } from './api';
 import React, { useCallback, useState, useEffect, useMemo, useRef } from 'react';
+import ProjectSelector from './ProjectSelector';
 import ReactFlow, {
   MiniMap,
   Controls,
@@ -2896,6 +2897,7 @@ function TopHeader({
   onFilterChange,
   user,
   handleLogout,
+  onChangePassword,
   onLogout,
   viewMode,
   onViewModeChange,
@@ -3109,30 +3111,28 @@ function TopHeader({
           </select>
         </div>
       )}
-             {/* User info & Logout */}
-        <div style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '10px',
-          marginLeft: 'auto',
-          paddingRight: '15px'
-        }}>
+       
+        {/* User & Logout */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ color: '#bdc3c7', fontSize: '12px' }}>
-            👤 {user?.name || user?.email}
+            👤 {user?.name}
           </span>
           <button
-            onClick={onLogout}
+            onClick={onChangePassword}
             style={{
-              padding: '6px 12px',
-              background: '#e74c3c',
+              padding: '6px 10px',
+              background: '#34495e',
               color: 'white',
-              border: 'none',
+              border: '1px solid #4a5f7f',
               borderRadius: '4px',
               cursor: 'pointer',
-              fontSize: '11px',
-              fontWeight: 'bold'
+              fontSize: '11px'
             }}
+            title="Change Password"
           >
+            🔐
+          </button>
+          <button onClick={onLogout} style={{ /* logout styles */ }}>
             Logout
           </button>
         </div>
@@ -4021,6 +4021,186 @@ function DocumentView({ nodes, edges, onNodeClick }) {
   );
 }
 
+// Change Password Modal
+function ChangePasswordModal({ onClose, onSuccess }) {
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (newPassword !== confirmPassword) {
+      setError('New passwords do not match');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await auth.changePassword(currentPassword, newPassword);
+      onSuccess();
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.7)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 5000
+    }}>
+      <div style={{
+        background: '#2c3e50',
+        padding: '30px',
+        borderRadius: '12px',
+        width: '100%',
+        maxWidth: '400px',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
+      }}>
+        <h2 style={{ color: 'white', margin: '0 0 20px 0', fontSize: '20px' }}>
+          🔐 Change Password
+        </h2>
+
+        {error && (
+          <div style={{
+            background: '#e74c3c',
+            color: 'white',
+            padding: '10px',
+            borderRadius: '6px',
+            marginBottom: '15px',
+            fontSize: '13px'
+          }}>
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'block', color: '#bdc3c7', marginBottom: '6px', fontSize: '12px' }}>
+              Current Password
+            </label>
+            <input
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              required
+              style={{
+                width: '100%',
+                padding: '10px',
+                background: '#34495e',
+                border: '1px solid #4a5f7f',
+                borderRadius: '6px',
+                color: 'white',
+                fontSize: '14px',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'block', color: '#bdc3c7', marginBottom: '6px', fontSize: '12px' }}>
+              New Password
+            </label>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
+              minLength={6}
+              style={{
+                width: '100%',
+                padding: '10px',
+                background: '#34495e',
+                border: '1px solid #4a5f7f',
+                borderRadius: '6px',
+                color: 'white',
+                fontSize: '14px',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', color: '#bdc3c7', marginBottom: '6px', fontSize: '12px' }}>
+              Confirm New Password
+            </label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              style={{
+                width: '100%',
+                padding: '10px',
+                background: '#34495e',
+                border: '1px solid #4a5f7f',
+                borderRadius: '6px',
+                color: 'white',
+                fontSize: '14px',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                flex: 1,
+                padding: '12px',
+                background: '#7f8c8d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                flex: 1,
+                padding: '12px',
+                background: loading ? '#7f8c8d' : '#3498db',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                fontSize: '14px',
+                fontWeight: 'bold'
+              }}
+            >
+              {loading ? '...' : 'Change Password'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 // State declarations //
 export default function App() {
@@ -4077,7 +4257,9 @@ export default function App() {
   // Auth state
   const [user, setUser] = useState(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const [currentProject, setCurrentProject] = useState(null);
   const [currentProjectId, setCurrentProjectId] = useState(null);
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
 
 
@@ -4094,7 +4276,79 @@ export default function App() {
     setCurrentProjectId(null);
   };
 
-// Save current state to history
+  // Handle project selection
+  const handleSelectProject = (projectData) => {
+    console.log('Opening project:', projectData);
+    
+    // Set project info
+    setCurrentProject(projectData.project || projectData);
+    setObjectName(projectData.project?.name || projectData.name || 'New Project');
+    setObjectVersion(projectData.project?.version || projectData.version || '1.0');
+    
+    // Load nodes and edges if present
+    if (projectData.nodes) {
+      const loadedNodes = projectData.nodes.map(node => ({
+        ...node,
+        data: {
+          ...node.data,
+          onChange: handleNodeLabelChange
+        }
+      }));
+      setNodes(loadedNodes);
+    } else {
+      setNodes([]);
+    }
+    
+    if (projectData.edges) {
+      setEdges(projectData.edges);
+    } else {
+      setEdges([]);
+    }
+    
+    // Load whiteboards if present
+    if (projectData.whiteboards) {
+      setWhiteboards(projectData.whiteboards);
+    }
+    
+    // Connect to real-time
+    realtime.connect();
+    realtime.joinProject(projectData.project?.id || projectData.id, user);
+  };
+
+  // Handle close project (back to project list)
+  const handleCloseProject = () => {
+    if (currentProject) {
+      realtime.leaveProject(currentProject.id);
+    }
+    setCurrentProject(null);
+    setNodes([]);
+    setEdges([]);
+  };
+
+  // Save project to database
+  const saveProjectToDatabase = async () => {
+    if (!currentProject) {
+      alert('No project open');
+      return;
+    }
+    
+    try {
+      await projects.save(currentProject.id, {
+        name: objectName,
+        description: objectDescription,
+        version: objectVersion,
+        nodes: nodes,
+        edges: edges,
+        whiteboards: whiteboards
+      });
+      alert('Project saved!');
+    } catch (err) {
+      console.error('Save error:', err);
+      alert('Failed to save project: ' + err.message);
+    }
+  };
+
+  // Save current state to history
   const saveToHistory = useCallback(() => {
     if (isUndoRedo) return; // Don't save during undo/redo operations
     
@@ -5445,9 +5699,15 @@ const createNewObject = (name, version, description) => {
     );
   }
 
-  // Show login if not authenticated
-  if (!user) {
-    return <Login onLogin={handleLogin} />;
+  // Show project selector if no project open
+  if (!currentProject) {
+    return (
+      <ProjectSelector
+        user={user}
+        onSelectProject={handleSelectProject}
+        onLogout={handleLogout}
+      />
+    );
   }
 
 
@@ -5494,6 +5754,7 @@ const createNewObject = (name, version, description) => {
         onDeleteWhiteboard={deleteWhiteboard}
         user={user}
         onLogout={handleLogout}
+        onChangePassword={() => setShowChangePassword(true)}
       />
       
       {/* Left Icon Strip */}
@@ -5512,12 +5773,24 @@ const createNewObject = (name, version, description) => {
       {/* Sidebar */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)}>
         <SidebarSection title="📁 Project">
-          <SidebarButton icon="💾" label="Save Project" onClick={() => { exportProject(); setSidebarOpen(false); }} />
+          <SidebarButton icon="💾" label="Save Project" onClick={() => { saveProjectToDatabase(); setSidebarOpen(false); }} />
           <label style={{ display: 'block' }}>
             <SidebarButton 
             icon="📂" 
             label="Load Project" 
             onClick={() => document.getElementById('load-project-input').click()} 
+          />
+          <SidebarButton 
+            icon="📁" 
+            label="Close Project" 
+            onClick={() => {
+              if (window.confirm('Save before closing?')) {
+                saveProjectToDatabase().then(() => handleCloseProject());
+              } else {
+                handleCloseProject();
+              }
+              setSidebarOpen(false);
+            }} 
           />
           <input 
             id="load-project-input"
@@ -5721,6 +5994,13 @@ const createNewObject = (name, version, description) => {
           initialPosition={floatingPanelPosition}
         />
       )}
+
+      {showChangePassword && (
+          <ChangePasswordModal
+            onClose={() => setShowChangePassword(false)}
+            onSuccess={() => alert('Password changed successfully!')}
+          />
+        )}
 
       {/* Relationship Panel for Edges */}
       {selectedEdge && (
