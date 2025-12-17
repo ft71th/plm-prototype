@@ -598,9 +598,15 @@ function CustomNode({ data, id, selected }) {
           width: `${nodeWidth}px`,
           minHeight: `${nodeHeight}px`,
           backgroundColor: getWhiteboardColor(),
-          // ... other styles
+          borderRadius: getNodeShape().borderRadius || '8px',
+          borderStyle: getNodeShape().borderStyle || 'solid',
+          border: selected ? '3px solid #3498db' : '2px solid rgba(255,255,255,0.3)',
+          boxShadow: selected ? '0 0 20px rgba(52, 152, 219, 0.5)' : '0 4px 12px rgba(0,0,0,0.2)',
+          position: 'relative',
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
         }}>
-        
+
         {/* ADD TYPE BADGE HERE - before Handles and Labels */}
         <div style={{
           position: 'absolute',
@@ -622,20 +628,38 @@ function CustomNode({ data, id, selected }) {
         </div>
 
         {/* Handles and Labels */}
-        {ports.length === 0 ? (
-          <>
-            <Handle 
-              type="target" 
-              position={Position.Left} 
-              style={{ background: '#333', width: 10, height: 10 }}
-            />
-            <Handle 
-              type="source" 
-              position={Position.Right} 
-              style={{ background: '#333', width: 10, height: 10 }}
-            />
-          </>
-        ) : (
+        {/* Default handles - ALWAYS present for logical relationships */}
+        <Handle
+          type="target"
+          position={Position.Left}
+          id="default-target"
+          style={{
+            background: '#555',
+            width: '8px',
+            height: '8px',
+            left: '-4px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            opacity: ports.length > 0 ? 0.3 : 1,  // Subtle when ports exist
+          }}
+        />
+        <Handle
+          type="source"
+          position={Position.Right}
+          id="default-source"
+          style={{
+            background: '#555',
+            width: '8px',
+            height: '8px',
+            right: '-4px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            opacity: ports.length > 0 ? 0.3 : 1,
+          }}
+        />
+
+        {/* Port-specific handles (if any) */}
+        {ports.length > 0 && (
           <>
             {/* Input ports - left side */}
             {inputPorts.map((port, index) => {
@@ -709,7 +733,7 @@ function CustomNode({ data, id, selected }) {
                 </React.Fragment>
               );
             })}
-          </>
+          </>    
         )}
 
         {/* Center content - Node name */}
@@ -4411,26 +4435,49 @@ export default function App() {
         ...node,
         data: {
           ...node.data,
+          // Preserve reqType - don't override it!
+          reqType: node.data.reqType,
           onChange: handleNodeLabelChange
         }
       }));
       setNodes(loadedNodes);
+      
+      // Process edges - validate handles exist on nodes
+      if (projectData.edges) {
+        const edgesWithArrows = projectData.edges.map(edge => {
+          const sourceNode = loadedNodes.find(n => n.id === edge.source);
+          const targetNode = loadedNodes.find(n => n.id === edge.target);
+          
+          // Check if handles exist on the nodes
+          const sourcePorts = sourceNode?.data?.ports || [];
+          const targetPorts = targetNode?.data?.ports || [];
+          
+          const validSourceHandle = !edge.sourceHandle || 
+            edge.sourceHandle === 'default-source' ||
+            sourcePorts.some(p => p.id === edge.sourceHandle);
+          const validTargetHandle = !edge.targetHandle || 
+            edge.targetHandle === 'default-target' ||
+            targetPorts.some(p => p.id === edge.targetHandle);
+          
+          return {
+            ...edge,
+            // Convert invalid or null handles to undefined (use default)
+            sourceHandle: validSourceHandle ? (edge.sourceHandle === null ? undefined : edge.sourceHandle) : undefined,
+            targetHandle: validTargetHandle ? (edge.targetHandle === null ? undefined : edge.targetHandle) : undefined,
+            markerEnd: {
+              type: MarkerType.ArrowClosed,
+              width: 20,
+              height: 20,
+              color: '#95a5a6'
+            }
+          };
+        });
+        setEdges(edgesWithArrows);
+      } else {
+        setEdges([]);
+      }
     } else {
       setNodes([]);
-    }
-    
-    if (projectData.edges) {
-      const edgesWithArrows = projectData.edges.map(edge => ({
-        ...edge,
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          width: 20,
-          height: 20,
-          color: '#95a5a6'
-        }
-      }));
-      setEdges(edgesWithArrows);
-    } else {
       setEdges([]);
     }
     
@@ -4465,12 +4512,42 @@ export default function App() {
     setTimeout(() => setShowSaveToast(false), 1000);
     
     try {
+      // Prepare nodes - remove non-serializable functions and floating connectors
+      const nodesToSave = nodes
+        .filter(node => !node.data?.isFloatingConnector) // Remove floating connectors
+        .map(node => ({
+          ...node,
+          data: {
+            ...node.data,
+            // Remove non-serializable functions
+            onChange: undefined,
+            onLabelChange: undefined,
+          }
+        }));
+      
+      // Remove edges connected to floating connectors
+      const connectorIds = nodes
+        .filter(n => n.data?.isFloatingConnector)
+        .map(n => n.id);
+      
+      const edgesToSave = edges
+        .filter(e => !connectorIds.includes(e.source) && !connectorIds.includes(e.target))
+        .map(edge => ({
+          ...edge,
+          data: {
+            ...edge.data,
+            // Remove non-serializable functions
+            onLabelChange: undefined,
+            onEdgeDoubleClick: undefined,
+          }
+        }));
+      
       await projects.save(currentProject.id, {
         name: objectName,
         description: objectDescription,
         version: objectVersion,
-        nodes: nodes,
-        edges: edges,
+        nodes: nodesToSave,
+        edges: edgesToSave,
         whiteboards: whiteboards
       });
       alert('Project saved!');
@@ -4714,8 +4791,17 @@ export default function App() {
 
   const onEdgeUpdateEnd = useCallback((event, edge) => {
     if (!edgeUpdateSuccessful.current) {
+      // Only create floating connector if this is a real user drag event
+      // Check if event has valid coordinates (not triggered by loading)
+      if (!event || !event.clientX || !event.clientY || !reactFlowInstance) {
+        // Just delete the edge if we can't create a floating connector
+        setEdges((eds) => eds.filter((e) => e.id !== edge.id));
+        edgeUpdateSuccessful.current = true;
+        return;
+      }
+      
       // Get drop position using reactFlowInstance directly
-      const position = reactFlowInstance?.screenToFlowPosition({
+      const position = reactFlowInstance.screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
       });
@@ -6057,16 +6143,36 @@ const createNewObject = (name, version, description) => {
             };
           });
           setNodes(updatedNodes);
-          // Add arrow markers to edges
-          const edgesWithArrows = (project.edges || []).map(edge => ({
-            ...edge,
-            markerEnd: {
-              type: MarkerType.ArrowClosed,
-              width: 20,
-              height: 20,
-              color: '#95a5a6'
-            }
-          }));
+          
+          // Process edges - validate handles and add arrows
+          const edgesWithArrows = (project.edges || []).map(edge => {
+            const sourceNode = updatedNodes.find(n => n.id === edge.source);
+            const targetNode = updatedNodes.find(n => n.id === edge.target);
+            
+            // Check if handles exist on the nodes
+            const sourcePorts = sourceNode?.data?.ports || [];
+            const targetPorts = targetNode?.data?.ports || [];
+            
+            const validSourceHandle = !edge.sourceHandle || 
+              edge.sourceHandle === 'default-source' ||
+              sourcePorts.some(p => p.id === edge.sourceHandle);
+            const validTargetHandle = !edge.targetHandle || 
+              edge.targetHandle === 'default-target' ||
+              targetPorts.some(p => p.id === edge.targetHandle);
+            
+            return {
+              ...edge,
+              // Convert invalid or null handles to undefined (use default)
+              sourceHandle: validSourceHandle ? (edge.sourceHandle === null ? undefined : edge.sourceHandle) : undefined,
+              targetHandle: validTargetHandle ? (edge.targetHandle === null ? undefined : edge.targetHandle) : undefined,
+              markerEnd: {
+                type: MarkerType.ArrowClosed,
+                width: 20,
+                height: 20,
+                color: '#95a5a6'
+              }
+            };
+          });
           setEdges(edgesWithArrows);
           
           // Calculate max node ID
@@ -6155,6 +6261,7 @@ const createNewObject = (name, version, description) => {
   }
 
   
+  //APP return
 
   return (
     
@@ -6557,6 +6664,14 @@ const createNewObject = (name, version, description) => {
           onCreate={createNewObject}
         />
       )}
+
+      <input
+      id="file-import-input"
+      type="file"
+      accept=".json"
+      style={{ display: 'none' }}
+      onChange={importProject}
+    />
     </div>
   );
 }
