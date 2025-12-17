@@ -4322,6 +4322,7 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
 
   const [edgeUpdateSuccessful, setEdgeUpdateSuccessful] = useState(true);
+  const [showEdgePanel, setShowEdgePanel] = useState(false);
 
   // Auth state
   const [user, setUser] = useState(null);
@@ -4763,18 +4764,27 @@ export default function App() {
     }
   };
 
-  const handleEdgeClick = useCallback((event, edge) => {
+  // Single click - just select, don't show panel
+  const onEdgeClick = useCallback((event, edge) => {
     setSelectedNode(null);
-    setEdgePanelPosition({ x: event.clientX, y: event.clientY });
     setSelectedEdge(edge);
+    setShowEdgePanel(false);  // ADD THIS
   }, []);
 
-  const handlePaneClick = useCallback(() => {
+  // Double click - open edge panel
+  const onEdgeDoubleClick = useCallback((event, edge) => {
+    setSelectedEdge(edge);
     setSelectedNode(null);
-    setSelectedEdge(null);
+    setShowEdgePanel(true);   // ADD THIS
+    
+    // Position panel near the click
+    setEdgePanelPosition({
+      x: Math.min(event.clientX + 20, window.innerWidth - 350),
+      y: Math.max(event.clientY - 100, 60)
+    });
   }, []);
 
-  const updateNodeData = useCallback((nodeId, field, value) => {
+   const updateNodeData = useCallback((nodeId, field, value) => {
     setNodes((nds) =>
       nds.map((node) => {
         if (node.id === nodeId) {
@@ -6181,10 +6191,12 @@ const createNewObject = (name, version, description) => {
         onEdgeUpdateEnd={onEdgeUpdateEnd} 
         onNodeClick={handleNodeClick}
         onNodeDoubleClick={handleNodeDoubleClick}
-        onEdgeClick={handleEdgeClick}
+        onEdgeClick={onEdgeClick}
+        onEdgeDoubleClick={onEdgeDoubleClick}
         onPaneClick={() => {
           setSelectedNode(null);
           setSelectedEdge(null);
+          setShowEdgePanel(false);
           setFiltersOpen(false);
           setShowWhiteboardDropdown(false);
         }}
@@ -6279,10 +6291,13 @@ const createNewObject = (name, version, description) => {
       )}  
 
       {/* Relationship Panel for Edges */}
-      {selectedEdge && (
+      {selectedEdge && showEdgePanel && !selectedNode && (
         <RelationshipPanel
           edge={selectedEdge}
-          onClose={() => setSelectedEdge(null)}
+          onClose={() => {
+            setSelectedEdge(null);
+            setShowEdgePanel(false);
+          }}
           onUpdate={updateEdgeData}
           position={edgePanelPosition}
         />
