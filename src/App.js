@@ -182,6 +182,12 @@ function CustomEdge({
     targetPosition,
   });
 
+  const edgeStyle = {
+    stroke: selected ? '#3498db' : '#95a5a6',
+    strokeWidth: selected ? 3 : 2,
+    zIndex: selected ? 1000 : 0,
+  };
+
   const relType = RELATIONSHIP_TYPES[data?.relationType || 'related'];
   
   const getStrokeDasharray = () => {
@@ -246,13 +252,15 @@ function CustomEdge({
         id={id}
         className="react-flow__edge-path"
         d={edgePath}
-        style={{
+        /*style={{
           stroke: relType.color,
           strokeWidth: selected ? 3 : 2,
           strokeDasharray: getStrokeDasharray(),
           fill: 'none',
           cursor: 'pointer',
-        }}
+        }}*/
+        strokeDasharray={getStrokeDasharray()}
+        style={edgeStyle}
         markerEnd={`url(#arrow-${data?.relationType || 'related'})`}
       />
       <EdgeLabelRenderer>
@@ -479,6 +487,48 @@ function CustomNode({ data, id, selected }) {
         };
     }
   };
+
+   // FLOATING CONNECTOR - Small circle node
+  // FLOATING CONNECTOR - Small circle node
+  if (data.isFloatingConnector) {
+    return (
+      <div style={{
+        width: '24px',
+        height: '24px',
+        borderRadius: '50%',
+        background: selected ? '#3498db' : '#e74c3c',
+        border: '3px solid #fff',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'grab',
+      }}>
+        <Handle
+          type="target"
+          position={Position.Left}
+          id="connector-target"
+          style={{ 
+            background: '#555',
+            width: '10px',
+            height: '10px',
+            left: '-5px',
+          }}
+        />
+        <Handle
+          type="source"
+          position={Position.Right}
+          id="connector-source"
+          style={{ 
+            background: '#555',
+            width: '10px',
+            height: '10px',
+            right: '-5px',
+          }}
+        />
+      </div>
+    );
+  }
 
   const handleDoubleClick = () => {
     if (data.state === 'frozen' || data.state === 'released') {
@@ -4321,7 +4371,7 @@ export default function App() {
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
   const [showSplash, setShowSplash] = useState(true);
 
-  const [edgeUpdateSuccessful, setEdgeUpdateSuccessful] = useState(true);
+  const edgeUpdateSuccessful = useRef(true);
   const [showEdgePanel, setShowEdgePanel] = useState(false);
 
   // Auth state
@@ -4590,10 +4640,11 @@ export default function App() {
   }, [sysIdCounter, subIdCounter, funIdCounter, tcIdCounter, cusIdCounter, pltIdCounter, prjIdCounter, impIdCounter]);
 
   const stats = useMemo(() => {
-    const total = nodes.length;
-    const stateOpen = nodes.filter(n => n.data.state === 'open' || !n.data.state).length;
-    const stateFrozen = nodes.filter(n => n.data.state === 'frozen').length;
-    const stateReleased = nodes.filter(n => n.data.state === 'released').length;
+    const floatingConnectors = nodes.filter(n => n.data?.isFloatingConnector).length;  // ADD THIS
+    const total = nodes.length - floatingConnectors;  // Don't count connectors as items
+    const stateOpen = nodes.filter(n => !n.data?.isFloatingConnector && (n.data.state === 'open' || !n.data.state)).length;
+    const stateFrozen = nodes.filter(n => !n.data?.isFloatingConnector && n.data.state === 'frozen').length;
+    const stateReleased = nodes.filter(n => !n.data?.isFloatingConnector && n.data.state === 'released').length;
     const connections = edges.length;
     
     const relationshipCounts = {};
@@ -4602,16 +4653,29 @@ export default function App() {
       relationshipCounts[type] = (relationshipCounts[type] || 0) + 1;
     });
     
-    return { total, stateOpen, stateFrozen, stateReleased, connections, relationshipCounts };
+    return { total, stateOpen, stateFrozen, stateReleased, connections, relationshipCounts, floatingConnectors };  // ADD floatingConnectors
   }, [nodes, edges]);
 
   // Edge update handlers - allow moving connections
   const onEdgeUpdateStart = useCallback(() => {
-    setEdgeUpdateSuccessful(false);
+    console.log('🔵 Edge drag STARTED');
+    edgeUpdateSuccessful.current = false;  // Use .current for refs
   }, []);
 
   const onEdgeUpdate = useCallback((oldEdge, newConnection) => {
-    setEdgeUpdateSuccessful(true);
+    edgeUpdateSuccessful.current = true;
+    
+    // Check if we're reconnecting FROM a floating connector
+    const oldTargetNode = nodes.find(n => n.id === oldEdge.target);
+    const oldSourceNode = nodes.find(n => n.id === oldEdge.source);
+    
+    // Remove floating connector if edge was connected to one
+    if (oldTargetNode?.data?.isFloatingConnector) {
+      setNodes((nds) => nds.filter(n => n.id !== oldEdge.target));
+    }
+    if (oldSourceNode?.data?.isFloatingConnector) {
+      setNodes((nds) => nds.filter(n => n.id !== oldEdge.source));
+    }
     
     // Get port info for the new connection
     const sourceNode = nodes.find(n => n.id === newConnection.source);
@@ -4646,15 +4710,131 @@ export default function App() {
         signalName: signalName,
       }
     }, els));
-  }, [nodes, setEdges]);
+  }, [nodes, setEdges, setNodes]);
 
-  const onEdgeUpdateEnd = useCallback((_, edge) => {
-    if (!edgeUpdateSuccessful) {
-      // Edge was dropped in empty space - optionally delete it
-      // setEdges((eds) => eds.filter((e) => e.id !== edge.id));
+  const onEdgeUpdateEnd = useCallback((event, edge) => {
+    if (!edgeUpdateSuccessful.current) {
+      // Get drop position using reactFlowInstance directly
+      const position = reactFlowInstance?.screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      
+      if (!position) {
+        // Fallback: just delete the edge if we can't get position
+        setEdges((eds) => eds.filter((e) => e.id !== edge.id));
+        edgeUpdateSuccessful.current = true;
+        return;
+      }
+      
+      // Create a floating connector node
+      const connectorId = `connector-${Date.now()}`;
+      const newConnectorNode = {
+        id: connectorId,
+        type: 'custom',
+        position: position,
+        data: {
+          label: '⚡',
+          itemType: 'connector',
+          type: 'connector',
+          isFloatingConnector: true,
+        }
+      };
+      
+      // Add the connector node
+      setNodes((nds) => [...nds, newConnectorNode]);
+      
+      // Update the edge to point to the connector
+      setEdges((eds) => eds.map((e) => {
+        if (e.id === edge.id) {
+          return {
+            ...e,
+            target: connectorId,
+            targetHandle: null,
+          };
+        }
+        return e;
+      }));
     }
-    setEdgeUpdateSuccessful(true);
-  }, [edgeUpdateSuccessful]);
+    
+    edgeUpdateSuccessful.current = true;
+  }, [setEdges, setNodes, reactFlowInstance]);
+
+  const onNodeDragStop = useCallback((event, node) => {
+    // Only handle floating connectors
+    if (!node.data?.isFloatingConnector) return;
+    
+    // Get the connector's position
+    const connectorPos = node.position;
+    
+    // Find nearby nodes (excluding connectors)
+    const nearbyThreshold = 50; // pixels
+    
+    for (const otherNode of nodes) {
+      if (otherNode.id === node.id) continue;
+      if (otherNode.data?.isFloatingConnector) continue;
+      
+      // Check if connector is dropped near this node
+      const nodeWidth = 200; // approximate
+      const nodeHeight = 100; // approximate
+      
+      const isNearNode = 
+        connectorPos.x >= otherNode.position.x - nearbyThreshold &&
+        connectorPos.x <= otherNode.position.x + nodeWidth + nearbyThreshold &&
+        connectorPos.y >= otherNode.position.y - nearbyThreshold &&
+        connectorPos.y <= otherNode.position.y + nodeHeight + nearbyThreshold;
+      
+      if (isNearNode) {
+        // Find the edge connected to this connector
+        const connectedEdge = edges.find(e => 
+          e.target === node.id || e.source === node.id
+        );
+        
+        if (connectedEdge) {
+          // Determine which port to connect to (find nearest)
+          const ports = otherNode.data?.ports || [];
+          let targetHandle = null;
+          
+          // If node has ports, find the nearest input port
+          if (ports.length > 0) {
+            const inputPorts = ports.filter(p => p.direction === 'input' || p.type === 'input');
+            if (inputPorts.length > 0) {
+              targetHandle = inputPorts[0].id;
+            }
+          }
+          
+          // Update the edge to connect to the real node
+          setEdges((eds) => eds.map((e) => {
+            if (e.id === connectedEdge.id) {
+              if (e.target === node.id) {
+                // Connector was the target, update target
+                return {
+                  ...e,
+                  target: otherNode.id,
+                  targetHandle: targetHandle,
+                };
+              } else {
+                // Connector was the source, update source
+                const outputPorts = ports.filter(p => p.direction === 'output' || p.type === 'output');
+                const sourceHandle = outputPorts.length > 0 ? outputPorts[0].id : null;
+                return {
+                  ...e,
+                  source: otherNode.id,
+                  sourceHandle: sourceHandle,
+                };
+              }
+            }
+            return e;
+          }));
+          
+          // Remove the connector node
+          setNodes((nds) => nds.filter((n) => n.id !== node.id));
+          
+          return; // Done!
+        }
+      }
+    }
+  }, [nodes, edges, setNodes, setEdges]);
 
   const onConnect = useCallback((params) => {
     const sourceNode = nodes.find(n => n.id === params.source);
@@ -4765,11 +4945,19 @@ export default function App() {
   };
 
   // Single click - just select, don't show panel
-  const onEdgeClick = useCallback((event, edge) => {
+   const onEdgeClick = useCallback((event, edge) => {
     setSelectedNode(null);
+    setShowEdgePanel(false);
+    
+    // Bring selected edge to top by updating its zIndex
+    setEdges((eds) => eds.map((e) => ({
+      ...e,
+      zIndex: e.id === edge.id ? 1000 : 0,
+      selected: e.id === edge.id
+    })));
+    
     setSelectedEdge(edge);
-    setShowEdgePanel(false);  // ADD THIS
-  }, []);
+  }, [setEdges]);
 
   // Double click - open edge panel
   const onEdgeDoubleClick = useCallback((event, edge) => {
@@ -5781,10 +5969,25 @@ const createNewObject = (name, version, description) => {
         redo();
       }
 
-      // Ctrl+S = Save
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      // Ctrl+S = Save to Database
+      if (e.ctrlKey && !e.shiftKey && e.key === 's') {
+        e.preventDefault();
+        saveProjectToDatabase();
+        return;
+      }
+      
+      // Ctrl+Shift+S = Export to File
+      if (e.ctrlKey && e.shiftKey && e.key === 'S') {
         e.preventDefault();
         exportProject();
+        return;
+      }
+      
+      // Ctrl+O = Import from File
+      if (e.ctrlKey && e.key === 'o') {
+        e.preventDefault();
+        document.getElementById('file-import-input')?.click();
+        return;
       }
 
       // Ctrl+F = Focus search
@@ -6016,13 +6219,26 @@ const createNewObject = (name, version, description) => {
       {/* Sidebar */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)}>
         <SidebarSection title="📁 Project">
-          <SidebarButton icon="💾" label="Save Project" onClick={() => { saveProjectToDatabase(); setSidebarOpen(false); }} />
-          <label style={{ display: 'block' }}>
-            <SidebarButton 
-            icon="📂" 
-            label="Load Project" 
-            onClick={() => document.getElementById('load-project-input').click()} 
+          <SidebarButton 
+            icon="💾" 
+            label="Save Project" 
+            onClick={() => { 
+              saveProjectToDatabase(); 
+              setSidebarOpen(false); 
+            }} 
           />
+          <SidebarButton 
+            icon="📂" 
+            label="Open Project" 
+            onClick={() => {
+              if (window.confirm('Save current project before opening another?')) {
+                saveProjectToDatabase();
+              }
+              handleCloseProject();
+              setSidebarOpen(false);
+            }} 
+          />
+
           <SidebarButton 
             icon="📁" 
             label="Close Project" 
@@ -6035,18 +6251,36 @@ const createNewObject = (name, version, description) => {
               setSidebarOpen(false);
             }} 
           />
-          <input 
-            id="load-project-input"
-            type="file" 
-            accept=".json" 
-            onChange={(e) => { 
-              importProject(e); 
-              setSidebarOpen(false);
-              e.target.value = '';  // Reset so same file can be loaded again
-            }} 
-            style={{ display: 'none' }} 
-          />
-          </label>
+          <div style={{ 
+              borderTop: '1px solid #34495e', 
+              margin: '10px 0',
+              paddingTop: '10px'
+            }}>
+              <div style={{ 
+                fontSize: '10px', 
+                color: '#7f8c8d', 
+                marginBottom: '6px',
+                paddingLeft: '10px'
+              }}>
+                FILE OPERATIONS
+              </div>
+              <SidebarButton 
+                icon="📤" 
+                label="Export to File (Ctrl+Shift+S)" 
+                onClick={() => {
+                  exportProject();
+                  setSidebarOpen(false);
+                }} 
+              />
+              <SidebarButton 
+                icon="📥" 
+                label="Import from File (Ctrl+O)" 
+                onClick={() => {
+                  document.getElementById('file-import-input')?.click();
+                  setSidebarOpen(false);
+                }} 
+              />
+            </div>
           <SidebarButton icon="📊" label="Export to Excel" onClick={() => { exportToExcel(); setSidebarOpen(false); }} />
           <SidebarButton icon="🆕" label="New Object" onClick={() => { setShowNewObjectModal(true); setSidebarOpen(false); }} />
         </SidebarSection>
@@ -6077,16 +6311,28 @@ const createNewObject = (name, version, description) => {
           }}>
             <div style={{ marginBottom: '6px' }}>
               <span style={{ color: '#7f8c8d' }}>Total Items:</span>
-              <span style={{ float: 'right', fontWeight: 'bold' }}>{nodes.length}</span>
+              <span style={{ float: 'right', fontWeight: 'bold' }}>{stats.total}</span>
             </div>
             <div style={{ marginBottom: '6px' }}>
               <span style={{ color: '#7f8c8d' }}>Filtered:</span>
               <span style={{ float: 'right', fontWeight: 'bold' }}>{filteredCount}</span>
             </div>
-            <div>
+            <div style={{ marginBottom: '6px' }}>
               <span style={{ color: '#7f8c8d' }}>Relationships:</span>
               <span style={{ float: 'right', fontWeight: 'bold' }}>{edges.length}</span>
             </div>
+            {stats.floatingConnectors > 0 && (
+              <div style={{ 
+                marginTop: '8px',
+                paddingTop: '8px',
+                borderTop: '1px solid #34495e'
+              }}>
+                <span style={{ color: '#e74c3c' }}>⚠️ Unconnected:</span>
+                <span style={{ float: 'right', fontWeight: 'bold', color: '#e74c3c' }}>
+                  {stats.floatingConnectors}
+                </span>
+              </div>
+            )}
           </div>
         </SidebarSection>
         
@@ -6191,6 +6437,7 @@ const createNewObject = (name, version, description) => {
         onEdgeUpdateEnd={onEdgeUpdateEnd} 
         onNodeClick={handleNodeClick}
         onNodeDoubleClick={handleNodeDoubleClick}
+        onNodeDragStop={onNodeDragStop} 
         onEdgeClick={onEdgeClick}
         onEdgeDoubleClick={onEdgeDoubleClick}
         onPaneClick={() => {
