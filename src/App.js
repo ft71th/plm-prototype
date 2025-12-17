@@ -2,6 +2,7 @@ import Login from './Login';
 import { auth, projects, realtime } from './api';
 import { NorthlightSplash, NorthlightLogo } from './NorthlightLogo';
 import React, { useCallback, useState, useEffect, useMemo, useRef } from 'react';
+import dagre from 'dagre';
 import ProjectSelector from './ProjectSelector';
 import ReactFlow, {
   MiniMap,
@@ -10,8 +11,10 @@ import ReactFlow, {
   useNodesState,
   useEdgesState,
   addEdge,
+  updateEdge,
   Panel,
   Handle,
+  MarkerType,
   Position,
   EdgeLabelRenderer,
   getBezierPath,
@@ -354,10 +357,10 @@ function CustomNode({ data, id, selected }) {
   };
 
   const getReqTypeColor = () => {
-    if (data.reqType === 'customer') return '#9b59b6';
-    if (data.reqType === 'platform') return '#3498db';
-    if (data.reqType === 'project') return '#e67e22';
-    if (data.reqType === 'implementation') return '#16a085';
+    if (data.reqType === 'customer') return '#9b59b6';      // Purple
+    if (data.reqType === 'platform') return '#2c3e50';      // Dark Navy (was blue)
+    if (data.reqType === 'project') return '#e67e22';       // Orange
+    if (data.reqType === 'implementation') return '#f1c40f'; // Yellow/Gold (was teal)
     return '#95a5a6';
   };
 
@@ -377,13 +380,23 @@ function CustomNode({ data, id, selected }) {
   };
 
   const getSystemAccentColor = () => {
-    if (data.itemType === 'system' || data.type === 'system') return '#1abc9c';
-    if (data.itemType === 'subsystem' || data.type === 'subsystem') return '#3498db';
-    if (data.itemType === 'function' || data.type === 'function') return '#00bcd4';
-    if (data.itemType === 'testcase' || data.type === 'testcase') return '#27ae60';
-    if (data.itemType === 'testrun' || data.type === 'testrun') return '#e67e22';
-    if (data.itemType === 'testresult' || data.type === 'testresult') return '#9b59b6';
+    if (data.itemType === 'system' || data.type === 'system') return '#1abc9c';       // Teal
+    if (data.itemType === 'subsystem' || data.type === 'subsystem') return '#3498db'; // Blue
+    if (data.itemType === 'function' || data.type === 'function') return '#00bcd4';   // Cyan
+    if (data.itemType === 'testcase' || data.type === 'testcase') return '#27ae60';   // Green
+    if (data.itemType === 'testrun' || data.type === 'testrun') return '#e67e22';     // Orange
+    if (data.itemType === 'testresult' || data.type === 'testresult') return '#9b59b6'; // Purple
     return '#95a5a6';
+  };
+
+  const getWhiteboardColor = () => {
+    // Check if it's a requirement type
+    if (data.itemType === 'requirement' || data.type === 'requirement' ||
+        ['customer', 'platform', 'project', 'implementation'].includes(data.reqType)) {
+      return getReqTypeColor();
+    }
+    // Otherwise use system colors
+    return getSystemAccentColor();
   };
 
   const getItemTypeLabel = () => {
@@ -409,6 +422,36 @@ function CustomNode({ data, id, selected }) {
   // SHAPE FUNCTION - Must be BEFORE the return statement!
   const getNodeShape = () => {
     const type = data.itemType || data.type;
+    const reqType = data.reqType;
+    
+    // Requirements get shapes based on reqType
+    if (type === 'requirement' || ['customer', 'platform', 'project', 'implementation'].includes(reqType)) {
+      switch (reqType) {
+        case 'customer':
+          return {
+            borderRadius: '4px',            // Sharp rectangle
+            borderStyle: 'solid',
+          };
+        case 'platform':
+          return {
+            borderRadius: '12px',           // Rounded rectangle
+            borderStyle: 'solid',
+          };
+        case 'project':
+          return {
+            borderRadius: '20px',           // Pill shape
+            borderStyle: 'solid',
+          };
+        case 'implementation':
+          return {
+            borderRadius: '4px',            // Rectangle
+            borderStyle: 'dashed',          // Dashed border!
+          };
+        default:
+          return { borderRadius: '8px' };
+      }
+    }
+    
     switch (type) {
       case 'system':
         return {
@@ -468,8 +511,8 @@ function CustomNode({ data, id, selected }) {
     // WHITEBOARD MODE - Simplified view with port labels
   if (data.isWhiteboardMode) {
     const ports = data.ports || [];
-    const inputPorts = ports.filter(p => p.direction === 'input');
-    const outputPorts = ports.filter(p => p.direction === 'output');
+    const inputPorts = ports.filter(p => p.direction === 'input' || p.type === 'input');
+    const outputPorts = ports.filter(p => p.direction === 'output' || p.type === 'output');
     
     const getHandlePosition = (index, total) => {
       if (total === 1) return '50%';
@@ -504,19 +547,30 @@ function CustomNode({ data, id, selected }) {
         style={{
           width: `${nodeWidth}px`,
           minHeight: `${nodeHeight}px`,
-          backgroundColor: getSystemAccentColor(),
-          border: '2px solid #333',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          opacity: data.isFiltered === false ? 0.3 : 1,
-          boxShadow: selected ? '0 0 15px rgba(0, 0, 0, 0.4)' : '0 2px 8px rgba(0,0,0,0.2)',
-          transition: 'all 0.2s ease',
-          position: 'relative',
-          ...getNodeShape()
+          backgroundColor: getWhiteboardColor(),
+          // ... other styles
         }}>
         
+        {/* ADD TYPE BADGE HERE - before Handles and Labels */}
+        <div style={{
+          position: 'absolute',
+          top: '4px',
+          left: '4px',
+          fontSize: '8px',
+          padding: '2px 6px',
+          borderRadius: '3px',
+          background: 'rgba(0,0,0,0.3)',
+          color: '#fff',
+          fontWeight: 'bold',
+          textTransform: 'uppercase'
+        }}>
+          {data.itemType === 'requirement' ? (data.reqType || 'REQ').substring(0,3).toUpperCase() :
+           data.itemType === 'system' ? 'SYS' :
+           data.itemType === 'subsystem' ? 'SUB' :
+           data.itemType === 'function' ? 'FUN' :
+           data.itemType === 'testcase' ? 'TC' : ''}
+        </div>
+
         {/* Handles and Labels */}
         {ports.length === 0 ? (
           <>
@@ -681,8 +735,8 @@ function CustomNode({ data, id, selected }) {
       {/* Dynamic Port Handles */}
       {(() => {
         const ports = data.ports || [];
-        const inputPorts = ports.filter(p => p.direction === 'input');
-        const outputPorts = ports.filter(p => p.direction === 'output');
+        const inputPorts = ports.filter(p => p.direction === 'input' || p.type === 'input');
+        const outputPorts = ports.filter(p => p.direction === 'output' || p.type === 'output');
         
         // If no ports defined, show default handles
         if (ports.length === 0) {
@@ -942,7 +996,7 @@ function VoiceTextArea({ value, onChange, placeholder, disabled, style, minHeigh
         onChange(newValue);
         setIsRecording(false);
       });
-      // Auto-stop recording state after 5 seconds (safety)
+      // Auto-stop recording state after 3 seconds (safety)
       setTimeout(() => setIsRecording(false), 3000);
     }
   };
@@ -1253,8 +1307,8 @@ function PortEditor({ ports = [], onChange, disabled }) {
     ));
   };
 
-  const inputPorts = ports.filter(p => p.direction === 'input');
-  const outputPorts = ports.filter(p => p.direction === 'output');
+  const inputPorts = ports.filter(p => p.direction === 'input' || p.type === 'input');
+  const outputPorts = ports.filter(p => p.direction === 'output' || p.type === 'output');
 
   return (
     <div style={{ marginBottom: '15px' }}>
@@ -4267,6 +4321,8 @@ export default function App() {
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
   const [showSplash, setShowSplash] = useState(true);
 
+  const [edgeUpdateSuccessful, setEdgeUpdateSuccessful] = useState(true);
+
   // Auth state
   const [user, setUser] = useState(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
@@ -4313,7 +4369,16 @@ export default function App() {
     }
     
     if (projectData.edges) {
-      setEdges(projectData.edges);
+      const edgesWithArrows = projectData.edges.map(edge => ({
+        ...edge,
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          width: 20,
+          height: 20,
+          color: '#95a5a6'
+        }
+      }));
+      setEdges(edgesWithArrows);
     } else {
       setEdges([]);
     }
@@ -4346,7 +4411,7 @@ export default function App() {
       
     }
     setShowSaveToast(true);
-    setTimeout(() => setShowSaveToast(false), 2000);
+    setTimeout(() => setShowSaveToast(false), 1000);
     
     try {
       await projects.save(currentProject.id, {
@@ -4363,6 +4428,60 @@ export default function App() {
       alert('Failed to save project: ' + err.message);
     }
   };
+
+  // Auto-layout function
+  const autoLayoutNodes = useCallback(() => {
+    if (nodes.length === 0) return;
+
+    const dagreGraph = new dagre.graphlib.Graph();
+    dagreGraph.setDefaultEdgeLabel(() => ({}));
+    
+    // Layout settings
+    dagreGraph.setGraph({ 
+      rankdir: 'LR',      // Left to Right layout
+      nodesep: 80,        // Horizontal spacing between nodes
+      ranksep: 150,       // Vertical spacing between ranks
+      marginx: 50,
+      marginy: 50
+    });
+
+    // Add nodes to dagre
+    nodes.forEach((node) => {
+      dagreGraph.setNode(node.id, { 
+        width: node.width || 200, 
+        height: node.height || 100 
+      });
+    });
+
+    // Add edges to dagre
+    edges.forEach((edge) => {
+      dagreGraph.setEdge(edge.source, edge.target);
+    });
+
+    // Run the layout
+    dagre.layout(dagreGraph);
+
+    // Update node positions
+    const newNodes = nodes.map((node) => {
+      const nodeWithPosition = dagreGraph.node(node.id);
+      return {
+        ...node,
+        position: {
+          x: nodeWithPosition.x - (node.width || 200) / 2,
+          y: nodeWithPosition.y - (node.height || 100) / 2,
+        },
+      };
+    });
+
+    setNodes(newNodes);
+    
+    // Fit view after layout
+    setTimeout(() => {
+      if (reactFlowInstance) {
+        reactFlowInstance.fitView({ padding: 0.2 });
+      }
+    }, 50);
+  }, [nodes, edges, setNodes, reactFlowInstance]);
 
   // Save current state to history
   const saveToHistory = useCallback(() => {
@@ -4485,6 +4604,57 @@ export default function App() {
     return { total, stateOpen, stateFrozen, stateReleased, connections, relationshipCounts };
   }, [nodes, edges]);
 
+  // Edge update handlers - allow moving connections
+  const onEdgeUpdateStart = useCallback(() => {
+    setEdgeUpdateSuccessful(false);
+  }, []);
+
+  const onEdgeUpdate = useCallback((oldEdge, newConnection) => {
+    setEdgeUpdateSuccessful(true);
+    
+    // Get port info for the new connection
+    const sourceNode = nodes.find(n => n.id === newConnection.source);
+    const targetNode = nodes.find(n => n.id === newConnection.target);
+    const sourcePort = sourceNode?.data?.ports?.find(p => p.id === newConnection.sourceHandle);
+    const targetPort = targetNode?.data?.ports?.find(p => p.id === newConnection.targetHandle);
+    
+    // Update signal name
+    let signalName = '';
+    if (sourcePort && targetPort) {
+      const sourceName = sourcePort.name.replace(/\[\d+:\d+\]/, '').trim();
+      const targetName = targetPort.name.replace(/\[\d+:\d+\]/, '').trim();
+      if (sourceName.toLowerCase() === targetName.toLowerCase()) {
+        signalName = sourceName;
+      } else {
+        signalName = `${sourceName} → ${targetName}`;
+      }
+    } else if (sourcePort) {
+      signalName = sourcePort.name.replace(/\[\d+:\d+\]/, '').trim();
+    } else if (targetPort) {
+      signalName = targetPort.name.replace(/\[\d+:\d+\]/, '').trim();
+    }
+    
+    setEdges((els) => updateEdge(oldEdge, {
+      ...newConnection,
+      data: {
+        ...oldEdge.data,
+        sourcePortId: newConnection.sourceHandle || null,
+        targetPortId: newConnection.targetHandle || null,
+        sourcePortName: sourcePort?.name || null,
+        targetPortName: targetPort?.name || null,
+        signalName: signalName,
+      }
+    }, els));
+  }, [nodes, setEdges]);
+
+  const onEdgeUpdateEnd = useCallback((_, edge) => {
+    if (!edgeUpdateSuccessful) {
+      // Edge was dropped in empty space - optionally delete it
+      // setEdges((eds) => eds.filter((e) => e.id !== edge.id));
+    }
+    setEdgeUpdateSuccessful(true);
+  }, [edgeUpdateSuccessful]);
+
   const onConnect = useCallback((params) => {
     const sourceNode = nodes.find(n => n.id === params.source);
     const targetNode = nodes.find(n => n.id === params.target);
@@ -4522,6 +4692,12 @@ export default function App() {
       sourceHandle: params.sourceHandle || null,
       targetHandle: params.targetHandle || null,
       type: 'custom',
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        width: 20,
+        height: 20,
+        color: '#95a5a6'
+      },
       data: { 
         relationType, 
         notes: '',
@@ -5544,6 +5720,14 @@ const createNewObject = (name, version, description) => {
         return;
       }
 
+      // Auto-layout with 'A'
+      if (e.key === 'a' && !e.ctrlKey && !e.metaKey) {
+        // Don't trigger if typing in input
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        e.preventDefault();
+        autoLayoutNodes();
+      }
+
       // P = New Platform
       if (e.key === 'p' || e.key === 'P') {
         e.preventDefault();
@@ -5660,7 +5844,17 @@ const createNewObject = (name, version, description) => {
             };
           });
           setNodes(updatedNodes);
-          setEdges(project.edges || []);
+          // Add arrow markers to edges
+          const edgesWithArrows = (project.edges || []).map(edge => ({
+            ...edge,
+            markerEnd: {
+              type: MarkerType.ArrowClosed,
+              width: 20,
+              height: 20,
+              color: '#95a5a6'
+            }
+          }));
+          setEdges(edgesWithArrows);
           
           // Calculate max node ID
           const maxId = Math.max(...(project.nodes || []).map(n => parseInt(n.id) || 0), 0);
@@ -5854,6 +6048,14 @@ const createNewObject = (name, version, description) => {
             onClick={() => setShowRelationshipLabels(!showRelationshipLabels)}
             active={showRelationshipLabels}
           />
+          <SidebarButton 
+            icon="📐" 
+            label="Auto-Arrange (A)" 
+            onClick={() => {
+              autoLayoutNodes();
+              setSidebarOpen(false);
+            }} 
+          />
         </SidebarSection>
         
         <SidebarSection title="📊 Statistics">
@@ -5974,6 +6176,9 @@ const createNewObject = (name, version, description) => {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onEdgeUpdate={onEdgeUpdate}
+        onEdgeUpdateStart={onEdgeUpdateStart}
+        onEdgeUpdateEnd={onEdgeUpdateEnd} 
         onNodeClick={handleNodeClick}
         onNodeDoubleClick={handleNodeDoubleClick}
         onEdgeClick={handleEdgeClick}
