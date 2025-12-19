@@ -19,9 +19,13 @@ import ReactFlow, {
   EdgeLabelRenderer,
   getBezierPath,
   useReactFlow,
+  SelectionMode,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import * as XLSX from 'xlsx';
+
+// API Base URL - same as api.js
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 const defaultEdgeOptions = {
   type: 'custom',
@@ -447,8 +451,8 @@ function CustomNode({ data, id, selected }) {
     if (data.itemType === 'testresult' || data.type === 'testresult') return '✅';
     if (data.itemType === 'parameter' || data.type === 'parameter') return '⚙️';
     if (data.itemType === 'hardware' || data.type === 'hardware') {
-      // Custom icon takes priority
-      if (data.hwCustomIcon) return 'custom';
+      // Custom icon or base64/URL image takes priority
+      if (data.hwCustomIcon || data.hwIcon?.startsWith('data:') || data.hwIcon?.startsWith('http')) return 'custom';
       return data.hwIcon || '📦';
     }
     return null;
@@ -456,6 +460,7 @@ function CustomNode({ data, id, selected }) {
 
   // Render hardware icon (emoji or custom image)
   const renderHardwareIcon = (size = 24) => {
+    // Custom uploaded icon takes priority
     if (data.hwCustomIcon) {
       return (
         <img 
@@ -469,6 +474,21 @@ function CustomNode({ data, id, selected }) {
         />
       );
     }
+    // Check if hwIcon is a base64 or URL image
+    if (data.hwIcon?.startsWith('data:') || data.hwIcon?.startsWith('http')) {
+      return (
+        <img 
+          src={data.hwIcon} 
+          alt="HW"
+          style={{ 
+            width: `${size}px`, 
+            height: `${size}px`, 
+            objectFit: 'contain'
+          }}
+        />
+      );
+    }
+    // Default: emoji
     return <span style={{ fontSize: `${size * 0.8}px` }}>{data.hwIcon || '📦'}</span>;
   };
 
@@ -613,6 +633,67 @@ function CustomNode({ data, id, selected }) {
     }
   };
 
+  // GROUP NODE - Container for grouped items
+  if (data.isGroup) {
+    return (
+      <div style={{
+        width: `${data.groupWidth || 300}px`,
+        height: `${data.groupHeight || 200}px`,
+        backgroundColor: `${data.groupColor || '#3498db'}15`,
+        border: `2px dashed ${data.groupColor || '#3498db'}`,
+        borderRadius: '12px',
+        position: 'relative',
+        pointerEvents: 'all',
+      }}>
+        {/* Group Label */}
+        <div style={{
+          position: 'absolute',
+          top: '-12px',
+          left: '12px',
+          backgroundColor: data.groupColor || '#3498db',
+          color: 'white',
+          padding: '2px 10px',
+          borderRadius: '10px',
+          fontSize: '11px',
+          fontWeight: 'bold',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}>
+          📁 {data.label}
+        </div>
+        
+        {/* Lock indicator for groups */}
+        {data.locked && (
+          <div style={{
+            position: 'absolute',
+            top: '-12px',
+            right: '12px',
+            backgroundColor: '#e74c3c',
+            color: 'white',
+            padding: '2px 6px',
+            borderRadius: '10px',
+            fontSize: '10px'
+          }}>
+            🔒
+          </div>
+        )}
+        
+        {/* Handles for connecting to/from groups */}
+        <Handle
+          type="target"
+          position={Position.Left}
+          style={{ background: data.groupColor || '#3498db', width: '10px', height: '10px' }}
+        />
+        <Handle
+          type="source"
+          position={Position.Right}
+          style={{ background: data.groupColor || '#3498db', width: '10px', height: '10px' }}
+        />
+      </div>
+    );
+  }
+
   
     // WHITEBOARD MODE - HARDWARE NODES (Icon-centric design)
   if (data.isWhiteboardMode && (data.itemType === 'hardware' || data.type === 'hardware')) {
@@ -658,9 +739,9 @@ function CustomNode({ data, id, selected }) {
           border: selected ? '2px solid #3498db' : '2px solid transparent',
           transition: 'all 0.2s ease',
         }}>
-          {data.hwCustomIcon ? (
+          {(data.hwCustomIcon || data.hwIcon?.startsWith('data:') || data.hwIcon?.startsWith('http')) ? (
             <img 
-              src={data.hwCustomIcon} 
+              src={data.hwCustomIcon || data.hwIcon} 
               alt={data.label || 'Hardware'}
               style={{ 
                 width: `${iconSize}px`, 
@@ -830,9 +911,9 @@ function CustomNode({ data, id, selected }) {
             alignItems: 'center',
             gap: '2px'
           }}>
-            {data.hwCustomIcon ? (
+            {(data.hwCustomIcon || data.hwIcon?.startsWith('data:') || data.hwIcon?.startsWith('http')) ? (
               <img 
-                src={data.hwCustomIcon} 
+                src={data.hwCustomIcon || data.hwIcon} 
                 alt="HW"
                 style={{ 
                   width: '48px', 
@@ -1193,9 +1274,9 @@ function CustomNode({ data, id, selected }) {
           borderRadius: '12px',
           border: '1px solid rgba(255,255,255,0.1)'
         }}>
-          {data.hwCustomIcon ? (
+          {(data.hwCustomIcon || data.hwIcon?.startsWith('data:') || data.hwIcon?.startsWith('http')) ? (
             <img 
-              src={data.hwCustomIcon} 
+              src={data.hwCustomIcon || data.hwIcon} 
               alt="HW"
               style={{ 
                 width: `${data.hwIconSize || 64}px`, 
@@ -1363,6 +1444,25 @@ function CustomNode({ data, id, selected }) {
           fontSize: '16px'
         }}>
           {data.state === 'released' ? '✅' : '🔒'}
+        </div>
+      )}
+      
+      {/* Lock indicator (user-locked, not frozen) */}
+      {data.locked && data.state !== 'frozen' && data.state !== 'released' && (
+        <div style={{
+          position: 'absolute',
+          top: '8px',
+          right: '8px',
+          fontSize: '14px',
+          background: '#e74c3c',
+          borderRadius: '50%',
+          width: '20px',
+          height: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          🔒
         </div>
       )}
 
@@ -1988,7 +2088,7 @@ function PortEditor({ ports = [], onChange, disabled }) {
 }
 
 // Enhanced Floating Panel for nodes
-function FloatingPanel({ node, onClose, onUpdate, initialPosition }) {
+function FloatingPanel({ node, onClose, onUpdate, initialPosition, hardwareTypes = [], onManageTypes }) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [position, setPosition] = useState(initialPosition);
@@ -2913,55 +3013,50 @@ return (
               }}>
                 Hardware Type
               </label>
-              <select
-                value={node.data.hwType || 'generic'}
-                onChange={(e) => {
-                  const hwTypes = [
-                    { id: 'motor', name: 'Motor', icon: '⚙️' },
-                    { id: 'inverter', name: 'Inverter', icon: '🔄' },
-                    { id: 'battery', name: 'Battery', icon: '🔋' },
-                    { id: 'sensor', name: 'Sensor', icon: '📡' },
-                    { id: 'controller', name: 'Controller', icon: '🎛️' },
-                    { id: 'pump', name: 'Pump', icon: '💧' },
-                    { id: 'fan', name: 'Fan', icon: '🌀' },
-                    { id: 'transformer', name: 'Transformer', icon: '⚡' },
-                    { id: 'relay', name: 'Relay', icon: '🔌' },
-                    { id: 'display', name: 'Display', icon: '🖥️' },
-                    { id: 'valve', name: 'Valve', icon: '🚰' },
-                    { id: 'heater', name: 'Heater', icon: '🔥' },
-                    { id: 'cooler', name: 'Cooler', icon: '❄️' },
-                    { id: 'generic', name: 'Generic', icon: '📦' },
-                  ];
-                  const hwInfo = hwTypes.find(t => t.id === e.target.value) || { icon: '📦' };
-                  onUpdate(node.id, 'hwType', e.target.value);
-                  onUpdate(node.id, 'hwIcon', hwInfo.icon);
-                }}
-                disabled={!isEditable}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  background: '#34495e',
-                  color: 'white',
-                  border: '1px solid #795548',
-                  borderRadius: '4px',
-                  fontSize: '13px'
-                }}
-              >
-                <option value="motor">⚙️ Motor</option>
-                <option value="inverter">🔄 Inverter</option>
-                <option value="battery">🔋 Battery</option>
-                <option value="sensor">📡 Sensor</option>
-                <option value="controller">🎛️ Controller</option>
-                <option value="pump">💧 Pump</option>
-                <option value="fan">🌀 Fan</option>
-                <option value="transformer">⚡ Transformer</option>
-                <option value="relay">🔌 Relay</option>
-                <option value="display">🖥️ Display</option>
-                <option value="valve">🚰 Valve</option>
-                <option value="heater">🔥 Heater</option>
-                <option value="cooler">❄️ Cooler</option>
-                <option value="generic">📦 Generic</option>
-              </select>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <select
+                  value={node.data.hwType || 'generic'}
+                  onChange={(e) => {
+                    const hwInfo = hardwareTypes.find(t => t.id === e.target.value) || { icon: '📦' };
+                    onUpdate(node.id, 'hwType', e.target.value);
+                    onUpdate(node.id, 'hwIcon', hwInfo.icon);
+                  }}
+                  disabled={!isEditable}
+                  style={{
+                    flex: 1,
+                    padding: '8px',
+                    background: '#34495e',
+                    color: 'white',
+                    border: '1px solid #795548',
+                    borderRadius: '4px',
+                    fontSize: '13px'
+                  }}
+                >
+                  {hardwareTypes.map(type => (
+                    <option key={type.id} value={type.id}>
+                      {type.icon?.length <= 2 ? type.icon : '📦'} {type.name}
+                    </option>
+                  ))}
+                </select>
+                {onManageTypes && (
+                  <button
+                    onClick={onManageTypes}
+                    style={{
+                      padding: '8px 12px',
+                      background: '#3498db',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontWeight: 'bold'
+                    }}
+                    title="Manage Hardware Types"
+                  >
+                    ⚙️
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Custom Icon */}
@@ -4161,6 +4256,13 @@ function LeftIconStrip({
     transition: 'transform 0.1s, box-shadow 0.1s'
   };
 
+  // Wrapper to stop propagation and prevent ReactFlow interference
+  const handleClick = (callback) => (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    callback();
+  };
+
   return (
     <div style={{
       position: 'fixed',
@@ -4173,21 +4275,21 @@ function LeftIconStrip({
     }}>
       {/* System Engineering */}
       <button 
-        onClick={onAddSystem} 
+        onClick={handleClick(onAddSystem)} 
         title="Add System"
         style={{ ...iconButtonStyle, background: '#1abc9c' }}
       >
         🔷
       </button>
       <button 
-        onClick={onAddSubSystem} 
+        onClick={handleClick(onAddSubSystem)} 
         title="Add Sub-System"
         style={{ ...iconButtonStyle, background: '#3498db' }}
       >
         🔶
       </button>
       <button 
-        onClick={onAddFunction} 
+        onClick={handleClick(onAddFunction)} 
         title="Add Function"
         style={{ ...iconButtonStyle, background: '#00bcd4' }}
       >
@@ -4199,14 +4301,14 @@ function LeftIconStrip({
       
       {/* Hardware & Parameters */}
       <button 
-        onClick={() => onAddHardware('generic')} 
+        onClick={handleClick(() => onAddHardware('generic'))} 
         title="Add Hardware"
         style={{ ...iconButtonStyle, background: '#795548' }}
       >
         📦
       </button>
       <button 
-        onClick={() => onAddParameter('configuration')} 
+        onClick={handleClick(() => onAddParameter('configuration'))} 
         title="Add Parameter"
         style={{ ...iconButtonStyle, background: '#00bcd4' }}
       >
@@ -4218,7 +4320,7 @@ function LeftIconStrip({
       
       {/* Test */}
       <button 
-        onClick={onAddTestCase} 
+        onClick={handleClick(onAddTestCase)} 
         title="Add Test Case"
         style={{ ...iconButtonStyle, background: '#27ae60' }}
       >
@@ -4230,14 +4332,14 @@ function LeftIconStrip({
       
       {/* Requirements */}
       <button 
-        onClick={onAddRequirement} 
+        onClick={handleClick(onAddRequirement)} 
         title="Add Requirement"
         style={{ ...iconButtonStyle, background: '#e67e22' }}
       >
         📋
       </button>
       <button 
-        onClick={onAddPlatform} 
+        onClick={handleClick(onAddPlatform)} 
         title="Add Platform"
         style={{ ...iconButtonStyle, background: '#9b59b6' }}
       >
@@ -4249,7 +4351,7 @@ function LeftIconStrip({
       
       {/* Voice */}
       <button 
-        onClick={onVoice} 
+        onClick={handleClick(onVoice)} 
         title={isListening ? 'Listening...' : 'Voice Command'}
         disabled={isListening}
         style={{ 
@@ -5034,6 +5136,672 @@ function DocumentView({ nodes, edges, onNodeClick }) {
   );
 }
 
+// Manage Hardware Types Modal
+function ManageHardwareTypesModal({ onClose, hardwareTypes, onAddType, onDeleteType, onUpdateType, onRefresh }) {
+  const [newName, setNewName] = useState('');
+  const [newIcon, setNewIcon] = useState('📦');
+  const [newDescription, setNewDescription] = useState('');
+  const [customIconUrl, setCustomIconUrl] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+  const [error, setError] = useState('');
+  
+  // Edit state
+  const [editingId, setEditingId] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [editIcon, setEditIcon] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editCustomIconUrl, setEditCustomIconUrl] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // Check if types are from database
+  const hasDbTypes = hardwareTypes.some(t => t.dbId);
+
+  const handleAdd = async () => {
+    if (!newName.trim()) {
+      setError('Name is required');
+      return;
+    }
+    
+    setIsAdding(true);
+    setError('');
+    
+    const iconToSave = customIconUrl || newIcon;
+    console.log('🔧 Adding HW type:', {
+      name: newName.trim(),
+      iconLength: iconToSave?.length,
+      iconPreview: iconToSave?.substring(0, 50) + '...',
+      description: newDescription.trim()
+    });
+    
+    try {
+      const result = await onAddType({
+        name: newName.trim(),
+        icon: iconToSave,
+        description: newDescription.trim()
+      });
+      console.log('🔧 Add result:', result);
+      setNewName('');
+      setNewIcon('📦');
+      setNewDescription('');
+      setCustomIconUrl('');
+      // Refresh after adding
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      console.error('🔧 Add error:', err);
+      setError(err.message || 'Failed to add hardware type');
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  const startEdit = (type) => {
+    setEditingId(type.dbId);
+    setEditName(type.name);
+    setEditIcon(type.icon || '📦');
+    setEditDescription(type.description || '');
+    // Check if icon is a URL
+    if (type.icon?.startsWith('http') || type.icon?.startsWith('data:')) {
+      setEditCustomIconUrl(type.icon);
+      setEditIcon('📦');
+    } else {
+      setEditCustomIconUrl('');
+      setEditIcon(type.icon || '📦');
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditName('');
+    setEditIcon('📦');
+    setEditDescription('');
+    setEditCustomIconUrl('');
+  };
+
+  const handleUpdate = async () => {
+    if (!editName.trim()) {
+      setError('Name is required');
+      return;
+    }
+    
+    setIsUpdating(true);
+    setError('');
+    
+    const iconToSave = editCustomIconUrl || editIcon;
+    console.log('🔧 Updating HW type:', {
+      dbId: editingId,
+      name: editName.trim(),
+      iconLength: iconToSave?.length,
+      iconPreview: iconToSave?.substring(0, 50) + '...',
+      description: editDescription.trim()
+    });
+    
+    try {
+      const result = await onUpdateType(editingId, {
+        name: editName.trim(),
+        icon: iconToSave,
+        description: editDescription.trim()
+      });
+      console.log('🔧 Update result:', result);
+      cancelEdit();
+      // Refresh to get the updated data
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      console.error('🔧 Update error:', err);
+      setError(err.message || 'Failed to update hardware type');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const commonEmojis = ['📦', '⚙️', '🔄', '🔋', '📡', '🎛️', '💧', '🌀', '⚡', '🔌', '🖥️', '🚰', '🔥', '❄️', '🔧', '⛽', '🛢️', '🎚️', '📊', '🔩'];
+
+  // Handle ESC key to close modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div 
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0,0,0,0.8)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 5000
+      }}
+      onClick={(e) => {
+        // Close when clicking backdrop (not the modal content)
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div 
+        style={{
+          background: '#2c3e50',
+          padding: '30px',
+          borderRadius: '12px',
+          width: '600px',
+          maxHeight: '80vh',
+          overflow: 'auto'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+          <h2 style={{ color: 'white', margin: 0 }}>🔧 Manage Hardware Types</h2>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            {onRefresh && (
+              <button
+                onClick={onRefresh}
+                style={{
+                  background: '#3498db',
+                  border: 'none',
+                  color: 'white',
+                  padding: '6px 12px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }}
+                title="Refresh from database"
+              >
+                🔄 Refresh
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#95a5a6',
+                fontSize: '24px',
+                cursor: 'pointer'
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+        
+        {/* Database Status */}
+        <div style={{
+          padding: '8px 12px',
+          marginBottom: '15px',
+          borderRadius: '6px',
+          fontSize: '12px',
+          background: hasDbTypes ? 'rgba(39, 174, 96, 0.2)' : 'rgba(231, 76, 60, 0.2)',
+          color: hasDbTypes ? '#27ae60' : '#e74c3c',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          {hasDbTypes ? (
+            <>✅ Connected to database - {hardwareTypes.filter(t => t.dbId).length} types loaded</>
+          ) : (
+            <>⚠️ Using default types - Add a new type to save to database</>
+          )}
+        </div>
+
+        {/* Add New Type Section */}
+        <div style={{
+          background: '#34495e',
+          padding: '20px',
+          borderRadius: '8px',
+          marginBottom: '20px'
+        }}>
+          <h3 style={{ color: '#3498db', marginTop: 0, fontSize: '14px' }}>➕ Add New Type</h3>
+          
+          {error && (
+            <div style={{ color: '#e74c3c', marginBottom: '10px', fontSize: '13px' }}>
+              {error}
+            </div>
+          )}
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
+            <div>
+              <label style={{ display: 'block', color: '#bdc3c7', fontSize: '11px', marginBottom: '5px' }}>
+                NAME *
+              </label>
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="e.g., PLC, VFD, HMI..."
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  background: '#2c3e50',
+                  color: 'white',
+                  border: '1px solid #4a5f7f',
+                  borderRadius: '4px',
+                  fontSize: '14px'
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', color: '#bdc3c7', fontSize: '11px', marginBottom: '5px' }}>
+                ICON
+              </label>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {/* Upload Button */}
+                <label style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '8px 12px',
+                  background: '#795548',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 'bold'
+                }}>
+                  📁 Upload
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file && file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          setCustomIconUrl(event.target.result);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </label>
+                
+                {/* Emoji Select */}
+                <select
+                  value={newIcon}
+                  onChange={(e) => {
+                    setNewIcon(e.target.value);
+                    setCustomIconUrl('');
+                  }}
+                  style={{
+                    padding: '10px',
+                    background: '#2c3e50',
+                    color: 'white',
+                    border: '1px solid #4a5f7f',
+                    borderRadius: '4px',
+                    fontSize: '18px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {commonEmojis.map(emoji => (
+                    <option key={emoji} value={emoji}>{emoji}</option>
+                  ))}
+                </select>
+                
+                {/* Show uploaded image preview or clear button */}
+                {customIconUrl && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <img 
+                      src={customIconUrl} 
+                      alt="icon" 
+                      style={{ 
+                        width: '32px', 
+                        height: '32px', 
+                        objectFit: 'contain',
+                        borderRadius: '4px',
+                        background: 'white'
+                      }} 
+                    />
+                    <button
+                      onClick={() => setCustomIconUrl('')}
+                      style={{
+                        background: '#e74c3c',
+                        border: 'none',
+                        color: 'white',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '10px'
+                      }}
+                      title="Remove uploaded icon"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div style={{ fontSize: '9px', color: '#7f8c8d', marginTop: '4px' }}>
+                💡 PNG/SVG with transparent background recommended
+              </div>
+            </div>
+          </div>
+          
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'block', color: '#bdc3c7', fontSize: '11px', marginBottom: '5px' }}>
+              DESCRIPTION
+            </label>
+            <input
+              type="text"
+              value={newDescription}
+              onChange={(e) => setNewDescription(e.target.value)}
+              placeholder="Short description..."
+              style={{
+                width: '100%',
+                padding: '10px',
+                background: '#2c3e50',
+                color: 'white',
+                border: '1px solid #4a5f7f',
+                borderRadius: '4px',
+                fontSize: '14px'
+              }}
+            />
+          </div>
+          
+          {/* Preview */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '15px' }}>
+            <span style={{ color: '#7f8c8d', fontSize: '12px' }}>Preview:</span>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 12px',
+              background: '#2c3e50',
+              borderRadius: '6px'
+            }}>
+              {customIconUrl ? (
+                <img src={customIconUrl} alt="icon" style={{ width: '24px', height: '24px', objectFit: 'contain' }} />
+              ) : (
+                <span style={{ fontSize: '24px' }}>{newIcon}</span>
+              )}
+              <span style={{ color: 'white', fontWeight: 'bold' }}>{newName || 'Type Name'}</span>
+            </div>
+          </div>
+          
+          <button
+            onClick={handleAdd}
+            disabled={isAdding || !newName.trim()}
+            style={{
+              width: '100%',
+              padding: '12px',
+              background: isAdding ? '#7f8c8d' : '#27ae60',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: isAdding ? 'wait' : 'pointer',
+              fontSize: '14px',
+              fontWeight: 'bold'
+            }}
+          >
+            {isAdding ? 'Adding...' : '➕ Add Hardware Type'}
+          </button>
+        </div>
+
+        {/* Existing Types List */}
+        <div>
+          <h3 style={{ color: '#bdc3c7', marginBottom: '15px', fontSize: '14px' }}>
+            📋 Existing Types ({hardwareTypes.length})
+          </h3>
+          
+          <div style={{ display: 'grid', gap: '8px' }}>
+            {hardwareTypes.map((type) => (
+              <div
+                key={type.id || type.name}
+                style={{
+                  padding: '12px 15px',
+                  background: editingId === type.dbId ? '#2c3e50' : '#34495e',
+                  borderRadius: '6px',
+                  border: editingId === type.dbId ? '2px solid #3498db' : '2px solid transparent'
+                }}
+              >
+                {editingId === type.dbId ? (
+                  /* Edit Mode */
+                  <div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+                      <div>
+                        <label style={{ display: 'block', color: '#bdc3c7', fontSize: '10px', marginBottom: '4px' }}>NAME</label>
+                        <input
+                          type="text"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '8px',
+                            background: '#34495e',
+                            color: 'white',
+                            border: '1px solid #4a5f7f',
+                            borderRadius: '4px',
+                            fontSize: '13px'
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', color: '#bdc3c7', fontSize: '10px', marginBottom: '4px' }}>ICON</label>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                          {/* Upload Button */}
+                          <label style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '6px 10px',
+                            background: '#795548',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '11px',
+                            fontWeight: 'bold'
+                          }}>
+                            📁
+                            <input
+                              type="file"
+                              accept="image/*"
+                              style={{ display: 'none' }}
+                              onChange={(e) => {
+                                const file = e.target.files[0];
+                                if (file && file.type.startsWith('image/')) {
+                                  const reader = new FileReader();
+                                  reader.onload = (event) => {
+                                    setEditCustomIconUrl(event.target.result);
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                            />
+                          </label>
+                          <select
+                            value={editIcon}
+                            onChange={(e) => {
+                              setEditIcon(e.target.value);
+                              setEditCustomIconUrl('');
+                            }}
+                            style={{
+                              padding: '8px',
+                              background: '#34495e',
+                              color: 'white',
+                              border: '1px solid #4a5f7f',
+                              borderRadius: '4px',
+                              fontSize: '16px'
+                            }}
+                          >
+                            {commonEmojis.map(emoji => (
+                              <option key={emoji} value={emoji}>{emoji}</option>
+                            ))}
+                          </select>
+                          {editCustomIconUrl && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <img 
+                                src={editCustomIconUrl} 
+                                alt="icon" 
+                                style={{ 
+                                  width: '24px', 
+                                  height: '24px', 
+                                  objectFit: 'contain',
+                                  borderRadius: '3px',
+                                  background: 'white'
+                                }} 
+                              />
+                              <button
+                                onClick={() => setEditCustomIconUrl('')}
+                                style={{
+                                  background: '#e74c3c',
+                                  border: 'none',
+                                  color: 'white',
+                                  padding: '2px 6px',
+                                  borderRadius: '3px',
+                                  cursor: 'pointer',
+                                  fontSize: '9px'
+                                }}
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ marginBottom: '10px' }}>
+                      <label style={{ display: 'block', color: '#bdc3c7', fontSize: '10px', marginBottom: '4px' }}>DESCRIPTION</label>
+                      <input
+                        type="text"
+                        value={editDescription}
+                        onChange={(e) => setEditDescription(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '8px',
+                          background: '#34495e',
+                          color: 'white',
+                          border: '1px solid #4a5f7f',
+                          borderRadius: '4px',
+                          fontSize: '13px'
+                        }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                      <button
+                        onClick={cancelEdit}
+                        style={{
+                          padding: '6px 12px',
+                          background: '#7f8c8d',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '12px'
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleUpdate}
+                        disabled={isUpdating}
+                        style={{
+                          padding: '6px 12px',
+                          background: isUpdating ? '#7f8c8d' : '#27ae60',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: isUpdating ? 'wait' : 'pointer',
+                          fontSize: '12px',
+                          fontWeight: 'bold'
+                        }}
+                      >
+                        {isUpdating ? 'Saving...' : '✓ Save'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* View Mode */
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      {type.icon?.startsWith('http') || type.icon?.startsWith('data:') ? (
+                        <img src={type.icon} alt={type.name} style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
+                      ) : (
+                        <span style={{ fontSize: '24px' }}>{type.icon || '📦'}</span>
+                      )}
+                      <div>
+                        <div style={{ color: 'white', fontWeight: 'bold' }}>{type.name}</div>
+                        {type.description && (
+                          <div style={{ color: '#7f8c8d', fontSize: '11px' }}>{type.description}</div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button
+                        onClick={() => type.dbId ? startEdit(type) : alert('Default types cannot be edited. Add a new type to customize.')}
+                        style={{
+                          background: 'transparent',
+                          border: `1px solid ${type.dbId ? '#3498db' : '#7f8c8d'}`,
+                          color: type.dbId ? '#3498db' : '#7f8c8d',
+                          padding: '5px 10px',
+                          borderRadius: '4px',
+                          cursor: type.dbId ? 'pointer' : 'not-allowed',
+                          fontSize: '11px',
+                          opacity: type.dbId ? 1 : 0.5
+                        }}
+                        title={type.dbId ? "Edit this type" : "Default type - cannot edit"}
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={() => type.dbId ? onDeleteType(type.dbId) : alert('Default types cannot be deleted.')}
+                        style={{
+                          background: 'transparent',
+                          border: `1px solid ${type.dbId ? '#e74c3c' : '#7f8c8d'}`,
+                          color: type.dbId ? '#e74c3c' : '#7f8c8d',
+                          padding: '5px 10px',
+                          borderRadius: '4px',
+                          cursor: type.dbId ? 'pointer' : 'not-allowed',
+                          fontSize: '11px',
+                          opacity: type.dbId ? 1 : 0.5
+                        }}
+                        title={type.dbId ? "Delete this type" : "Default type - cannot delete"}
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        <div style={{ marginTop: '20px', textAlign: 'center' }}>
+          <button
+            onClick={onClose}
+            style={{
+              padding: '12px 30px',
+              background: '#3498db',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 'bold'
+            }}
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Change Password Modal
 function ChangePasswordModal({ onClose, onSuccess }) {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -5217,6 +5985,19 @@ function ChangePasswordModal({ onClose, onSuccess }) {
 
 // State declarations //
 export default function App() {
+  // Suppress ResizeObserver loop error (common with React Flow, harmless)
+  useEffect(() => {
+    const resizeObserverErr = (e) => {
+      if (e.message === 'ResizeObserver loop completed with undelivered notifications.' ||
+          e.message === 'ResizeObserver loop limit exceeded') {
+        e.stopImmediatePropagation();
+        return;
+      }
+    };
+    window.addEventListener('error', resizeObserverErr);
+    return () => window.removeEventListener('error', resizeObserverErr);
+  }, []);
+
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [nodeId, setNodeId] = useState(11);
@@ -5239,6 +6020,9 @@ export default function App() {
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [isUndoRedo, setIsUndoRedo] = useState(false);
+  
+  // Clipboard for copy/paste
+  const [clipboard, setClipboard] = useState({ nodes: [], edges: [] });
 
   const [searchText, setSearchText] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -5264,8 +6048,12 @@ export default function App() {
   const [parIdCounter, setParIdCounter] = useState(1);  // Parameter counter
   const [hwIdCounter, setHwIdCounter] = useState(1);    // Hardware counter
   
-  // Hardware types - can be extended from database
-  const [hardwareTypes, setHardwareTypes] = useState([
+  // Hardware types - loaded from database
+  const [hardwareTypes, setHardwareTypes] = useState([]);
+  const [showHardwareTypesModal, setShowHardwareTypesModal] = useState(false);
+  
+  // Default hardware types (fallback if DB empty)
+  const defaultHardwareTypes = [
     { id: 'motor', name: 'Motor', icon: '⚙️' },
     { id: 'inverter', name: 'Inverter', icon: '🔄' },
     { id: 'battery', name: 'Battery', icon: '🔋' },
@@ -5280,7 +6068,7 @@ export default function App() {
     { id: 'heater', name: 'Heater', icon: '🔥' },
     { id: 'cooler', name: 'Cooler', icon: '❄️' },
     { id: 'generic', name: 'Generic', icon: '📦' },
-  ]);
+  ];
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -5304,6 +6092,169 @@ export default function App() {
   const handleLogin = (userData) => {
     setUser(userData);
     realtime.connect();
+    fetchHardwareTypes();  // Load hardware types from database
+  };
+
+  // Fetch hardware types from database
+  const fetchHardwareTypes = async () => {
+    console.log('🔧 Fetching hardware types from database...');
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/hardware-types`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('plm_token')}`
+        }
+      });
+      console.log('🔧 Hardware types response status:', response.status);
+      if (response.ok) {
+        const types = await response.json();
+        console.log('🔧 Hardware types from DB:', types);
+        if (types.length > 0) {
+          // Map database format to our format
+          const mappedTypes = types.map(t => ({
+            id: t.name.toLowerCase().replace(/\s+/g, '-'),
+            dbId: t.id,  // UUID from database
+            name: t.name,
+            icon: t.icon,
+            description: t.description
+          }));
+          console.log('🔧 Mapped hardware types:', mappedTypes);
+          setHardwareTypes(mappedTypes);
+        } else {
+          console.log('🔧 Database empty, using defaults');
+          setHardwareTypes(defaultHardwareTypes);
+        }
+      } else {
+        console.error('🔧 Failed to fetch hardware types, status:', response.status);
+        setHardwareTypes(defaultHardwareTypes);
+      }
+    } catch (error) {
+      console.error('🔧 Error fetching hardware types:', error);
+      setHardwareTypes(defaultHardwareTypes);
+    }
+  };
+
+  // Add new hardware type to database
+  const addHardwareType = async (typeData) => {
+    console.log('🔧 API: Adding hardware type', {
+      name: typeData.name,
+      iconLength: typeData.icon?.length,
+      isBase64: typeData.icon?.startsWith('data:')
+    });
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/hardware-types`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('plm_token')}`
+        },
+        body: JSON.stringify(typeData)
+      });
+      
+      console.log('🔧 API: Response status', response.status);
+      
+      if (response.ok) {
+        const newType = await response.json();
+        console.log('🔧 API: Saved type', {
+          id: newType.id,
+          name: newType.name,
+          iconLength: newType.icon?.length,
+          iconPreview: newType.icon?.substring(0, 30)
+        });
+        // Add to local state
+        setHardwareTypes(prev => [...prev, {
+          id: newType.name.toLowerCase().replace(/\s+/g, '-'),
+          dbId: newType.id,
+          name: newType.name,
+          icon: newType.icon,
+          description: newType.description
+        }]);
+        return newType;
+      } else {
+        const error = await response.json();
+        console.error('🔧 API: Error response', error);
+        throw new Error(error.error || 'Failed to add hardware type');
+      }
+    } catch (error) {
+      console.error('Error adding hardware type:', error);
+      throw error;
+    }
+  };
+
+  // Delete hardware type from database
+  const deleteHardwareType = async (dbId) => {
+    if (!window.confirm('Delete this hardware type?')) return;
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/hardware-types/${dbId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('plm_token')}`
+        }
+      });
+      
+      if (response.ok) {
+        // Remove from local state
+        setHardwareTypes(prev => prev.filter(t => t.dbId !== dbId));
+      } else {
+        alert('Failed to delete hardware type');
+      }
+    } catch (error) {
+      console.error('Error deleting hardware type:', error);
+      alert('Error deleting hardware type');
+    }
+  };
+
+  // Update hardware type in database
+  const updateHardwareType = async (dbId, typeData) => {
+    console.log('🔧 API: Updating hardware type', {
+      dbId,
+      name: typeData.name,
+      iconLength: typeData.icon?.length,
+      isBase64: typeData.icon?.startsWith('data:')
+    });
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/hardware-types/${dbId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('plm_token')}`
+        },
+        body: JSON.stringify(typeData)
+      });
+      
+      console.log('🔧 API: Update response status', response.status);
+      
+      if (response.ok) {
+        const updatedType = await response.json();
+        console.log('🔧 API: Updated type from server', {
+          id: updatedType.id,
+          name: updatedType.name,
+          iconLength: updatedType.icon?.length,
+          iconPreview: updatedType.icon?.substring(0, 30)
+        });
+        // Update local state
+        setHardwareTypes(prev => prev.map(t => 
+          t.dbId === dbId 
+            ? {
+                id: updatedType.name.toLowerCase().replace(/\s+/g, '-'),
+                dbId: updatedType.id,
+                name: updatedType.name,
+                icon: updatedType.icon,
+                description: updatedType.description
+              }
+            : t
+        ));
+        return updatedType;
+      } else {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update hardware type');
+      }
+    } catch (error) {
+      console.error('Error updating hardware type:', error);
+      throw error;
+    }
   };
 
   // Handle logout
@@ -5334,6 +6285,41 @@ export default function App() {
         }
       }));
       setNodes(loadedNodes);
+      
+      // *** FIX: Update all ID counters based on loaded nodes ***
+      const maxId = Math.max(...(projectData.nodes || []).map(n => parseInt(n.id) || 0), 0);
+      setNodeId(maxId + 1);
+      
+      // Calculate max requirement IDs for each type
+      let maxCus = 0, maxPlt = 0, maxPrj = 0, maxImp = 0;
+      let maxSys = 0, maxSub = 0, maxFun = 0, maxPar = 0, maxHw = 0;
+      let maxTc = 0;
+      (projectData.nodes || []).forEach(n => {
+        const reqId = n.data?.reqId || '';
+        const num = parseInt(reqId.split('-')[1]) || 0;
+        if (reqId.startsWith('CUS')) maxCus = Math.max(maxCus, num);
+        if (reqId.startsWith('PLT')) maxPlt = Math.max(maxPlt, num);
+        if (reqId.startsWith('PRJ')) maxPrj = Math.max(maxPrj, num);
+        if (reqId.startsWith('IMP')) maxImp = Math.max(maxImp, num);
+        if (reqId.startsWith('SYS')) maxSys = Math.max(maxSys, num);
+        if (reqId.startsWith('SUB')) maxSub = Math.max(maxSub, num);
+        if (reqId.startsWith('FUN')) maxFun = Math.max(maxFun, num);
+        if (reqId.startsWith('PAR')) maxPar = Math.max(maxPar, num);
+        if (reqId.startsWith('HW')) maxHw = Math.max(maxHw, num);
+        if (reqId.startsWith('TC')) maxTc = Math.max(maxTc, num);
+      });
+      setCusIdCounter(maxCus + 1);
+      setPltIdCounter(maxPlt + 1);
+      setPrjIdCounter(maxPrj + 1);
+      setImpIdCounter(maxImp + 1);
+      setSysIdCounter(maxSys + 1);
+      setSubIdCounter(maxSub + 1);
+      setFunIdCounter(maxFun + 1);
+      setParIdCounter(maxPar + 1);
+      setHwIdCounter(maxHw + 1);
+      setTcIdCounter(maxTc + 1);
+      
+      console.log('Updated counters - nodeId:', maxId + 1, 'SYS:', maxSys + 1, 'HW:', maxHw + 1);
       
       // Process edges - validate handles exist on nodes
       if (projectData.edges) {
@@ -5372,12 +6358,28 @@ export default function App() {
     } else {
       setNodes([]);
       setEdges([]);
+      // Reset counters for empty project
+      setNodeId(1);
+      setCusIdCounter(1);
+      setPltIdCounter(1);
+      setPrjIdCounter(1);
+      setImpIdCounter(1);
+      setSysIdCounter(1);
+      setSubIdCounter(1);
+      setFunIdCounter(1);
+      setParIdCounter(1);
+      setHwIdCounter(1);
+      setTcIdCounter(1);
     }
     
     // Load whiteboards if present
     if (projectData.whiteboards) {
       setWhiteboards(projectData.whiteboards);
     }
+    
+    // Clear selection state
+    setSelectedNode(null);
+    setSelectedEdge(null);
     
     // Connect to real-time
     realtime.connect();
@@ -5906,6 +6908,478 @@ export default function App() {
   }
 }, [setNodes]);
 
+  // Copy selected nodes to clipboard
+  const copySelectedNodes = useCallback(() => {
+    const selectedNodes = nodes.filter(n => n.selected);
+    if (selectedNodes.length === 0) {
+      console.log('No nodes selected to copy');
+      return;
+    }
+    
+    // Get IDs of selected nodes
+    const selectedNodeIds = selectedNodes.map(n => n.id);
+    
+    // Find edges between selected nodes
+    const relatedEdges = edges.filter(e => 
+      selectedNodeIds.includes(e.source) && selectedNodeIds.includes(e.target)
+    );
+    
+    // Store in clipboard with deep copy
+    setClipboard({
+      nodes: JSON.parse(JSON.stringify(selectedNodes)),
+      edges: JSON.parse(JSON.stringify(relatedEdges))
+    });
+    
+    console.log(`Copied ${selectedNodes.length} nodes and ${relatedEdges.length} edges`);
+  }, [nodes, edges]);
+
+  // Paste nodes from clipboard
+  const pasteNodes = useCallback(() => {
+    if (clipboard.nodes.length === 0) {
+      console.log('Clipboard is empty');
+      return;
+    }
+    
+    // Create ID mapping for new nodes
+    const idMapping = {};
+    const offset = { x: 50, y: 50 }; // Offset pasted nodes
+    
+    // Create new nodes with new IDs
+    const newNodes = clipboard.nodes.map(node => {
+      const newId = String(nodeId + Object.keys(idMapping).length);
+      idMapping[node.id] = newId;
+      
+      // Generate new reqId based on type
+      let newReqId = node.data.reqId;
+      const itemType = node.data.itemType || node.data.type;
+      if (itemType === 'system') {
+        newReqId = `SYS-${String(sysIdCounter).padStart(3, '0')}`;
+      } else if (itemType === 'subsystem') {
+        newReqId = `SUB-${String(subIdCounter).padStart(3, '0')}`;
+      } else if (itemType === 'function') {
+        newReqId = `FUN-${String(funIdCounter).padStart(3, '0')}`;
+      } else if (itemType === 'hardware') {
+        newReqId = `HW-${String(hwIdCounter).padStart(3, '0')}`;
+      } else if (itemType === 'parameter') {
+        newReqId = `PAR-${String(parIdCounter).padStart(3, '0')}`;
+      } else if (itemType === 'testcase') {
+        newReqId = `TC-${String(tcIdCounter).padStart(3, '0')}`;
+      } else if (itemType === 'requirement') {
+        const reqType = node.data.reqType || 'project';
+        if (reqType === 'customer') {
+          newReqId = `CUS-${String(cusIdCounter).padStart(3, '0')}`;
+        } else if (reqType === 'platform') {
+          newReqId = `PLT-${String(pltIdCounter).padStart(3, '0')}`;
+        } else if (reqType === 'implementation') {
+          newReqId = `IMP-${String(impIdCounter).padStart(3, '0')}`;
+        } else {
+          newReqId = `PRJ-${String(prjIdCounter).padStart(3, '0')}`;
+        }
+      }
+      
+      return {
+        ...node,
+        id: newId,
+        position: {
+          x: node.position.x + offset.x,
+          y: node.position.y + offset.y
+        },
+        selected: true, // Select pasted nodes
+        data: {
+          ...node.data,
+          reqId: newReqId,
+          label: `${node.data.label} (copy)`,
+          onChange: handleNodeLabelChange
+        }
+      };
+    });
+    
+    // Create new edges with updated IDs
+    const newEdges = clipboard.edges.map(edge => ({
+      ...edge,
+      id: `e${idMapping[edge.source]}-${idMapping[edge.target]}-${Date.now()}`,
+      source: idMapping[edge.source],
+      target: idMapping[edge.target]
+    }));
+    
+    // Update counters
+    const nodeCount = newNodes.length;
+    setNodeId(prev => prev + nodeCount);
+    
+    // Count by type and update counters
+    newNodes.forEach(node => {
+      const itemType = node.data.itemType || node.data.type;
+      if (itemType === 'system') setSysIdCounter(c => c + 1);
+      else if (itemType === 'subsystem') setSubIdCounter(c => c + 1);
+      else if (itemType === 'function') setFunIdCounter(c => c + 1);
+      else if (itemType === 'hardware') setHwIdCounter(c => c + 1);
+      else if (itemType === 'parameter') setParIdCounter(c => c + 1);
+      else if (itemType === 'testcase') setTcIdCounter(c => c + 1);
+      else if (itemType === 'requirement') {
+        const reqType = node.data.reqType || 'project';
+        if (reqType === 'customer') setCusIdCounter(c => c + 1);
+        else if (reqType === 'platform') setPltIdCounter(c => c + 1);
+        else if (reqType === 'implementation') setImpIdCounter(c => c + 1);
+        else setPrjIdCounter(c => c + 1);
+      }
+    });
+    
+    // Deselect existing nodes, add new nodes
+    setNodes(nds => [
+      ...nds.map(n => ({ ...n, selected: false })),
+      ...newNodes
+    ]);
+    
+    // Add new edges
+    if (newEdges.length > 0) {
+      setEdges(eds => [...eds, ...newEdges]);
+    }
+    
+    console.log(`Pasted ${newNodes.length} nodes and ${newEdges.length} edges`);
+  }, [clipboard, nodeId, handleNodeLabelChange, setNodes, setEdges,
+      sysIdCounter, subIdCounter, funIdCounter, hwIdCounter, parIdCounter, tcIdCounter,
+      cusIdCounter, pltIdCounter, prjIdCounter, impIdCounter]);
+
+  // Delete selected nodes
+  const deleteSelectedNodes = useCallback(() => {
+    const selectedNodes = nodes.filter(n => n.selected);
+    const selectedNodeIds = selectedNodes.map(n => n.id);
+    
+    if (selectedNodeIds.length === 0) return;
+    
+    // Don't delete locked nodes
+    const lockedNodes = selectedNodes.filter(n => n.data?.locked);
+    if (lockedNodes.length > 0) {
+      alert(`Cannot delete ${lockedNodes.length} locked node(s). Unlock them first.`);
+      return;
+    }
+    
+    // Remove selected nodes
+    setNodes(nds => nds.filter(n => !n.selected));
+    
+    // Remove edges connected to deleted nodes
+    setEdges(eds => eds.filter(e => 
+      !selectedNodeIds.includes(e.source) && !selectedNodeIds.includes(e.target)
+    ));
+    
+    setSelectedNode(null);
+    console.log(`Deleted ${selectedNodeIds.length} nodes`);
+  }, [nodes, setNodes, setEdges, setSelectedNode]);
+
+  // Duplicate selected nodes in place (Ctrl+D)
+  const duplicateSelectedNodes = useCallback(() => {
+    const selectedNodes = nodes.filter(n => n.selected);
+    if (selectedNodes.length === 0) return;
+    
+    const idMapping = {};
+    const offset = { x: 30, y: 30 };
+    
+    const newNodes = selectedNodes.map(node => {
+      const newId = String(nodeId + Object.keys(idMapping).length);
+      idMapping[node.id] = newId;
+      
+      // Generate new reqId
+      let newReqId = node.data.reqId;
+      const itemType = node.data.itemType || node.data.type;
+      if (itemType === 'system') newReqId = `SYS-${String(sysIdCounter + Object.keys(idMapping).length - 1).padStart(3, '0')}`;
+      else if (itemType === 'subsystem') newReqId = `SUB-${String(subIdCounter + Object.keys(idMapping).length - 1).padStart(3, '0')}`;
+      else if (itemType === 'function') newReqId = `FUN-${String(funIdCounter + Object.keys(idMapping).length - 1).padStart(3, '0')}`;
+      else if (itemType === 'hardware') newReqId = `HW-${String(hwIdCounter + Object.keys(idMapping).length - 1).padStart(3, '0')}`;
+      else if (itemType === 'parameter') newReqId = `PAR-${String(parIdCounter + Object.keys(idMapping).length - 1).padStart(3, '0')}`;
+      else if (itemType === 'testcase') newReqId = `TC-${String(tcIdCounter + Object.keys(idMapping).length - 1).padStart(3, '0')}`;
+      
+      return {
+        ...node,
+        id: newId,
+        position: { x: node.position.x + offset.x, y: node.position.y + offset.y },
+        selected: true,
+        data: {
+          ...node.data,
+          reqId: newReqId,
+          locked: false, // Don't copy lock state
+          onChange: handleNodeLabelChange
+        }
+      };
+    });
+    
+    // Duplicate edges between selected nodes
+    const selectedIds = selectedNodes.map(n => n.id);
+    const relatedEdges = edges.filter(e => 
+      selectedIds.includes(e.source) && selectedIds.includes(e.target)
+    );
+    const newEdges = relatedEdges.map(edge => ({
+      ...edge,
+      id: `e${idMapping[edge.source]}-${idMapping[edge.target]}-${Date.now()}`,
+      source: idMapping[edge.source],
+      target: idMapping[edge.target]
+    }));
+    
+    // Update counters
+    setNodeId(prev => prev + newNodes.length);
+    newNodes.forEach(node => {
+      const itemType = node.data.itemType || node.data.type;
+      if (itemType === 'system') setSysIdCounter(c => c + 1);
+      else if (itemType === 'subsystem') setSubIdCounter(c => c + 1);
+      else if (itemType === 'function') setFunIdCounter(c => c + 1);
+      else if (itemType === 'hardware') setHwIdCounter(c => c + 1);
+      else if (itemType === 'parameter') setParIdCounter(c => c + 1);
+      else if (itemType === 'testcase') setTcIdCounter(c => c + 1);
+    });
+    
+    setNodes(nds => [...nds.map(n => ({ ...n, selected: false })), ...newNodes]);
+    if (newEdges.length > 0) setEdges(eds => [...eds, ...newEdges]);
+    
+    console.log(`Duplicated ${newNodes.length} nodes`);
+  }, [nodes, edges, nodeId, handleNodeLabelChange, setNodes, setEdges,
+      sysIdCounter, subIdCounter, funIdCounter, hwIdCounter, parIdCounter, tcIdCounter]);
+
+  // Align selected nodes
+  const alignSelectedNodes = useCallback((direction) => {
+    const selectedNodes = nodes.filter(n => n.selected);
+    if (selectedNodes.length < 2) return;
+    
+    // Check for locked nodes
+    const lockedNodes = selectedNodes.filter(n => n.data?.locked);
+    if (lockedNodes.length > 0) {
+      alert(`Cannot align - ${lockedNodes.length} node(s) are locked.`);
+      return;
+    }
+    
+    const positions = selectedNodes.map(n => n.position);
+    
+    let targetValue;
+    switch (direction) {
+      case 'left':
+        targetValue = Math.min(...positions.map(p => p.x));
+        setNodes(nds => nds.map(n => n.selected ? { ...n, position: { ...n.position, x: targetValue } } : n));
+        break;
+      case 'right':
+        targetValue = Math.max(...positions.map(p => p.x));
+        setNodes(nds => nds.map(n => n.selected ? { ...n, position: { ...n.position, x: targetValue } } : n));
+        break;
+      case 'top':
+        targetValue = Math.min(...positions.map(p => p.y));
+        setNodes(nds => nds.map(n => n.selected ? { ...n, position: { ...n.position, y: targetValue } } : n));
+        break;
+      case 'bottom':
+        targetValue = Math.max(...positions.map(p => p.y));
+        setNodes(nds => nds.map(n => n.selected ? { ...n, position: { ...n.position, y: targetValue } } : n));
+        break;
+      case 'centerH':
+        targetValue = positions.reduce((sum, p) => sum + p.x, 0) / positions.length;
+        setNodes(nds => nds.map(n => n.selected ? { ...n, position: { ...n.position, x: targetValue } } : n));
+        break;
+      case 'centerV':
+        targetValue = positions.reduce((sum, p) => sum + p.y, 0) / positions.length;
+        setNodes(nds => nds.map(n => n.selected ? { ...n, position: { ...n.position, y: targetValue } } : n));
+        break;
+      case 'distributeH':
+        const sortedByX = [...selectedNodes].sort((a, b) => a.position.x - b.position.x);
+        const minX = sortedByX[0].position.x;
+        const maxX = sortedByX[sortedByX.length - 1].position.x;
+        const stepX = (maxX - minX) / (sortedByX.length - 1);
+        const xMapping = {};
+        sortedByX.forEach((n, i) => { xMapping[n.id] = minX + i * stepX; });
+        setNodes(nds => nds.map(n => n.selected ? { ...n, position: { ...n.position, x: xMapping[n.id] } } : n));
+        break;
+      case 'distributeV':
+        const sortedByY = [...selectedNodes].sort((a, b) => a.position.y - b.position.y);
+        const minY = sortedByY[0].position.y;
+        const maxY = sortedByY[sortedByY.length - 1].position.y;
+        const stepY = (maxY - minY) / (sortedByY.length - 1);
+        const yMapping = {};
+        sortedByY.forEach((n, i) => { yMapping[n.id] = minY + i * stepY; });
+        setNodes(nds => nds.map(n => n.selected ? { ...n, position: { ...n.position, y: yMapping[n.id] } } : n));
+        break;
+      default:
+        break;
+    }
+  }, [nodes, setNodes]);
+
+  // Toggle lock on selected nodes
+  const toggleLockSelectedNodes = useCallback(() => {
+    const selectedNodes = nodes.filter(n => n.selected);
+    if (selectedNodes.length === 0) return;
+    
+    // If any are unlocked, lock all. If all locked, unlock all.
+    const anyUnlocked = selectedNodes.some(n => !n.data?.locked);
+    
+    setNodes(nds => nds.map(n => {
+      if (n.selected) {
+        return {
+          ...n,
+          draggable: anyUnlocked ? false : true,
+          data: { ...n.data, locked: anyUnlocked }
+        };
+      }
+      return n;
+    }));
+    
+    console.log(anyUnlocked ? 'Locked selected nodes' : 'Unlocked selected nodes');
+  }, [nodes, setNodes]);
+
+  // Export selected nodes to file
+  const exportSelectedNodes = useCallback(() => {
+    const selectedNodes = nodes.filter(n => n.selected);
+    if (selectedNodes.length === 0) return;
+    
+    const selectedIds = selectedNodes.map(n => n.id);
+    const relatedEdges = edges.filter(e => 
+      selectedIds.includes(e.source) && selectedIds.includes(e.target)
+    );
+    
+    const exportData = {
+      name: `Selection_${new Date().toISOString().slice(0, 10)}`,
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      nodes: selectedNodes.map(n => ({
+        ...n,
+        data: { ...n.data, onChange: undefined }
+      })),
+      edges: relatedEdges
+    };
+    
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `plm_selection_${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    console.log(`Exported ${selectedNodes.length} nodes and ${relatedEdges.length} edges`);
+  }, [nodes, edges]);
+
+  // Group selected nodes into a container
+  const groupSelectedNodes = useCallback(() => {
+    const selectedNodes = nodes.filter(n => n.selected);
+    if (selectedNodes.length < 2) {
+      alert('Select at least 2 nodes to group');
+      return;
+    }
+    
+    // Check for locked nodes
+    const lockedNodes = selectedNodes.filter(n => n.data?.locked);
+    if (lockedNodes.length > 0) {
+      alert(`Cannot group - ${lockedNodes.length} node(s) are locked.`);
+      return;
+    }
+    
+    // Calculate bounding box
+    const padding = 40;
+    const positions = selectedNodes.map(n => n.position);
+    const minX = Math.min(...positions.map(p => p.x)) - padding;
+    const minY = Math.min(...positions.map(p => p.y)) - padding;
+    const maxX = Math.max(...positions.map(p => p.x)) + 200 + padding;
+    const maxY = Math.max(...positions.map(p => p.y)) + 100 + padding;
+    
+    const groupName = prompt('Enter group name:', 'Group');
+    if (!groupName) return;
+    
+    const groupId = String(nodeId);
+    
+    // Create group node
+    const groupNode = {
+      id: groupId,
+      type: 'custom',
+      position: { x: minX, y: minY },
+      style: { zIndex: -1 },
+      data: {
+        label: groupName,
+        type: 'group',
+        itemType: 'group',
+        reqId: `GRP-${String(nodeId).padStart(3, '0')}`,
+        version: '1.0',
+        isGroup: true,
+        groupWidth: maxX - minX,
+        groupHeight: maxY - minY,
+        groupColor: '#3498db',
+        childIds: selectedNodes.map(n => n.id),
+        description: `Group containing ${selectedNodes.length} items`,
+        onChange: handleNodeLabelChange
+      }
+    };
+    
+    setNodes(nds => [groupNode, ...nds.map(n => ({ ...n, selected: false }))]);
+    setNodeId(prev => prev + 1);
+    
+    console.log(`Created group with ${selectedNodes.length} nodes`);
+  }, [nodes, nodeId, handleNodeLabelChange, setNodes]);
+
+  // Ungroup - remove group container
+  const ungroupSelectedNodes = useCallback(() => {
+    const selectedGroups = nodes.filter(n => n.selected && n.data?.isGroup);
+    if (selectedGroups.length === 0) return;
+    
+    const groupIds = selectedGroups.map(g => g.id);
+    setNodes(nds => nds.filter(n => !groupIds.includes(n.id)));
+    
+    console.log(`Removed ${selectedGroups.length} group(s)`);
+  }, [nodes, setNodes]);
+
+  // Keyboard shortcuts for copy/paste/delete
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Don't trigger if user is typing in an input
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+        return;
+      }
+      
+      // Ctrl+C or Cmd+C - Copy
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        e.preventDefault();
+        copySelectedNodes();
+      }
+      
+      // Ctrl+V or Cmd+V - Paste
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        e.preventDefault();
+        pasteNodes();
+      }
+      
+      // Ctrl+X or Cmd+X - Cut
+      if ((e.ctrlKey || e.metaKey) && e.key === 'x') {
+        e.preventDefault();
+        copySelectedNodes();
+        deleteSelectedNodes();
+      }
+      
+      // Ctrl+A or Cmd+A - Select All
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        e.preventDefault();
+        setNodes(nds => nds.map(n => ({ ...n, selected: true })));
+      }
+      
+      // Ctrl+D or Cmd+D - Duplicate
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+        e.preventDefault();
+        duplicateSelectedNodes();
+      }
+      
+      // Ctrl+L or Cmd+L - Lock/Unlock
+      if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
+        e.preventDefault();
+        toggleLockSelectedNodes();
+      }
+      
+      // Ctrl+G or Cmd+G - Group
+      if ((e.ctrlKey || e.metaKey) && e.key === 'g') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          ungroupSelectedNodes();
+        } else {
+          groupSelectedNodes();
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [copySelectedNodes, pasteNodes, deleteSelectedNodes, duplicateSelectedNodes, 
+      toggleLockSelectedNodes, groupSelectedNodes, ungroupSelectedNodes, setNodes]);
+
   const handleNodeClick = (event, node) => {
     // Single click just highlights/selects - doesn't open panel
     setSelectedEdge(null);
@@ -6023,33 +7497,42 @@ export default function App() {
   const filteredCount = processedNodes.filter(n => n.data.isFiltered).length;
 
 const addPlatformNode = useCallback(() => {
+    setSelectedNode(null);
+    setNodes((nds) => nds.map(n => ({ ...n, selected: false })));
+    
     const reqId = generateItemId ('platform');
-    const newNode = {
-      id: String(nodeId),
-      type: 'custom',
-      position: { x: Math.random() * 400, y: Math.random() * 400 },
-      data: { 
-        label: 'New Platform Component', 
-        type: 'platform',
-        reqType: 'platform',
-        reqId: reqId,
-        version: '1.0',
-        classification: 'capability',
-        description: '',
-        priority: 'medium',
-        status: 'new',
-        state: 'open',
-        owner: '',
-        attachment: null,
-        onChange: handleNodeLabelChange
-      },
-    };
-    setNodes((nds) => nds.concat(newNode));
-    setNodeId((id) => id + 1);
-  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId ]);
+    
+    setTimeout(() => {
+      const newNode = {
+        id: String(nodeId),
+        type: 'custom',
+        position: { x: Math.random() * 400, y: Math.random() * 400 },
+        selected: false,
+        data: { 
+          label: 'New Platform Component', 
+          type: 'platform',
+          reqType: 'platform',
+          reqId: reqId,
+          version: '1.0',
+          classification: 'capability',
+          description: '',
+          priority: 'medium',
+          status: 'new',
+          state: 'open',
+          owner: '',
+          attachment: null,
+          onChange: handleNodeLabelChange
+        },
+      };
+      setNodes((nds) => [...nds, newNode]);
+      setNodeId((id) => id + 1);
+    }, 0);
+  }, [nodeId, handleNodeLabelChange, setNodes, setSelectedNode, generateItemId ]);
 
  const addRequirementNode = useCallback(() => {
-    // Get current viewport center
+    setSelectedNode(null);
+    setNodes((nds) => nds.map(n => ({ ...n, selected: false })));
+    
     let position = { x: Math.random() * 300 + 100, y: Math.random() * 200 + 100 };
     
     if (reactFlowInstance) {
@@ -6062,34 +7545,42 @@ const addPlatformNode = useCallback(() => {
       };
     }
     const itemId = generateItemId('project');
-    const newNode = {
-      id: String(nodeId),
-      type: 'custom',
-      position: position,
-      data: { 
-        label: 'New Requirement',
-        type: 'requirement',
-        itemType: 'requirement',
-        reqId: itemId,
-        version: '1.0',
-        reqType: 'project',
-        origin: 'internal',
-        classification: 'requirement',
-        description: '',
-        rationale: '',
-        priority: 'medium',
-        status: 'new',
-        state: 'open',
-        owner: '',
-        attachment: null,
-        onChange: handleNodeLabelChange
-      },
-    };
-    setNodes((nds) => nds.concat(newNode));
-    setNodeId((id) => id + 1);
-  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId, reactFlowInstance]);
+    
+    setTimeout(() => {
+      const newNode = {
+        id: String(nodeId),
+        type: 'custom',
+        position: position,
+        selected: false,
+        data: { 
+          label: 'New Requirement',
+          type: 'requirement',
+          itemType: 'requirement',
+          reqId: itemId,
+          version: '1.0',
+          reqType: 'project',
+          origin: 'internal',
+          classification: 'requirement',
+          description: '',
+          rationale: '',
+          priority: 'medium',
+          status: 'new',
+          state: 'open',
+          owner: '',
+          attachment: null,
+          onChange: handleNodeLabelChange
+        },
+      };
+      setNodes((nds) => [...nds, newNode]);
+      setNodeId((id) => id + 1);
+    }, 0);
+  }, [nodeId, handleNodeLabelChange, setNodes, setSelectedNode, generateItemId, reactFlowInstance]);
 
   const addSystemNode = useCallback(() => {
+    // Clear any selected node first to prevent issues
+    setSelectedNode(null);
+    setNodes((nds) => nds.map(n => ({ ...n, selected: false })));
+    
     // Get current viewport center
     let position = { x: Math.random() * 300 + 100, y: Math.random() * 200 + 100 };
     
@@ -6103,34 +7594,40 @@ const addPlatformNode = useCallback(() => {
       };
     }
     const itemId = generateItemId('system');
-    const newNode = {
-      id: String(nodeId),
-      type: 'custom',
-      position: position,
-      data: { 
-        label: 'New System', 
-        type: 'system',
-        itemType: 'system',
-        reqId: itemId,
-        version: '1.0',
-        classification: 'system',
-        description: '',
-        rationale: '',
-        ports: [],
-        priority: 'high',
-        status: 'new',
-        state: 'open',
-        owner: '',
-        attachment: null,
-        onChange: handleNodeLabelChange
-      },
-    };
-    setNodes((nds) => nds.concat(newNode));
-    setNodeId((id) => id + 1);
-  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId, reactFlowInstance]);
+    
+    setTimeout(() => {
+      const newNode = {
+        id: String(nodeId),
+        type: 'custom',
+        position: position,
+        selected: false,
+        data: { 
+          label: 'New System', 
+          type: 'system',
+          itemType: 'system',
+          reqId: itemId,
+          version: '1.0',
+          classification: 'system',
+          description: '',
+          rationale: '',
+          ports: [],
+          priority: 'high',
+          status: 'new',
+          state: 'open',
+          owner: '',
+          attachment: null,
+          onChange: handleNodeLabelChange
+        },
+      };
+      setNodes((nds) => [...nds, newNode]);
+      setNodeId((id) => id + 1);
+    }, 0);
+  }, [nodeId, handleNodeLabelChange, setNodes, setSelectedNode, generateItemId, reactFlowInstance]);
 
   const addSubSystemNode = useCallback(() => {
-    // Get current viewport center
+    setSelectedNode(null);
+    setNodes((nds) => nds.map(n => ({ ...n, selected: false })));
+    
     let position = { x: Math.random() * 300 + 100, y: Math.random() * 200 + 100 };
     
     if (reactFlowInstance) {
@@ -6143,34 +7640,40 @@ const addPlatformNode = useCallback(() => {
       };
     }
     const itemId = generateItemId('subsystem');
-    const newNode = {
-      id: String(nodeId),
-      type: 'custom',
-      position: position,
-      data: { 
-        label: 'New Sub-System', 
-        type: 'subsystem',
-        itemType: 'subsystem',
-        reqId: itemId,
-        version: '1.0',
-        classification: 'subsystem',
-        description: '',
-        rationale: '',
-        ports: [],
-        priority: 'medium',
-        status: 'new',
-        state: 'open',
-        owner: '',
-        attachment: null,
-        onChange: handleNodeLabelChange
-      },
-    };
-    setNodes((nds) => nds.concat(newNode));
-    setNodeId((id) => id + 1);
-  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId, reactFlowInstance]);
+    
+    setTimeout(() => {
+      const newNode = {
+        id: String(nodeId),
+        type: 'custom',
+        position: position,
+        selected: false,
+        data: { 
+          label: 'New Sub-System', 
+          type: 'subsystem',
+          itemType: 'subsystem',
+          reqId: itemId,
+          version: '1.0',
+          classification: 'subsystem',
+          description: '',
+          rationale: '',
+          ports: [],
+          priority: 'medium',
+          status: 'new',
+          state: 'open',
+          owner: '',
+          attachment: null,
+          onChange: handleNodeLabelChange
+        },
+      };
+      setNodes((nds) => [...nds, newNode]);
+      setNodeId((id) => id + 1);
+    }, 0);
+  }, [nodeId, handleNodeLabelChange, setNodes, setSelectedNode, generateItemId, reactFlowInstance]);
 
   const addFunctionNode = useCallback(() => {
-    // Get current viewport center
+    setSelectedNode(null);
+    setNodes((nds) => nds.map(n => ({ ...n, selected: false })));
+    
     let position = { x: Math.random() * 300 + 100, y: Math.random() * 200 + 100 };
     
     if (reactFlowInstance) {
@@ -6183,34 +7686,40 @@ const addPlatformNode = useCallback(() => {
       };
     }
     const itemId = generateItemId('function');
-    const newNode = {
-      id: String(nodeId),
-      type: 'custom',
-      position: position,
-      data: { 
-        label: 'New Function', 
-        type: 'function',
-        itemType: 'function',
-        reqId: itemId,
-        version: '1.0',
-        classification: 'function',
-        description: '',
-        rationale: '',
-        ports: [],  // NEW: Empty ports array
-        priority: 'medium',
-        status: 'new',
-        state: 'open',
-        owner: '',
-        attachment: null,
-        onChange: handleNodeLabelChange
-      },
-    };
-    setNodes((nds) => nds.concat(newNode));
-    setNodeId((id) => id + 1);
-  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId, reactFlowInstance]);
+    
+    setTimeout(() => {
+      const newNode = {
+        id: String(nodeId),
+        type: 'custom',
+        position: position,
+        selected: false,
+        data: { 
+          label: 'New Function', 
+          type: 'function',
+          itemType: 'function',
+          reqId: itemId,
+          version: '1.0',
+          classification: 'function',
+          description: '',
+          rationale: '',
+          ports: [],
+          priority: 'medium',
+          status: 'new',
+          state: 'open',
+          owner: '',
+          attachment: null,
+          onChange: handleNodeLabelChange
+        },
+      };
+      setNodes((nds) => [...nds, newNode]);
+      setNodeId((id) => id + 1);
+    }, 0);
+  }, [nodeId, handleNodeLabelChange, setNodes, setSelectedNode, generateItemId, reactFlowInstance]);
 
   const addTestCaseNode = useCallback(() => {
-    // Get current viewport center
+    setSelectedNode(null);
+    setNodes((nds) => nds.map(n => ({ ...n, selected: false })));
+    
     let position = { x: Math.random() * 300 + 100, y: Math.random() * 200 + 100 };
     
     if (reactFlowInstance) {
@@ -6223,36 +7732,46 @@ const addPlatformNode = useCallback(() => {
       };
     }
     const itemId = generateItemId('testcase');
-    const newNode = {
-      id: String(nodeId),
-      type: 'custom',
-      position: position,
-      data: { 
-        label: 'New Test Case', 
-        type: 'testcase',
-        itemType: 'testcase',
-        reqId: itemId,
-        version: '1.0',
-        classification: 'testcase',
-        description: '',
-        rationale: '',
-        purpose: '',
-        preconditions: '',
-        testSteps: '',
-        expectedResults: '',
-        priority: 'medium',
-        status: 'draft',
-        state: 'open',
-        owner: '',
-        attachment: null,
-        onChange: handleNodeLabelChange
-      },
-    };
-    setNodes((nds) => nds.concat(newNode));
-    setNodeId((id) => id + 1);
-  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId, reactFlowInstance]);
+    
+    setTimeout(() => {
+      const newNode = {
+        id: String(nodeId),
+        type: 'custom',
+        position: position,
+        selected: false,
+        data: { 
+          label: 'New Test Case', 
+          type: 'testcase',
+          itemType: 'testcase',
+          reqId: itemId,
+          version: '1.0',
+          classification: 'testcase',
+          description: '',
+          rationale: '',
+          purpose: '',
+          preconditions: '',
+          testSteps: '',
+          expectedResults: '',
+          priority: 'medium',
+          status: 'draft',
+          state: 'open',
+          owner: '',
+          attachment: null,
+          onChange: handleNodeLabelChange
+        },
+      };
+      setNodes((nds) => [...nds, newNode]);
+      setNodeId((id) => id + 1);
+    }, 0);
+  }, [nodeId, handleNodeLabelChange, setNodes, setSelectedNode, generateItemId, reactFlowInstance]);
 
   const addParameterNode = useCallback((paramType = 'configuration') => {
+    // Clear any selected node first to prevent issues
+    setSelectedNode(null);
+    
+    // Also clear ReactFlow's internal selection
+    setNodes((nds) => nds.map(n => ({ ...n, selected: false })));
+    
     // Get current viewport center
     let position = { x: Math.random() * 300 + 100, y: Math.random() * 200 + 100 };
     
@@ -6266,39 +7785,50 @@ const addPlatformNode = useCallback(() => {
       };
     }
     const itemId = generateItemId('parameter');
-    const newNode = {
-      id: String(nodeId),
-      type: 'custom',
-      position: position,
-      data: { 
-        label: 'New Parameter', 
-        type: 'parameter',
-        itemType: 'parameter',
-        reqId: itemId,
-        version: '1.0',
-        classification: 'parameter',
-        paramType: paramType,  // 'configuration' or 'settings'
-        paramValue: '',
-        paramUnit: '',
-        paramMin: '',
-        paramMax: '',
-        paramDefault: '',
-        description: '',
-        rationale: '',
-        ports: [],
-        priority: 'medium',
-        status: 'new',
-        state: 'open',
-        owner: '',
-        attachment: null,
-        onChange: handleNodeLabelChange
-      },
-    };
-    setNodes((nds) => nds.concat(newNode));
-    setNodeId((id) => id + 1);
-  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId, reactFlowInstance]);
+    
+    // Use setTimeout to ensure state updates complete before adding new node
+    setTimeout(() => {
+      const newNode = {
+        id: String(nodeId),
+        type: 'custom',
+        position: position,
+        selected: false,
+        data: { 
+          label: 'New Parameter', 
+          type: 'parameter',
+          itemType: 'parameter',
+          reqId: itemId,
+          version: '1.0',
+          classification: 'parameter',
+          paramType: paramType,  // 'configuration' or 'settings'
+          paramValue: '',
+          paramUnit: '',
+          paramMin: '',
+          paramMax: '',
+          paramDefault: '',
+          description: '',
+          rationale: '',
+          ports: [],
+          priority: 'medium',
+          status: 'new',
+          state: 'open',
+          owner: '',
+          attachment: null,
+          onChange: handleNodeLabelChange
+        },
+      };
+      setNodes((nds) => [...nds, newNode]);
+      setNodeId((id) => id + 1);
+    }, 0);
+  }, [nodeId, handleNodeLabelChange, setNodes, setSelectedNode, generateItemId, reactFlowInstance]);
 
   const addHardwareNode = useCallback((hwType = 'generic') => {
+    // Clear any selected node first to prevent issues
+    setSelectedNode(null);
+    
+    // Also clear ReactFlow's internal selection
+    setNodes((nds) => nds.map(n => ({ ...n, selected: false })));
+    
     // Get current viewport center
     let position = { x: Math.random() * 300 + 100, y: Math.random() * 200 + 100 };
     
@@ -6313,42 +7843,62 @@ const addPlatformNode = useCallback(() => {
     }
     const itemId = generateItemId('hardware');
     
-    // Find hardware type info
-    const hwTypeInfo = hardwareTypes.find(t => t.id === hwType) || { name: 'Generic', icon: '📦' };
+    // Find hardware type info - use defaults if hardwareTypes is empty
+    const typesToSearch = hardwareTypes.length > 0 ? hardwareTypes : [
+      { id: 'motor', name: 'Motor', icon: '⚙️' },
+      { id: 'inverter', name: 'Inverter', icon: '🔄' },
+      { id: 'battery', name: 'Battery', icon: '🔋' },
+      { id: 'sensor', name: 'Sensor', icon: '📡' },
+      { id: 'controller', name: 'Controller', icon: '🎛️' },
+      { id: 'pump', name: 'Pump', icon: '💧' },
+      { id: 'fan', name: 'Fan', icon: '🌀' },
+      { id: 'transformer', name: 'Transformer', icon: '⚡' },
+      { id: 'relay', name: 'Relay', icon: '🔌' },
+      { id: 'display', name: 'Display', icon: '🖥️' },
+      { id: 'valve', name: 'Valve', icon: '🚰' },
+      { id: 'heater', name: 'Heater', icon: '🔥' },
+      { id: 'cooler', name: 'Cooler', icon: '❄️' },
+      { id: 'generic', name: 'Generic', icon: '📦' },
+    ];
+    const hwTypeInfo = typesToSearch.find(t => t.id === hwType) || { name: 'Generic', icon: '📦' };
     
-    const newNode = {
-      id: String(nodeId),
-      type: 'custom',
-      position: position,
-      data: { 
-        label: `New ${hwTypeInfo.name}`, 
-        type: 'hardware',
-        itemType: 'hardware',
-        reqId: itemId,
-        version: '1.0',
-        classification: 'hardware',
-        hwType: hwType,
-        hwIcon: hwTypeInfo.icon,
-        hwIconSize: 64,          // Default icon size
-        hwCustomIcon: null,       // For custom uploaded icons
-        manufacturer: '',
-        partNumber: '',
-        serialNumber: '',
-        specifications: '',
-        description: '',
-        rationale: '',
-        ports: [],
-        priority: 'medium',
-        status: 'new',
-        state: 'open',
-        owner: '',
-        attachment: null,
-        onChange: handleNodeLabelChange
-      },
-    };
-    setNodes((nds) => nds.concat(newNode));
-    setNodeId((id) => id + 1);
-  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId, reactFlowInstance, hardwareTypes]);
+    // Use setTimeout to ensure state updates complete before adding new node
+    setTimeout(() => {
+      const newNode = {
+        id: String(nodeId),
+        type: 'custom',
+        position: position,
+        selected: false,
+        data: { 
+          label: `New ${hwTypeInfo.name}`, 
+          type: 'hardware',
+          itemType: 'hardware',
+          reqId: itemId,
+          version: '1.0',
+          classification: 'hardware',
+          hwType: hwType,
+          hwIcon: hwTypeInfo.icon,
+          hwIconSize: 64,          // Default icon size
+          hwCustomIcon: null,       // For custom uploaded icons
+          manufacturer: '',
+          partNumber: '',
+          serialNumber: '',
+          specifications: '',
+          description: '',
+          rationale: '',
+          ports: [],
+          priority: 'medium',
+          status: 'new',
+          state: 'open',
+          owner: '',
+          attachment: null,
+          onChange: handleNodeLabelChange
+        },
+      };
+      setNodes((nds) => [...nds, newNode]);
+      setNodeId((id) => id + 1);
+    }, 0);
+  }, [nodeId, handleNodeLabelChange, setNodes, setSelectedNode, generateItemId, reactFlowInstance, hardwareTypes]);
 
   const exportProject = useCallback(() => {
   // Ask user for filename
@@ -6827,9 +8377,11 @@ const createNewObject = (name, version, description) => {
     setPrjIdCounter(1);
     setImpIdCounter(1);
     setSysIdCounter(1);
-    setTcIdCounter(1);
     setSubIdCounter(1);
     setFunIdCounter(1);
+    setParIdCounter(1);
+    setHwIdCounter(1);
+    setTcIdCounter(1);
     setHistory([]);
     setHistoryIndex(-1);
   };
@@ -6961,6 +8513,7 @@ const createNewObject = (name, version, description) => {
           const userData = await auth.me();
           setUser(userData);
           realtime.connect();
+          fetchHardwareTypes();  // Load hardware types from database
         } catch (err) {
           console.error('Auth check failed:', err);
           // Token is invalid - clear everything
@@ -7180,7 +8733,7 @@ const createNewObject = (name, version, description) => {
           
           // Calculate max requirement IDs for each type
           let maxCus = 0, maxPlt = 0, maxPrj = 0, maxImp = 0;
-          let maxSys = 0, maxSub = 0, maxFun = 0, maxPar = 0, maxHw = 0;
+          let maxSys = 0, maxSub = 0, maxFun = 0, maxPar = 0, maxHw = 0, maxTc = 0;
           (project.nodes || []).forEach(n => {
             const reqId = n.data?.reqId || '';
             const num = parseInt(reqId.split('-')[1]) || 0;
@@ -7193,6 +8746,7 @@ const createNewObject = (name, version, description) => {
             if (reqId.startsWith('FUN')) maxFun = Math.max(maxFun, num);
             if (reqId.startsWith('PAR')) maxPar = Math.max(maxPar, num);
             if (reqId.startsWith('HW')) maxHw = Math.max(maxHw, num);
+            if (reqId.startsWith('TC')) maxTc = Math.max(maxTc, num);
           });
           setCusIdCounter(maxCus + 1);
           setPltIdCounter(maxPlt + 1);
@@ -7203,6 +8757,7 @@ const createNewObject = (name, version, description) => {
           setFunIdCounter(maxFun + 1);
           setParIdCounter(maxPar + 1);
           setHwIdCounter(maxHw + 1);
+          setTcIdCounter(maxTc + 1);
           
           setSelectedNode(null);
           setSelectedEdge(null);
@@ -7263,6 +8818,31 @@ const createNewObject = (name, version, description) => {
     );
   }
 
+  // Toolbar button styles
+  const toolbarBtnStyle = (bgColor) => ({
+    background: bgColor,
+    border: 'none',
+    color: 'white',
+    padding: '6px 10px',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: '32px'
+  });
+  
+  const toolbarBtnSmall = {
+    background: '#4a5f7f',
+    border: 'none',
+    color: 'white',
+    padding: '4px 6px',
+    borderRadius: '3px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    minWidth: '24px'
+  };
   
   //APP return
 
@@ -7395,6 +8975,14 @@ const createNewObject = (name, version, description) => {
             </div>
           <SidebarButton icon="📊" label="Export to Excel" onClick={() => { exportToExcel(); setSidebarOpen(false); }} />
           <SidebarButton icon="🆕" label="New Object" onClick={() => { setShowNewObjectModal(true); setSidebarOpen(false); }} />
+          <SidebarButton 
+            icon="🔧" 
+            label="Manage HW Types" 
+            onClick={() => { 
+              setShowHardwareTypesModal(true); 
+              setSidebarOpen(false); 
+            }} 
+          />
         </SidebarSection>
         
         <SidebarSection title="👁️ View">
@@ -7559,7 +9147,13 @@ const createNewObject = (name, version, description) => {
           setFiltersOpen(false);
           setShowWhiteboardDropdown(false);
         }}
+        connectOnClick={false}
         deleteKeyCode={['Backspace', 'Delete']}
+        multiSelectionKeyCode={['Shift', 'Meta', 'Control']}
+        selectionOnDrag={true}
+        selectionMode={SelectionMode.Partial}
+        panOnDrag={[1, 2]}
+        selectionKeyCode={null}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
@@ -7583,6 +9177,154 @@ const createNewObject = (name, version, description) => {
           }}
           maskColor="rgba(0,0,0,0.2)"
         />
+        
+        {/* Selection Toolbar - shows when multiple nodes selected */}
+        {nodes.filter(n => n.selected).length > 0 && (
+          <div style={{
+            position: 'absolute',
+            bottom: 20,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: '#2c3e50',
+            borderRadius: '8px',
+            padding: '8px 12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            zIndex: 1000,
+            flexWrap: 'wrap',
+            maxWidth: '90vw'
+          }}>
+            {/* Selection count */}
+            <span style={{ color: '#3498db', fontWeight: 'bold', fontSize: '12px', whiteSpace: 'nowrap' }}>
+              {nodes.filter(n => n.selected).length} selected
+              {nodes.filter(n => n.selected && n.data?.locked).length > 0 && (
+                <span style={{ color: '#e74c3c', marginLeft: '4px' }}>
+                  ({nodes.filter(n => n.selected && n.data?.locked).length} 🔒)
+                </span>
+              )}
+            </span>
+            
+            <div style={{ width: '1px', height: '24px', background: '#4a5f7f' }} />
+            
+            {/* Copy/Cut/Paste/Delete Group */}
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <button onClick={copySelectedNodes} style={toolbarBtnStyle('#3498db')} title="Copy (Ctrl+C)">
+                📋
+              </button>
+              <button onClick={() => { copySelectedNodes(); deleteSelectedNodes(); }} style={toolbarBtnStyle('#e67e22')} title="Cut (Ctrl+X)">
+                ✂️
+              </button>
+              <button onClick={duplicateSelectedNodes} style={toolbarBtnStyle('#9b59b6')} title="Duplicate (Ctrl+D)">
+                ⧉
+              </button>
+              <button onClick={deleteSelectedNodes} style={toolbarBtnStyle('#e74c3c')} title="Delete (Del)">
+                🗑️
+              </button>
+            </div>
+            
+            <div style={{ width: '1px', height: '24px', background: '#4a5f7f' }} />
+            
+            {/* Align Group */}
+            <div style={{ display: 'flex', gap: '2px' }}>
+              <button onClick={() => alignSelectedNodes('left')} style={toolbarBtnSmall} title="Align Left">⬅</button>
+              <button onClick={() => alignSelectedNodes('centerH')} style={toolbarBtnSmall} title="Align Center H">⬌</button>
+              <button onClick={() => alignSelectedNodes('right')} style={toolbarBtnSmall} title="Align Right">➡</button>
+              <button onClick={() => alignSelectedNodes('top')} style={toolbarBtnSmall} title="Align Top">⬆</button>
+              <button onClick={() => alignSelectedNodes('centerV')} style={toolbarBtnSmall} title="Align Center V">⬍</button>
+              <button onClick={() => alignSelectedNodes('bottom')} style={toolbarBtnSmall} title="Align Bottom">⬇</button>
+            </div>
+            
+            {/* Distribute */}
+            <div style={{ display: 'flex', gap: '2px' }}>
+              <button onClick={() => alignSelectedNodes('distributeH')} style={toolbarBtnSmall} title="Distribute Horizontally">↔</button>
+              <button onClick={() => alignSelectedNodes('distributeV')} style={toolbarBtnSmall} title="Distribute Vertically">↕</button>
+            </div>
+            
+            <div style={{ width: '1px', height: '24px', background: '#4a5f7f' }} />
+            
+            {/* Lock/Group/Export */}
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <button 
+                onClick={toggleLockSelectedNodes} 
+                style={toolbarBtnStyle(nodes.filter(n => n.selected).some(n => n.data?.locked) ? '#e74c3c' : '#27ae60')} 
+                title={nodes.filter(n => n.selected).some(n => !n.data?.locked) ? "Lock (Ctrl+L)" : "Unlock (Ctrl+L)"}
+              >
+                {nodes.filter(n => n.selected).some(n => !n.data?.locked) ? '🔒' : '🔓'}
+              </button>
+              <button onClick={groupSelectedNodes} style={toolbarBtnStyle('#1abc9c')} title="Group (Ctrl+G)">
+                📁
+              </button>
+              {nodes.filter(n => n.selected && n.data?.isGroup).length > 0 && (
+                <button onClick={ungroupSelectedNodes} style={toolbarBtnStyle('#95a5a6')} title="Ungroup (Ctrl+Shift+G)">
+                  📂
+                </button>
+              )}
+              <button onClick={exportSelectedNodes} style={toolbarBtnStyle('#f39c12')} title="Export Selection">
+                📤
+              </button>
+            </div>
+            
+            <div style={{ width: '1px', height: '24px', background: '#4a5f7f' }} />
+            
+            {/* Clear */}
+            <button
+              onClick={() => setNodes(nds => nds.map(n => ({ ...n, selected: false })))}
+              style={{
+                background: 'transparent',
+                border: '1px solid #7f8c8d',
+                color: '#bdc3c7',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '11px'
+              }}
+              title="Clear selection (Esc)"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+        
+        {/* Paste indicator - shows if clipboard has content */}
+        {clipboard.nodes.length > 0 && nodes.filter(n => n.selected).length === 0 && (
+          <div style={{
+            position: 'absolute',
+            bottom: 20,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: '#27ae60',
+            borderRadius: '8px',
+            padding: '8px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            zIndex: 1000
+          }}>
+            <span style={{ color: 'white', fontSize: '13px' }}>
+              📋 {clipboard.nodes.length} item{clipboard.nodes.length > 1 ? 's' : ''} in clipboard
+            </span>
+            <button
+              onClick={pasteNodes}
+              style={{
+                background: 'white',
+                border: 'none',
+                color: '#27ae60',
+                padding: '6px 12px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: 'bold'
+              }}
+              title="Paste (Ctrl+V)"
+            >
+              📥 Paste
+            </button>
+          </div>
+        )}
+        
         <Background 
           variant="dots" 
           gap={12} 
@@ -7619,6 +9361,20 @@ const createNewObject = (name, version, description) => {
           onClose={() => setSelectedNode(null)}
           onUpdate={updateNodeData}
           initialPosition={floatingPanelPosition}
+          hardwareTypes={hardwareTypes.length > 0 ? hardwareTypes : defaultHardwareTypes}
+          onManageTypes={() => setShowHardwareTypesModal(true)}
+        />
+      )}
+
+      {/* Manage Hardware Types Modal */}
+      {showHardwareTypesModal && (
+        <ManageHardwareTypesModal
+          onClose={() => setShowHardwareTypesModal(false)}
+          hardwareTypes={hardwareTypes.length > 0 ? hardwareTypes : defaultHardwareTypes}
+          onAddType={addHardwareType}
+          onDeleteType={deleteHardwareType}
+          onUpdateType={updateHardwareType}
+          onRefresh={fetchHardwareTypes}
         />
       )}
 

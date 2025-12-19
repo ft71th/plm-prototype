@@ -4,6 +4,30 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 
+
+// Suppress ResizeObserver loop error (harmless browser warning)
+const resizeObserverErr = window.onerror;
+window.onerror = (message, source, lineno, colno, error) => {
+  if (message === 'ResizeObserver loop completed with undelivered notifications.') {
+    return true; // Suppress
+  }
+  if (resizeObserverErr) {
+    return resizeObserverErr(message, source, lineno, colno, error);
+  }
+  return false;
+};
+
+// Also suppress via addEventListener
+window.addEventListener('error', (e) => {
+  if (e.message === 'ResizeObserver loop completed with undelivered notifications.' ||
+      e.message === 'ResizeObserver loop limit exceeded') {
+    e.stopImmediatePropagation();
+    e.preventDefault();
+    return true;
+  }
+});
+
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
