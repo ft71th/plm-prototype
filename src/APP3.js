@@ -614,159 +614,6 @@ function CustomNode({ data, id, selected }) {
   };
 
   
-    // WHITEBOARD MODE - HARDWARE NODES (Icon-centric design)
-  if (data.isWhiteboardMode && (data.itemType === 'hardware' || data.type === 'hardware')) {
-    const ports = data.ports || [];
-    const inputPorts = ports.filter(p => p.direction === 'input' || p.type === 'input');
-    const outputPorts = ports.filter(p => p.direction === 'output' || p.type === 'output');
-    
-    const getHandlePosition = (index, total) => {
-      if (total === 1) return '50%';
-      const spacing = 100 / (total + 1);
-      return `${spacing * (index + 1)}%`;
-    };
-
-    // Icon-based sizing - the node IS the icon
-    const iconSize = data.hwIconSize || 64;  // Configurable icon size
-    const maxPorts = Math.max(inputPorts.length, outputPorts.length, 1);
-    const nodeHeight = Math.max(iconSize + 30, maxPorts * 24 + 20);  // Icon + label space
-    const nodeWidth = Math.max(iconSize + 20, 80);  // Icon width + padding
-
-    return (
-      <div 
-        style={{
-          width: `${nodeWidth}px`,
-          minHeight: `${nodeHeight}px`,
-          backgroundColor: 'transparent',
-          position: 'relative',
-          cursor: 'pointer',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'flex-start',
-          paddingTop: '4px',
-        }}>
-
-        {/* The Icon IS the node */}
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          padding: '4px',
-          borderRadius: '8px',
-          background: selected ? 'rgba(52, 152, 219, 0.3)' : 'transparent',
-          border: selected ? '2px solid #3498db' : '2px solid transparent',
-          transition: 'all 0.2s ease',
-        }}>
-          {data.hwCustomIcon ? (
-            <img 
-              src={data.hwCustomIcon} 
-              alt={data.label || 'Hardware'}
-              style={{ 
-                width: `${iconSize}px`, 
-                height: `${iconSize}px`, 
-                objectFit: 'contain',
-                filter: selected 
-                  ? 'drop-shadow(0 0 8px rgba(52, 152, 219, 0.8))' 
-                  : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
-              }}
-            />
-          ) : (
-            <span style={{ 
-              fontSize: `${iconSize * 0.75}px`,
-              lineHeight: 1,
-              filter: selected 
-                ? 'drop-shadow(0 0 8px rgba(52, 152, 219, 0.8))' 
-                : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
-            }}>
-              {data.hwIcon || '📦'}
-            </span>
-          )}
-          
-          {/* Label below icon */}
-          <div style={{
-            marginTop: '4px',
-            fontSize: '10px',
-            fontWeight: 'bold',
-            color: '#333',
-            textAlign: 'center',
-            maxWidth: `${nodeWidth + 40}px`,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            textShadow: '0 0 3px #fff, 0 0 3px #fff',
-          }}>
-            {data.label}
-          </div>
-        </div>
-
-        {/* Connection handles */}
-        <Handle
-          type="target"
-          position={Position.Left}
-          id="default-target"
-          style={{
-            background: '#27ae60',
-            width: '10px',
-            height: '10px',
-            left: '-5px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            border: '2px solid #fff',
-          }}
-        />
-        <Handle
-          type="source"
-          position={Position.Right}
-          id="default-source"
-          style={{
-            background: '#e67e22',
-            width: '10px',
-            height: '10px',
-            right: '-5px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            border: '2px solid #fff',
-          }}
-        />
-
-        {/* Port handles if any */}
-        {inputPorts.map((port, index) => (
-          <Handle
-            key={port.id}
-            type="target"
-            position={Position.Left}
-            id={port.id}
-            style={{
-              background: '#27ae60',
-              width: 8,
-              height: 8,
-              top: getHandlePosition(index, inputPorts.length),
-              border: '2px solid #fff'
-            }}
-            title={port.name}
-          />
-        ))}
-        {outputPorts.map((port, index) => (
-          <Handle
-            key={port.id}
-            type="source"
-            position={Position.Right}
-            id={port.id}
-            style={{
-              background: '#e67e22',
-              width: 8,
-              height: 8,
-              top: getHandlePosition(index, outputPorts.length),
-              border: '2px solid #fff'
-            }}
-            title={port.name}
-          />
-        ))}
-      </div>
-    );
-  }
-
     // WHITEBOARD MODE - Simplified view with port labels
   if (data.isWhiteboardMode) {
     const ports = data.ports || [];
@@ -1188,26 +1035,25 @@ function CustomNode({ data, id, selected }) {
           justifyContent: 'center',
           alignItems: 'center',
           marginBottom: '10px',
-          padding: '12px',
-          background: 'rgba(255,255,255,0.1)',
-          borderRadius: '12px',
-          border: '1px solid rgba(255,255,255,0.1)'
+          padding: '8px',
+          background: 'rgba(0,0,0,0.2)',
+          borderRadius: '8px'
         }}>
           {data.hwCustomIcon ? (
             <img 
               src={data.hwCustomIcon} 
               alt="HW"
               style={{ 
-                width: `${data.hwIconSize || 64}px`, 
-                height: `${data.hwIconSize || 64}px`, 
+                width: '56px', 
+                height: '56px', 
                 objectFit: 'contain',
-                filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.5))'
+                filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))'
               }}
             />
           ) : (
             <span style={{ 
-              fontSize: `${(data.hwIconSize || 64) * 0.9}px`,
-              filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.5))'
+              fontSize: '42px',
+              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))'
             }}>
               {data.hwIcon || '📦'}
             </span>
@@ -3092,41 +2938,6 @@ return (
               
               <div style={{ fontSize: '9px', color: '#7f8c8d', marginTop: '6px' }}>
                 💡 Use PNG/SVG with transparent background for best results
-              </div>
-            </div>
-
-            {/* Icon Size Control */}
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '6px',
-                fontSize: '11px',
-                color: '#795548',
-                textTransform: 'uppercase',
-                fontWeight: 'bold'
-              }}>
-                Icon Size: {node.data.hwIconSize || 64}px
-              </label>
-              <input
-                type="range"
-                min="32"
-                max="128"
-                value={node.data.hwIconSize || 64}
-                onChange={(e) => onUpdate(node.id, 'hwIconSize', parseInt(e.target.value))}
-                disabled={!isEditable}
-                style={{
-                  width: '100%',
-                  cursor: 'pointer'
-                }}
-              />
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                fontSize: '9px', 
-                color: '#7f8c8d' 
-              }}>
-                <span>32px</span>
-                <span>128px</span>
               </div>
             </div>
 
@@ -6329,8 +6140,6 @@ const addPlatformNode = useCallback(() => {
         classification: 'hardware',
         hwType: hwType,
         hwIcon: hwTypeInfo.icon,
-        hwIconSize: 64,          // Default icon size
-        hwCustomIcon: null,       // For custom uploaded icons
         manufacturer: '',
         partNumber: '',
         serialNumber: '',

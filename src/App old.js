@@ -446,30 +446,8 @@ function CustomNode({ data, id, selected }) {
     if (data.itemType === 'testrun' || data.type === 'testrun') return '▶️';
     if (data.itemType === 'testresult' || data.type === 'testresult') return '✅';
     if (data.itemType === 'parameter' || data.type === 'parameter') return '⚙️';
-    if (data.itemType === 'hardware' || data.type === 'hardware') {
-      // Custom icon takes priority
-      if (data.hwCustomIcon) return 'custom';
-      return data.hwIcon || '📦';
-    }
+    if (data.itemType === 'hardware' || data.type === 'hardware') return data.hwIcon || '📦';
     return null;
-  };
-
-  // Render hardware icon (emoji or custom image)
-  const renderHardwareIcon = (size = 24) => {
-    if (data.hwCustomIcon) {
-      return (
-        <img 
-          src={data.hwCustomIcon} 
-          alt="HW"
-          style={{ 
-            width: `${size}px`, 
-            height: `${size}px`, 
-            objectFit: 'contain'
-          }}
-        />
-      );
-    }
-    return <span style={{ fontSize: `${size * 0.8}px` }}>{data.hwIcon || '📦'}</span>;
   };
 
   // SHAPE FUNCTION - Must be BEFORE the return statement!
@@ -614,159 +592,6 @@ function CustomNode({ data, id, selected }) {
   };
 
   
-    // WHITEBOARD MODE - HARDWARE NODES (Icon-centric design)
-  if (data.isWhiteboardMode && (data.itemType === 'hardware' || data.type === 'hardware')) {
-    const ports = data.ports || [];
-    const inputPorts = ports.filter(p => p.direction === 'input' || p.type === 'input');
-    const outputPorts = ports.filter(p => p.direction === 'output' || p.type === 'output');
-    
-    const getHandlePosition = (index, total) => {
-      if (total === 1) return '50%';
-      const spacing = 100 / (total + 1);
-      return `${spacing * (index + 1)}%`;
-    };
-
-    // Icon-based sizing - the node IS the icon
-    const iconSize = data.hwIconSize || 64;  // Configurable icon size
-    const maxPorts = Math.max(inputPorts.length, outputPorts.length, 1);
-    const nodeHeight = Math.max(iconSize + 30, maxPorts * 24 + 20);  // Icon + label space
-    const nodeWidth = Math.max(iconSize + 20, 80);  // Icon width + padding
-
-    return (
-      <div 
-        style={{
-          width: `${nodeWidth}px`,
-          minHeight: `${nodeHeight}px`,
-          backgroundColor: 'transparent',
-          position: 'relative',
-          cursor: 'pointer',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'flex-start',
-          paddingTop: '4px',
-        }}>
-
-        {/* The Icon IS the node */}
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          padding: '4px',
-          borderRadius: '8px',
-          background: selected ? 'rgba(52, 152, 219, 0.3)' : 'transparent',
-          border: selected ? '2px solid #3498db' : '2px solid transparent',
-          transition: 'all 0.2s ease',
-        }}>
-          {data.hwCustomIcon ? (
-            <img 
-              src={data.hwCustomIcon} 
-              alt={data.label || 'Hardware'}
-              style={{ 
-                width: `${iconSize}px`, 
-                height: `${iconSize}px`, 
-                objectFit: 'contain',
-                filter: selected 
-                  ? 'drop-shadow(0 0 8px rgba(52, 152, 219, 0.8))' 
-                  : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
-              }}
-            />
-          ) : (
-            <span style={{ 
-              fontSize: `${iconSize * 0.75}px`,
-              lineHeight: 1,
-              filter: selected 
-                ? 'drop-shadow(0 0 8px rgba(52, 152, 219, 0.8))' 
-                : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
-            }}>
-              {data.hwIcon || '📦'}
-            </span>
-          )}
-          
-          {/* Label below icon */}
-          <div style={{
-            marginTop: '4px',
-            fontSize: '10px',
-            fontWeight: 'bold',
-            color: '#333',
-            textAlign: 'center',
-            maxWidth: `${nodeWidth + 40}px`,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            textShadow: '0 0 3px #fff, 0 0 3px #fff',
-          }}>
-            {data.label}
-          </div>
-        </div>
-
-        {/* Connection handles */}
-        <Handle
-          type="target"
-          position={Position.Left}
-          id="default-target"
-          style={{
-            background: '#27ae60',
-            width: '10px',
-            height: '10px',
-            left: '-5px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            border: '2px solid #fff',
-          }}
-        />
-        <Handle
-          type="source"
-          position={Position.Right}
-          id="default-source"
-          style={{
-            background: '#e67e22',
-            width: '10px',
-            height: '10px',
-            right: '-5px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            border: '2px solid #fff',
-          }}
-        />
-
-        {/* Port handles if any */}
-        {inputPorts.map((port, index) => (
-          <Handle
-            key={port.id}
-            type="target"
-            position={Position.Left}
-            id={port.id}
-            style={{
-              background: '#27ae60',
-              width: 8,
-              height: 8,
-              top: getHandlePosition(index, inputPorts.length),
-              border: '2px solid #fff'
-            }}
-            title={port.name}
-          />
-        ))}
-        {outputPorts.map((port, index) => (
-          <Handle
-            key={port.id}
-            type="source"
-            position={Position.Right}
-            id={port.id}
-            style={{
-              background: '#e67e22',
-              width: 8,
-              height: 8,
-              top: getHandlePosition(index, outputPorts.length),
-              border: '2px solid #fff'
-            }}
-            title={port.name}
-          />
-        ))}
-      </div>
-    );
-  }
-
     // WHITEBOARD MODE - Simplified view with port labels
   if (data.isWhiteboardMode) {
     const ports = data.ports || [];
@@ -781,9 +606,7 @@ function CustomNode({ data, id, selected }) {
 
     // Calculate dimensions based on content
     const maxPorts = Math.max(inputPorts.length, outputPorts.length, 1);
-    const isHardware = data.itemType === 'hardware' || data.type === 'hardware';
-    const baseHeight = isHardware ? 100 : 80;  // Larger base for hardware icons
-    const nodeHeight = Math.max(baseHeight, maxPorts * 32 + 40);
+    const nodeHeight = Math.max(80, maxPorts * 32 + 40);
     
     // Calculate width based on longest port names + label
     const getTextWidth = (text) => text ? text.length * 7 : 0;
@@ -818,69 +641,27 @@ function CustomNode({ data, id, selected }) {
           transition: 'all 0.2s ease',
         }}>
 
-        {/* TYPE BADGE - Special handling for Hardware with larger icons */}
-        {(data.itemType === 'hardware' || data.type === 'hardware') ? (
-          <div style={{
-            position: 'absolute',
-            top: '4px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '2px'
-          }}>
-            {data.hwCustomIcon ? (
-              <img 
-                src={data.hwCustomIcon} 
-                alt="HW"
-                style={{ 
-                  width: '48px', 
-                  height: '48px', 
-                  objectFit: 'contain',
-                  filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
-                }}
-              />
-            ) : (
-              <span style={{ 
-                fontSize: '32px',
-                filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
-              }}>
-                {data.hwIcon || '📦'}
-              </span>
-            )}
-            <span style={{
-              fontSize: '8px',
-              padding: '1px 4px',
-              borderRadius: '2px',
-              background: 'rgba(0,0,0,0.4)',
-              color: '#fff',
-              fontWeight: 'bold'
-            }}>
-              {data.hwType?.toUpperCase() || 'HW'}
-            </span>
-          </div>
-        ) : (
-          <div style={{
-            position: 'absolute',
-            top: '4px',
-            left: '4px',
-            fontSize: '8px',
-            padding: '2px 6px',
-            borderRadius: '3px',
-            background: 'rgba(0,0,0,0.3)',
-            color: '#fff',
-            fontWeight: 'bold',
-            textTransform: 'uppercase'
-          }}>
-            {data.itemType === 'requirement' ? (data.reqType || 'REQ').substring(0,3).toUpperCase() :
-             data.itemType === 'system' ? 'SYS' :
-             data.itemType === 'subsystem' ? 'SUB' :
-             data.itemType === 'function' ? 'FUN' :
-             data.itemType === 'testcase' ? 'TC' :
-             data.itemType === 'parameter' ? (data.paramType === 'configuration' ? 'CFG' : 'SET') : ''}
-          </div>
-        )}
+        {/* ADD TYPE BADGE HERE - before Handles and Labels */}
+        <div style={{
+          position: 'absolute',
+          top: '4px',
+          left: '4px',
+          fontSize: '8px',
+          padding: '2px 6px',
+          borderRadius: '3px',
+          background: 'rgba(0,0,0,0.3)',
+          color: '#fff',
+          fontWeight: 'bold',
+          textTransform: 'uppercase'
+        }}>
+          {data.itemType === 'requirement' ? (data.reqType || 'REQ').substring(0,3).toUpperCase() :
+           data.itemType === 'system' ? 'SYS' :
+           data.itemType === 'subsystem' ? 'SUB' :
+           data.itemType === 'function' ? 'FUN' :
+           data.itemType === 'testcase' ? 'TC' :
+           data.itemType === 'parameter' ? (data.paramType === 'configuration' ? 'CFG' : 'SET') :
+           data.itemType === 'hardware' ? (data.hwIcon || 'HW') : ''}
+        </div>
 
         {/* Handles and Labels */}
         {/* Default handles - ALWAYS present for logical relationships */}
@@ -1180,40 +961,6 @@ function CustomNode({ data, id, selected }) {
           </>
         );
       })()}
-      
-      {/* Hardware Icon Display - show prominently for hardware nodes */}
-      {isHardwareItem() && (
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          marginBottom: '10px',
-          padding: '12px',
-          background: 'rgba(255,255,255,0.1)',
-          borderRadius: '12px',
-          border: '1px solid rgba(255,255,255,0.1)'
-        }}>
-          {data.hwCustomIcon ? (
-            <img 
-              src={data.hwCustomIcon} 
-              alt="HW"
-              style={{ 
-                width: `${data.hwIconSize || 64}px`, 
-                height: `${data.hwIconSize || 64}px`, 
-                objectFit: 'contain',
-                filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.5))'
-              }}
-            />
-          ) : (
-            <span style={{ 
-              fontSize: `${(data.hwIconSize || 64) * 0.9}px`,
-              filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.5))'
-            }}>
-              {data.hwIcon || '📦'}
-            </span>
-          )}
-        </div>
-      )}
       
       <div style={{
         display: 'flex',
@@ -2962,172 +2709,6 @@ return (
                 <option value="cooler">❄️ Cooler</option>
                 <option value="generic">📦 Generic</option>
               </select>
-            </div>
-
-            {/* Custom Icon */}
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '6px',
-                fontSize: '11px',
-                color: '#795548',
-                textTransform: 'uppercase',
-                fontWeight: 'bold'
-              }}>
-                Custom Icon (Optional)
-              </label>
-              
-              {/* Show current custom icon if exists */}
-              {node.data.hwCustomIcon && (
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '10px',
-                  marginBottom: '10px',
-                  padding: '10px',
-                  background: '#2c3e50',
-                  borderRadius: '6px'
-                }}>
-                  <img 
-                    src={node.data.hwCustomIcon} 
-                    alt="Custom Icon"
-                    style={{ 
-                      width: '50px', 
-                      height: '50px', 
-                      objectFit: 'contain',
-                      background: '#fff',
-                      borderRadius: '4px',
-                      padding: '4px'
-                    }}
-                  />
-                  <button
-                    onClick={() => onUpdate(node.id, 'hwCustomIcon', null)}
-                    style={{
-                      padding: '6px 12px',
-                      background: '#e74c3c',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '11px'
-                    }}
-                  >
-                    ✕ Remove
-                  </button>
-                </div>
-              )}
-              
-              {/* Icon URL input */}
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                <input
-                  type="text"
-                  placeholder="Paste image URL..."
-                  id={`icon-url-${node.id}`}
-                  disabled={!isEditable}
-                  style={{
-                    flex: 1,
-                    padding: '8px',
-                    background: '#34495e',
-                    color: 'white',
-                    border: '1px solid #4a5f7f',
-                    borderRadius: '4px',
-                    fontSize: '12px'
-                  }}
-                />
-                <button
-                  onClick={() => {
-                    const urlInput = document.getElementById(`icon-url-${node.id}`);
-                    if (urlInput && urlInput.value) {
-                      onUpdate(node.id, 'hwCustomIcon', urlInput.value);
-                      urlInput.value = '';
-                    }
-                  }}
-                  disabled={!isEditable}
-                  style={{
-                    padding: '8px 12px',
-                    background: '#27ae60',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '11px',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  Add
-                </button>
-              </div>
-              
-              {/* Or upload file */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '11px', color: '#7f8c8d' }}>or</span>
-                <label style={{
-                  padding: '6px 12px',
-                  background: '#3498db',
-                  color: 'white',
-                  borderRadius: '4px',
-                  cursor: isEditable ? 'pointer' : 'not-allowed',
-                  fontSize: '11px',
-                  fontWeight: 'bold'
-                }}>
-                  📁 Upload Image
-                  <input
-                    type="file"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    disabled={!isEditable}
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file && file.type.startsWith('image/')) {
-                        const reader = new FileReader();
-                        reader.onload = (event) => {
-                          onUpdate(node.id, 'hwCustomIcon', event.target.result);
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                  />
-                </label>
-              </div>
-              
-              <div style={{ fontSize: '9px', color: '#7f8c8d', marginTop: '6px' }}>
-                💡 Use PNG/SVG with transparent background for best results
-              </div>
-            </div>
-
-            {/* Icon Size Control */}
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '6px',
-                fontSize: '11px',
-                color: '#795548',
-                textTransform: 'uppercase',
-                fontWeight: 'bold'
-              }}>
-                Icon Size: {node.data.hwIconSize || 64}px
-              </label>
-              <input
-                type="range"
-                min="32"
-                max="128"
-                value={node.data.hwIconSize || 64}
-                onChange={(e) => onUpdate(node.id, 'hwIconSize', parseInt(e.target.value))}
-                disabled={!isEditable}
-                style={{
-                  width: '100%',
-                  cursor: 'pointer'
-                }}
-              />
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                fontSize: '9px', 
-                color: '#7f8c8d' 
-              }}>
-                <span>32px</span>
-                <span>128px</span>
-              </div>
             </div>
 
             <div style={{ marginBottom: '15px' }}>
@@ -6329,8 +5910,6 @@ const addPlatformNode = useCallback(() => {
         classification: 'hardware',
         hwType: hwType,
         hwIcon: hwTypeInfo.icon,
-        hwIconSize: 64,          // Default icon size
-        hwCustomIcon: null,       // For custom uploaded icons
         manufacturer: '',
         partNumber: '',
         serialNumber: '',
