@@ -268,7 +268,7 @@ function CustomEdge({
         markerEnd={`url(#arrow-${data?.relationType || 'related'})`}
       />
       <EdgeLabelRenderer>
-        {(data?.showLabel && (data?.customLabel || isEditing)) && (
+        {data?.showLabel !== false && (
           <div
             style={{
               position: 'absolute',
@@ -320,7 +320,7 @@ function CustomEdge({
                 {data?.isWhiteboardMode 
                   ? (
                       <>
-                        {data?.customLabel || ''}
+                        {data?.customLabel || '+ Add label'}
                         {data?.busWidth && !data?.customLabel?.includes('[') && (
                           <span style={{ 
                             fontSize: '9px', 
@@ -1143,14 +1143,11 @@ function CustomNode({ data, id, selected }) {
             fontWeight: 'bold',
             textTransform: 'uppercase'
           }}>
-            {data.itemType === 'requirement' ? 'REQ' :
+            {data.itemType === 'requirement' ? (data.reqType || 'REQ').substring(0,3).toUpperCase() :
              data.itemType === 'system' ? 'SYS' :
              data.itemType === 'subsystem' ? 'SUB' :
              data.itemType === 'function' ? 'FUN' :
              data.itemType === 'testcase' ? 'TC' :
-             data.itemType === 'usecase' ? 'UC' :
-             data.itemType === 'actor' ? 'ACT' :
-             data.itemType === 'hardware' ? 'HW' :
              data.itemType === 'parameter' ? (data.paramType === 'configuration' ? 'CFG' : 'SET') : ''}
           </div>
         )}
@@ -6952,7 +6949,7 @@ export default function App() {
         edges: edgesToSave,
         whiteboards: whiteboards
       });
-      // Removed alert - bottom notification will show instead
+      alert('Project saved!');
     } catch (err) {
       console.error('Save error:', err);
       alert('Failed to save project: ' + err.message);

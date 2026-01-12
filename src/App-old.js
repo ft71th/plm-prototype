@@ -268,7 +268,7 @@ function CustomEdge({
         markerEnd={`url(#arrow-${data?.relationType || 'related'})`}
       />
       <EdgeLabelRenderer>
-        {(data?.showLabel && (data?.customLabel || isEditing)) && (
+        {data?.showLabel !== false && (
           <div
             style={{
               position: 'absolute',
@@ -320,7 +320,7 @@ function CustomEdge({
                 {data?.isWhiteboardMode 
                   ? (
                       <>
-                        {data?.customLabel || ''}
+                        {data?.customLabel || '+ Add label'}
                         {data?.busWidth && !data?.customLabel?.includes('[') && (
                           <span style={{ 
                             fontSize: '9px', 
@@ -399,14 +399,6 @@ function CustomNode({ data, id, selected }) {
     return data.itemType === 'hardware' || data.type === 'hardware';
   };
 
-  const isUseCaseItem = () => {
-    return data.itemType === 'usecase' || data.type === 'usecase';
-  };
-
-  const isActorItem = () => {
-    return data.itemType === 'actor' || data.type === 'actor';
-  };
-
   const getSystemAccentColor = () => {
     if (data.itemType === 'system' || data.type === 'system') return '#1abc9c';       // Teal
     if (data.itemType === 'subsystem' || data.type === 'subsystem') return '#3498db'; // Blue
@@ -414,8 +406,6 @@ function CustomNode({ data, id, selected }) {
     if (data.itemType === 'testcase' || data.type === 'testcase') return '#27ae60';   // Green
     if (data.itemType === 'testrun' || data.type === 'testrun') return '#e67e22';     // Orange
     if (data.itemType === 'testresult' || data.type === 'testresult') return '#9b59b6'; // Purple
-    if (data.itemType === 'usecase' || data.type === 'usecase') return '#f39c12';     // Orange
-    if (data.itemType === 'actor' || data.type === 'actor') return '#2ecc71';         // Emerald Green
     if (data.itemType === 'parameter' || data.type === 'parameter') {
       // Parameter types: configuration = cyan, settings = magenta
       if (data.paramType === 'configuration') return '#00bcd4';  // Cyan
@@ -449,8 +439,6 @@ function CustomNode({ data, id, selected }) {
     if (data.itemType === 'testresult' || data.type === 'testresult') return 'TEST RESULT';
     if (data.itemType === 'parameter' || data.type === 'parameter') return 'PARAMETER';
     if (data.itemType === 'hardware' || data.type === 'hardware') return 'HARDWARE';
-    if (data.itemType === 'usecase' || data.type === 'usecase') return 'USE CASE';
-    if (data.itemType === 'actor' || data.type === 'actor') return 'ACTOR';
     return null;
   };
 
@@ -462,8 +450,6 @@ function CustomNode({ data, id, selected }) {
     if (data.itemType === 'testrun' || data.type === 'testrun') return '▶️';
     if (data.itemType === 'testresult' || data.type === 'testresult') return '✅';
     if (data.itemType === 'parameter' || data.type === 'parameter') return '⚙️';
-    if (data.itemType === 'usecase' || data.type === 'usecase') return '🎯';
-    if (data.itemType === 'actor' || data.type === 'actor') return '👤';
     if (data.itemType === 'hardware' || data.type === 'hardware') {
       // Custom icon or base64/URL image takes priority
       if (data.hwCustomIcon || data.hwIcon?.startsWith('data:') || data.hwIcon?.startsWith('http')) return 'custom';
@@ -504,70 +490,6 @@ function CustomNode({ data, id, selected }) {
     }
     // Default: emoji
     return <span style={{ fontSize: `${size * 0.8}px` }}>{data.hwIcon || '📦'}</span>;
-  };
-
-  // Render UML Actor stick figure
-  const renderActorStickFigure = (size = 60) => {
-    return (
-      <svg 
-        width={size} 
-        height={size * 1.2} 
-        viewBox="0 0 100 120" 
-        style={{ 
-          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
-        }}
-      >
-        {/* Head - circle */}
-        <circle 
-          cx="50" 
-          cy="20" 
-          r="12" 
-          fill="none" 
-          stroke={getSystemAccentColor()} 
-          strokeWidth="3"
-        />
-        
-        {/* Body - vertical line */}
-        <line 
-          x1="50" 
-          y1="32" 
-          x2="50" 
-          y2="75" 
-          stroke={getSystemAccentColor()} 
-          strokeWidth="3"
-        />
-        
-        {/* Arms - horizontal line */}
-        <line 
-          x1="25" 
-          y1="50" 
-          x2="75" 
-          y2="50" 
-          stroke={getSystemAccentColor()} 
-          strokeWidth="3"
-        />
-        
-        {/* Left leg */}
-        <line 
-          x1="50" 
-          y1="75" 
-          x2="30" 
-          y2="105" 
-          stroke={getSystemAccentColor()} 
-          strokeWidth="3"
-        />
-        
-        {/* Right leg */}
-        <line 
-          x1="50" 
-          y1="75" 
-          x2="70" 
-          y2="105" 
-          stroke={getSystemAccentColor()} 
-          strokeWidth="3"
-        />
-      </svg>
-    );
   };
 
   // SHAPE FUNCTION - Must be BEFORE the return statement!
@@ -634,26 +556,6 @@ function CustomNode({ data, id, selected }) {
           borderRadius: '4px',           // Sharp corners for HW
           borderWidth: '3px',
           borderStyle: 'solid',
-        };
-      case 'usecase':
-        return {
-          borderRadius: '50%',           // Perfect oval for use cases
-          paddingTop: '15px',
-          paddingBottom: '15px',
-          paddingLeft: '20px',
-          paddingRight: '20px',
-          borderWidth: '2px',
-          borderStyle: 'solid',
-        };
-      case 'actor':
-        return {
-          borderRadius: '8px',           // Rounded rectangle for actors
-          borderWidth: '0px',           // No border - just background
-          borderStyle: 'none',
-          minHeight: '100px',           // Taller for stick figure + name
-          minWidth: '80px',            // Wider for stick figure
-          padding: '10px',
-          background: 'transparent',    // Transparent background
         };
       default:
         return {
@@ -946,97 +848,6 @@ function CustomNode({ data, id, selected }) {
     );
   }
 
-    // WHITEBOARD MODE - UML ACTOR NODES (Stick figure with name below)
-  if (data.isWhiteboardMode && (data.itemType === 'actor' || data.type === 'actor')) {
-    return (
-      <div 
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minWidth: '100px',
-          minHeight: '120px',
-          backgroundColor: 'transparent',
-          position: 'relative',
-          cursor: 'pointer',
-          padding: '10px',
-          borderRadius: '8px',
-          background: selected ? 'rgba(46, 204, 113, 0.1)' : 'transparent',
-          border: selected ? '2px solid #2ecc71' : '2px solid transparent',
-          transition: 'all 0.2s ease',
-        }}>
-        
-        {/* UML Actor Stick Figure */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: '8px',
-        }}>
-          {renderActorStickFigure(50)}
-        </div>
-        
-        {/* Actor Name Below */}
-        <div style={{
-          fontSize: '12px',
-          fontWeight: 'bold',
-          color: '#2ecc71',
-          textAlign: 'center',
-          maxWidth: '90px',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          textShadow: '0 0 3px #000, 0 0 3px #000',
-        }}>
-          {data.label}
-        </div>
-
-        {/* Connection Handles */}
-        <Handle
-          type="target"
-          position={Position.Left}
-          style={{ 
-            background: '#2ecc71', 
-            width: '8px', 
-            height: '8px',
-            left: '-4px' 
-          }}
-        />
-        <Handle
-          type="source"
-          position={Position.Right}
-          style={{ 
-            background: '#2ecc71', 
-            width: '8px', 
-            height: '8px',
-            right: '-4px' 
-          }}
-        />
-        <Handle
-          type="target"
-          position={Position.Top}
-          style={{ 
-            background: '#2ecc71', 
-            width: '8px', 
-            height: '8px',
-            top: '-4px' 
-          }}
-        />
-        <Handle
-          type="source"
-          position={Position.Bottom}
-          style={{ 
-            background: '#2ecc71', 
-            width: '8px', 
-            height: '8px',
-            bottom: '-4px' 
-          }}
-        />
-      </div>
-    );
-  }
-
     // WHITEBOARD MODE - Simplified view with port labels
   if (data.isWhiteboardMode) {
     const ports = data.ports || [];
@@ -1143,14 +954,11 @@ function CustomNode({ data, id, selected }) {
             fontWeight: 'bold',
             textTransform: 'uppercase'
           }}>
-            {data.itemType === 'requirement' ? 'REQ' :
+            {data.itemType === 'requirement' ? (data.reqType || 'REQ').substring(0,3).toUpperCase() :
              data.itemType === 'system' ? 'SYS' :
              data.itemType === 'subsystem' ? 'SUB' :
              data.itemType === 'function' ? 'FUN' :
              data.itemType === 'testcase' ? 'TC' :
-             data.itemType === 'usecase' ? 'UC' :
-             data.itemType === 'actor' ? 'ACT' :
-             data.itemType === 'hardware' ? 'HW' :
              data.itemType === 'parameter' ? (data.paramType === 'configuration' ? 'CFG' : 'SET') : ''}
           </div>
         )}
@@ -1320,10 +1128,10 @@ function CustomNode({ data, id, selected }) {
     <div 
       style={{
         padding: '15px',
-        paddingLeft: (isSystemItem() || isTestItem() || isParameterItem() || isHardwareItem() || isUseCaseItem() || isActorItem()) ? '20px' : '15px',
+        paddingLeft: (isSystemItem() || isTestItem() || isParameterItem() || isHardwareItem()) ? '20px' : '15px',
         border: '3px solid ' + getBorderColor(),
-        borderLeft: (isSystemItem() || isTestItem() || isParameterItem() || isHardwareItem() || isUseCaseItem() || isActorItem()) ? `6px solid ${getSystemAccentColor()}` : '3px solid ' + getBorderColor(),
-        backgroundColor: (isSystemItem() || isTestItem() || isParameterItem() || isHardwareItem() || isUseCaseItem() || isActorItem()) ? '#1a2634' : '#2c3e50',
+        borderLeft: (isSystemItem() || isTestItem() || isParameterItem() || isHardwareItem()) ? `6px solid ${getSystemAccentColor()}` : '3px solid ' + getBorderColor(),
+        backgroundColor: (isSystemItem() || isTestItem() || isParameterItem() || isHardwareItem()) ? '#1a2634' : '#2c3e50',
         minWidth: '180px',
         opacity: data.isFiltered === false ? 0.3 : 1,
         boxShadow: selected ? '0 0 20px rgba(52, 152, 219, 0.8)' : 
@@ -1488,35 +1296,6 @@ function CustomNode({ data, id, selected }) {
         </div>
       )}
       
-      {/* UML Actor Stick Figure Display - show prominently for actor nodes */}
-      {isActorItem() && (
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: '15px',
-          padding: '15px',
-          background: 'rgba(46, 204, 113, 0.1)',
-          borderRadius: '12px',
-          border: '1px solid rgba(46, 204, 113, 0.2)'
-        }}>
-          {/* Actor Type Label */}
-          <div style={{
-            fontSize: '9px',
-            color: '#2ecc71',
-            textTransform: 'uppercase',
-            marginBottom: '8px',
-            fontWeight: 'bold'
-          }}>
-            {data.actorType || 'Primary'} Actor
-          </div>
-          
-          {/* Stick Figure */}
-          {renderActorStickFigure(70)}
-        </div>
-      )}
-      
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -1528,7 +1307,7 @@ function CustomNode({ data, id, selected }) {
           fontSize: '10px',
           padding: '3px 8px',
           borderRadius: '4px',
-          backgroundColor: (isSystemItem() || isTestItem() || isParameterItem() || isHardwareItem() || isUseCaseItem() || isActorItem()) ? getSystemAccentColor() : getReqTypeColor(),
+          backgroundColor: (isSystemItem() || isTestItem() || isParameterItem() || isHardwareItem()) ? getSystemAccentColor() : getReqTypeColor(),
           color: 'white',
           fontWeight: 'bold',
           textTransform: 'uppercase'
@@ -3565,208 +3344,6 @@ return (
           </>
         )}
 
-        {/* USE CASE FIELDS */}
-        {(node.data.itemType === 'usecase' || node.data.type === 'usecase') && (
-          <>
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '6px',
-                fontSize: '11px',
-                color: '#f39c12',
-                textTransform: 'uppercase',
-                fontWeight: 'bold'
-              }}>
-                Preconditions
-              </label>
-              <textarea
-                value={node.data.preconditions || ''}
-                onChange={(e) => onUpdate(node.id, 'preconditions', e.target.value)}
-                disabled={!isEditable}
-                placeholder="What must be true before this use case can be executed?"
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  background: '#34495e',
-                  color: 'white',
-                  border: '1px solid #f39c12',
-                  borderRadius: '4px',
-                  minHeight: '60px',
-                  fontSize: '13px',
-                  fontFamily: 'inherit',
-                  resize: 'vertical',
-                  cursor: isEditable ? 'text' : 'not-allowed'
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '6px',
-                fontSize: '11px',
-                color: '#f39c12',
-                textTransform: 'uppercase',
-                fontWeight: 'bold'
-              }}>
-                Main Flow
-              </label>
-              <textarea
-                value={node.data.mainFlow || ''}
-                onChange={(e) => onUpdate(node.id, 'mainFlow', e.target.value)}
-                disabled={!isEditable}
-                placeholder="Step-by-step description of the normal flow"
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  background: '#34495e',
-                  color: 'white',
-                  border: '1px solid #f39c12',
-                  borderRadius: '4px',
-                  minHeight: '80px',
-                  fontSize: '13px',
-                  fontFamily: 'inherit',
-                  resize: 'vertical',
-                  cursor: isEditable ? 'text' : 'not-allowed'
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '6px',
-                fontSize: '11px',
-                color: '#f39c12',
-                textTransform: 'uppercase',
-                fontWeight: 'bold'
-              }}>
-                Alternative Flows
-              </label>
-              <textarea
-                value={node.data.alternativeFlows || ''}
-                onChange={(e) => onUpdate(node.id, 'alternativeFlows', e.target.value)}
-                disabled={!isEditable}
-                placeholder="Alternative paths or exception handling"
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  background: '#34495e',
-                  color: 'white',
-                  border: '1px solid #f39c12',
-                  borderRadius: '4px',
-                  minHeight: '60px',
-                  fontSize: '13px',
-                  fontFamily: 'inherit',
-                  resize: 'vertical',
-                  cursor: isEditable ? 'text' : 'not-allowed'
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '6px',
-                fontSize: '11px',
-                color: '#f39c12',
-                textTransform: 'uppercase',
-                fontWeight: 'bold'
-              }}>
-                Postconditions
-              </label>
-              <textarea
-                value={node.data.postconditions || ''}
-                onChange={(e) => onUpdate(node.id, 'postconditions', e.target.value)}
-                disabled={!isEditable}
-                placeholder="What will be true after successful execution?"
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  background: '#34495e',
-                  color: 'white',
-                  border: '1px solid #f39c12',
-                  borderRadius: '4px',
-                  minHeight: '60px',
-                  fontSize: '13px',
-                  fontFamily: 'inherit',
-                  resize: 'vertical',
-                  cursor: isEditable ? 'text' : 'not-allowed'
-                }}
-              />
-            </div>
-          </>
-        )}
-
-        {/* ACTOR FIELDS */}
-        {(node.data.itemType === 'actor' || node.data.type === 'actor') && (
-          <>
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '6px',
-                fontSize: '11px',
-                color: '#2ecc71',
-                textTransform: 'uppercase',
-                fontWeight: 'bold'
-              }}>
-                Actor Type
-              </label>
-              <select
-                value={node.data.actorType || 'primary'}
-                onChange={(e) => onUpdate(node.id, 'actorType', e.target.value)}
-                disabled={!isEditable}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  background: '#34495e',
-                  color: 'white',
-                  border: '1px solid #2ecc71',
-                  borderRadius: '4px',
-                  fontSize: '13px'
-                }}
-              >
-                <option value="primary">Primary Actor</option>
-                <option value="secondary">Secondary Actor</option>
-                <option value="system">System Actor</option>
-                <option value="external">External System</option>
-              </select>
-            </div>
-
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '6px',
-                fontSize: '11px',
-                color: '#2ecc71',
-                textTransform: 'uppercase',
-                fontWeight: 'bold'
-              }}>
-                Responsibilities
-              </label>
-              <textarea
-                value={node.data.responsibilities || ''}
-                onChange={(e) => onUpdate(node.id, 'responsibilities', e.target.value)}
-                disabled={!isEditable}
-                placeholder="What actions or decisions is this actor responsible for?"
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  background: '#34495e',
-                  color: 'white',
-                  border: '1px solid #2ecc71',
-                  borderRadius: '4px',
-                  minHeight: '80px',
-                  fontSize: '13px',
-                  fontFamily: 'inherit',
-                  resize: 'vertical',
-                  cursor: isEditable ? 'text' : 'not-allowed'
-                }}
-              />
-            </div>
-          </>
-        )}
-
 
         <div style={{
           padding: '10px',
@@ -4662,8 +4239,6 @@ function LeftIconStrip({
   onAddPlatform,
   onAddParameter,
   onAddHardware,
-  onAddUseCase,
-  onAddActor,
   onVoice,
   isListening,
   voiceStatus
@@ -4750,80 +4325,6 @@ function LeftIconStrip({
         style={{ ...iconButtonStyle, background: '#27ae60' }}
       >
         🧪
-      </button>
-      
-      {/* Separator */}
-      <div style={{ height: '1px', background: '#4a5f7f', margin: '4px 0' }} />
-      
-      {/* Use Cases */}
-      <button 
-        onClick={handleClick(onAddUseCase)} 
-        title="Add Use Case"
-        style={{ ...iconButtonStyle, background: '#f39c12' }}
-      >
-        🎯
-      </button>
-      <button 
-        onClick={handleClick(onAddActor)} 
-        title="Add Actor"
-        style={{ ...iconButtonStyle, background: '#2ecc71', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-      >
-        <svg 
-          width={24} 
-          height={28} 
-          viewBox="0 0 100 120" 
-          style={{ fill: 'white' }}
-        >
-          {/* Head - circle */}
-          <circle 
-            cx="50" 
-            cy="20" 
-            r="12" 
-            fill="none" 
-            stroke="white" 
-            strokeWidth="4"
-          />
-          
-          {/* Body - vertical line */}
-          <line 
-            x1="50" 
-            y1="32" 
-            x2="50" 
-            y2="75" 
-            stroke="white" 
-            strokeWidth="4"
-          />
-          
-          {/* Arms - horizontal line */}
-          <line 
-            x1="25" 
-            y1="50" 
-            x2="75" 
-            y2="50" 
-            stroke="white" 
-            strokeWidth="4"
-          />
-          
-          {/* Left leg */}
-          <line 
-            x1="50" 
-            y1="75" 
-            x2="30" 
-            y2="105" 
-            stroke="white" 
-            strokeWidth="4"
-          />
-          
-          {/* Right leg */}
-          <line 
-            x1="50" 
-            y1="75" 
-            x2="70" 
-            y2="105" 
-            stroke="white" 
-            strokeWidth="4"
-          />
-        </svg>
       </button>
       
       {/* Separator */}
@@ -6546,8 +6047,6 @@ export default function App() {
   const [tcIdCounter, setTcIdCounter] = useState(1);
   const [parIdCounter, setParIdCounter] = useState(1);  // Parameter counter
   const [hwIdCounter, setHwIdCounter] = useState(1);    // Hardware counter
-  const [ucIdCounter, setUcIdCounter] = useState(1);    // Use Case counter
-  const [actIdCounter, setActIdCounter] = useState(1);  // Actor counter
   
   // Hardware types - loaded from database
   const [hardwareTypes, setHardwareTypes] = useState([]);
@@ -6794,7 +6293,7 @@ export default function App() {
       // Calculate max requirement IDs for each type
       let maxCus = 0, maxPlt = 0, maxPrj = 0, maxImp = 0;
       let maxSys = 0, maxSub = 0, maxFun = 0, maxPar = 0, maxHw = 0;
-      let maxTc = 0, maxUc = 0, maxAct = 0;
+      let maxTc = 0;
       (projectData.nodes || []).forEach(n => {
         const reqId = n.data?.reqId || '';
         const num = parseInt(reqId.split('-')[1]) || 0;
@@ -6808,8 +6307,6 @@ export default function App() {
         if (reqId.startsWith('PAR')) maxPar = Math.max(maxPar, num);
         if (reqId.startsWith('HW')) maxHw = Math.max(maxHw, num);
         if (reqId.startsWith('TC')) maxTc = Math.max(maxTc, num);
-        if (reqId.startsWith('UC')) maxUc = Math.max(maxUc, num);
-        if (reqId.startsWith('ACT')) maxAct = Math.max(maxAct, num);
       });
       setCusIdCounter(maxCus + 1);
       setPltIdCounter(maxPlt + 1);
@@ -6821,8 +6318,6 @@ export default function App() {
       setParIdCounter(maxPar + 1);
       setHwIdCounter(maxHw + 1);
       setTcIdCounter(maxTc + 1);
-      setUcIdCounter(maxUc + 1);
-      setActIdCounter(maxAct + 1);
       
       console.log('Updated counters - nodeId:', maxId + 1, 'SYS:', maxSys + 1, 'HW:', maxHw + 1);
       
@@ -6875,8 +6370,6 @@ export default function App() {
       setParIdCounter(1);
       setHwIdCounter(1);
       setTcIdCounter(1);
-      setUcIdCounter(1);
-      setActIdCounter(1);
     }
     
     // Load whiteboards if present
@@ -6952,7 +6445,7 @@ export default function App() {
         edges: edgesToSave,
         whiteboards: whiteboards
       });
-      // Removed alert - bottom notification will show instead
+      alert('Project saved!');
     } catch (err) {
       console.error('Save error:', err);
       alert('Failed to save project: ' + err.message);
@@ -7099,14 +6592,6 @@ export default function App() {
         const tcId = `TC-${String(tcIdCounter).padStart(3, '0')}`;
         setTcIdCounter(c => c + 1);
         return tcId;  
-      case 'usecase':
-        const ucId = `UC-${String(ucIdCounter).padStart(3, '0')}`;
-        setUcIdCounter(c => c + 1);
-        return ucId;
-      case 'actor':
-        const actId = `ACT-${String(actIdCounter).padStart(3, '0')}`;
-        setActIdCounter(c => c + 1);
-        return actId;
       case 'customer':
         const cusId = `CUS-${String(cusIdCounter).padStart(3, '0')}`;
         setCusIdCounter(c => c + 1);
@@ -7132,7 +6617,7 @@ export default function App() {
         setPrjIdCounter(c => c + 1);
         return prjId;
     }
-  }, [sysIdCounter, subIdCounter, funIdCounter, tcIdCounter, ucIdCounter, actIdCounter, cusIdCounter, pltIdCounter, prjIdCounter, impIdCounter, parIdCounter, hwIdCounter]);
+  }, [sysIdCounter, subIdCounter, funIdCounter, tcIdCounter, cusIdCounter, pltIdCounter, prjIdCounter, impIdCounter, parIdCounter, hwIdCounter]);
 
   const stats = useMemo(() => {
     const floatingConnectors = nodes.filter(n => n.data?.isFloatingConnector).length;  // ADD THIS
@@ -7602,8 +7087,6 @@ export default function App() {
       else if (itemType === 'hardware') newReqId = `HW-${String(hwIdCounter + Object.keys(idMapping).length - 1).padStart(3, '0')}`;
       else if (itemType === 'parameter') newReqId = `PAR-${String(parIdCounter + Object.keys(idMapping).length - 1).padStart(3, '0')}`;
       else if (itemType === 'testcase') newReqId = `TC-${String(tcIdCounter + Object.keys(idMapping).length - 1).padStart(3, '0')}`;
-      else if (itemType === 'usecase') newReqId = `UC-${String(ucIdCounter + Object.keys(idMapping).length - 1).padStart(3, '0')}`;
-      else if (itemType === 'actor') newReqId = `ACT-${String(actIdCounter + Object.keys(idMapping).length - 1).padStart(3, '0')}`;
       
       return {
         ...node,
@@ -7641,8 +7124,6 @@ export default function App() {
       else if (itemType === 'hardware') setHwIdCounter(c => c + 1);
       else if (itemType === 'parameter') setParIdCounter(c => c + 1);
       else if (itemType === 'testcase') setTcIdCounter(c => c + 1);
-      else if (itemType === 'usecase') setUcIdCounter(c => c + 1);
-      else if (itemType === 'actor') setActIdCounter(c => c + 1);
     });
     
     setNodes(nds => [...nds.map(n => ({ ...n, selected: false })), ...newNodes]);
@@ -7650,7 +7131,7 @@ export default function App() {
     
     console.log(`Duplicated ${newNodes.length} nodes`);
   }, [nodes, edges, nodeId, handleNodeLabelChange, setNodes, setEdges,
-      sysIdCounter, subIdCounter, funIdCounter, hwIdCounter, parIdCounter, tcIdCounter, ucIdCounter, actIdCounter]);
+      sysIdCounter, subIdCounter, funIdCounter, hwIdCounter, parIdCounter, tcIdCounter]);
 
   // Align selected nodes
   const alignSelectedNodes = useCallback((direction) => {
@@ -8419,101 +7900,6 @@ const addPlatformNode = useCallback(() => {
     }, 0);
   }, [nodeId, handleNodeLabelChange, setNodes, setSelectedNode, generateItemId, reactFlowInstance, hardwareTypes]);
 
-  const addUseCaseNode = useCallback(() => {
-    setSelectedNode(null);
-    setNodes((nds) => nds.map(n => ({ ...n, selected: false })));
-    
-    let position = { x: Math.random() * 300 + 100, y: Math.random() * 200 + 100 };
-    
-    if (reactFlowInstance) {
-      const viewport = reactFlowInstance.getViewport();
-      const centerX = (-viewport.x + window.innerWidth / 2) / viewport.zoom;
-      const centerY = (-viewport.y + window.innerHeight / 2) / viewport.zoom;
-      position = { 
-        x: centerX + (Math.random() * 100 - 50), 
-        y: centerY + (Math.random() * 100 - 50) 
-      };
-    }
-    const itemId = generateItemId('usecase');
-    
-    setTimeout(() => {
-      const newNode = {
-        id: String(nodeId),
-        type: 'custom',
-        position: position,
-        selected: false,
-        data: { 
-          label: 'New Use Case',
-          type: 'usecase',
-          itemType: 'usecase',
-          reqId: itemId,
-          version: '1.0',
-          classification: 'usecase',
-          description: '',
-          preconditions: '',
-          postconditions: '',
-          mainFlow: '',
-          alternativeFlows: '',
-          actors: [],
-          priority: 'medium',
-          status: 'new',
-          state: 'open',
-          owner: '',
-          attachment: null,
-          onChange: handleNodeLabelChange
-        },
-      };
-      setNodes((nds) => [...nds, newNode]);
-      setNodeId((id) => id + 1);
-    }, 0);
-  }, [nodeId, handleNodeLabelChange, setNodes, setSelectedNode, generateItemId, reactFlowInstance]);
-
-  const addActorNode = useCallback(() => {
-    setSelectedNode(null);
-    setNodes((nds) => nds.map(n => ({ ...n, selected: false })));
-    
-    let position = { x: Math.random() * 300 + 100, y: Math.random() * 200 + 100 };
-    
-    if (reactFlowInstance) {
-      const viewport = reactFlowInstance.getViewport();
-      const centerX = (-viewport.x + window.innerWidth / 2) / viewport.zoom;
-      const centerY = (-viewport.y + window.innerHeight / 2) / viewport.zoom;
-      position = { 
-        x: centerX + (Math.random() * 100 - 50), 
-        y: centerY + (Math.random() * 100 - 50) 
-      };
-    }
-    const itemId = generateItemId('actor');
-    
-    setTimeout(() => {
-      const newNode = {
-        id: String(nodeId),
-        type: 'custom',
-        position: position,
-        selected: false,
-        data: { 
-          label: 'New Actor',
-          type: 'actor',
-          itemType: 'actor',
-          reqId: itemId,
-          version: '1.0',
-          classification: 'actor',
-          description: '',
-          actorType: 'primary', // primary, secondary, system
-          responsibilities: '',
-          priority: 'medium',
-          status: 'new',
-          state: 'open',
-          owner: '',
-          attachment: null,
-          onChange: handleNodeLabelChange
-        },
-      };
-      setNodes((nds) => [...nds, newNode]);
-      setNodeId((id) => id + 1);
-    }, 0);
-  }, [nodeId, handleNodeLabelChange, setNodes, setSelectedNode, generateItemId, reactFlowInstance]);
-
   const exportProject = useCallback(() => {
   // Ask user for filename
   const defaultName = objectName.replace(/[^a-z0-9]/gi, '_') || 'project';
@@ -8950,7 +8336,7 @@ const addPlatformNode = useCallback(() => {
     };
 
     recognition.start();
-  }, [addSystemNode, addSubSystemNode, addFunctionNode, addRequirementNode, addTestCaseNode, addPlatformNode, addUseCaseNode, addActorNode, exportProject, exportToExcel, undo, redo]);
+  }, [addSystemNode, addSubSystemNode, addFunctionNode, addRequirementNode, addTestCaseNode, addPlatformNode, exportProject, exportToExcel, undo, redo]);
 
 // Voice Dictation for text fields
   const startVoiceDictation = useCallback((callback) => {
@@ -9517,8 +8903,6 @@ const createNewObject = (name, version, description) => {
         onAddPlatform={addPlatformNode}
         onAddParameter={addParameterNode}
         onAddHardware={addHardwareNode}
-        onAddUseCase={addUseCaseNode}
-        onAddActor={addActorNode}
         onVoice={startVoiceRecognition}
         isListening={isListening}
         voiceStatus={voiceStatus}

@@ -268,7 +268,7 @@ function CustomEdge({
         markerEnd={`url(#arrow-${data?.relationType || 'related'})`}
       />
       <EdgeLabelRenderer>
-        {(data?.showLabel && (data?.customLabel || isEditing)) && (
+        {data?.showLabel !== false && (
           <div
             style={{
               position: 'absolute',
@@ -320,7 +320,7 @@ function CustomEdge({
                 {data?.isWhiteboardMode 
                   ? (
                       <>
-                        {data?.customLabel || ''}
+                        {data?.customLabel || '+ Add label'}
                         {data?.busWidth && !data?.customLabel?.includes('[') && (
                           <span style={{ 
                             fontSize: '9px', 
@@ -506,70 +506,6 @@ function CustomNode({ data, id, selected }) {
     return <span style={{ fontSize: `${size * 0.8}px` }}>{data.hwIcon || '📦'}</span>;
   };
 
-  // Render UML Actor stick figure
-  const renderActorStickFigure = (size = 60) => {
-    return (
-      <svg 
-        width={size} 
-        height={size * 1.2} 
-        viewBox="0 0 100 120" 
-        style={{ 
-          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
-        }}
-      >
-        {/* Head - circle */}
-        <circle 
-          cx="50" 
-          cy="20" 
-          r="12" 
-          fill="none" 
-          stroke={getSystemAccentColor()} 
-          strokeWidth="3"
-        />
-        
-        {/* Body - vertical line */}
-        <line 
-          x1="50" 
-          y1="32" 
-          x2="50" 
-          y2="75" 
-          stroke={getSystemAccentColor()} 
-          strokeWidth="3"
-        />
-        
-        {/* Arms - horizontal line */}
-        <line 
-          x1="25" 
-          y1="50" 
-          x2="75" 
-          y2="50" 
-          stroke={getSystemAccentColor()} 
-          strokeWidth="3"
-        />
-        
-        {/* Left leg */}
-        <line 
-          x1="50" 
-          y1="75" 
-          x2="30" 
-          y2="105" 
-          stroke={getSystemAccentColor()} 
-          strokeWidth="3"
-        />
-        
-        {/* Right leg */}
-        <line 
-          x1="50" 
-          y1="75" 
-          x2="70" 
-          y2="105" 
-          stroke={getSystemAccentColor()} 
-          strokeWidth="3"
-        />
-      </svg>
-    );
-  };
-
   // SHAPE FUNCTION - Must be BEFORE the return statement!
   const getNodeShape = () => {
     const type = data.itemType || data.type;
@@ -648,12 +584,9 @@ function CustomNode({ data, id, selected }) {
       case 'actor':
         return {
           borderRadius: '8px',           // Rounded rectangle for actors
-          borderWidth: '0px',           // No border - just background
-          borderStyle: 'none',
-          minHeight: '100px',           // Taller for stick figure + name
-          minWidth: '80px',            // Wider for stick figure
-          padding: '10px',
-          background: 'transparent',    // Transparent background
+          borderWidth: '2px',
+          borderStyle: 'solid',
+          minHeight: '60px',
         };
       default:
         return {
@@ -946,97 +879,6 @@ function CustomNode({ data, id, selected }) {
     );
   }
 
-    // WHITEBOARD MODE - UML ACTOR NODES (Stick figure with name below)
-  if (data.isWhiteboardMode && (data.itemType === 'actor' || data.type === 'actor')) {
-    return (
-      <div 
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minWidth: '100px',
-          minHeight: '120px',
-          backgroundColor: 'transparent',
-          position: 'relative',
-          cursor: 'pointer',
-          padding: '10px',
-          borderRadius: '8px',
-          background: selected ? 'rgba(46, 204, 113, 0.1)' : 'transparent',
-          border: selected ? '2px solid #2ecc71' : '2px solid transparent',
-          transition: 'all 0.2s ease',
-        }}>
-        
-        {/* UML Actor Stick Figure */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: '8px',
-        }}>
-          {renderActorStickFigure(50)}
-        </div>
-        
-        {/* Actor Name Below */}
-        <div style={{
-          fontSize: '12px',
-          fontWeight: 'bold',
-          color: '#2ecc71',
-          textAlign: 'center',
-          maxWidth: '90px',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          textShadow: '0 0 3px #000, 0 0 3px #000',
-        }}>
-          {data.label}
-        </div>
-
-        {/* Connection Handles */}
-        <Handle
-          type="target"
-          position={Position.Left}
-          style={{ 
-            background: '#2ecc71', 
-            width: '8px', 
-            height: '8px',
-            left: '-4px' 
-          }}
-        />
-        <Handle
-          type="source"
-          position={Position.Right}
-          style={{ 
-            background: '#2ecc71', 
-            width: '8px', 
-            height: '8px',
-            right: '-4px' 
-          }}
-        />
-        <Handle
-          type="target"
-          position={Position.Top}
-          style={{ 
-            background: '#2ecc71', 
-            width: '8px', 
-            height: '8px',
-            top: '-4px' 
-          }}
-        />
-        <Handle
-          type="source"
-          position={Position.Bottom}
-          style={{ 
-            background: '#2ecc71', 
-            width: '8px', 
-            height: '8px',
-            bottom: '-4px' 
-          }}
-        />
-      </div>
-    );
-  }
-
     // WHITEBOARD MODE - Simplified view with port labels
   if (data.isWhiteboardMode) {
     const ports = data.ports || [];
@@ -1143,14 +985,11 @@ function CustomNode({ data, id, selected }) {
             fontWeight: 'bold',
             textTransform: 'uppercase'
           }}>
-            {data.itemType === 'requirement' ? 'REQ' :
+            {data.itemType === 'requirement' ? (data.reqType || 'REQ').substring(0,3).toUpperCase() :
              data.itemType === 'system' ? 'SYS' :
              data.itemType === 'subsystem' ? 'SUB' :
              data.itemType === 'function' ? 'FUN' :
              data.itemType === 'testcase' ? 'TC' :
-             data.itemType === 'usecase' ? 'UC' :
-             data.itemType === 'actor' ? 'ACT' :
-             data.itemType === 'hardware' ? 'HW' :
              data.itemType === 'parameter' ? (data.paramType === 'configuration' ? 'CFG' : 'SET') : ''}
           </div>
         )}
@@ -1485,35 +1324,6 @@ function CustomNode({ data, id, selected }) {
               {data.hwIcon || '📦'}
             </span>
           )}
-        </div>
-      )}
-      
-      {/* UML Actor Stick Figure Display - show prominently for actor nodes */}
-      {isActorItem() && (
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: '15px',
-          padding: '15px',
-          background: 'rgba(46, 204, 113, 0.1)',
-          borderRadius: '12px',
-          border: '1px solid rgba(46, 204, 113, 0.2)'
-        }}>
-          {/* Actor Type Label */}
-          <div style={{
-            fontSize: '9px',
-            color: '#2ecc71',
-            textTransform: 'uppercase',
-            marginBottom: '8px',
-            fontWeight: 'bold'
-          }}>
-            {data.actorType || 'Primary'} Actor
-          </div>
-          
-          {/* Stick Figure */}
-          {renderActorStickFigure(70)}
         </div>
       )}
       
@@ -4766,64 +4576,9 @@ function LeftIconStrip({
       <button 
         onClick={handleClick(onAddActor)} 
         title="Add Actor"
-        style={{ ...iconButtonStyle, background: '#2ecc71', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        style={{ ...iconButtonStyle, background: '#2ecc71' }}
       >
-        <svg 
-          width={24} 
-          height={28} 
-          viewBox="0 0 100 120" 
-          style={{ fill: 'white' }}
-        >
-          {/* Head - circle */}
-          <circle 
-            cx="50" 
-            cy="20" 
-            r="12" 
-            fill="none" 
-            stroke="white" 
-            strokeWidth="4"
-          />
-          
-          {/* Body - vertical line */}
-          <line 
-            x1="50" 
-            y1="32" 
-            x2="50" 
-            y2="75" 
-            stroke="white" 
-            strokeWidth="4"
-          />
-          
-          {/* Arms - horizontal line */}
-          <line 
-            x1="25" 
-            y1="50" 
-            x2="75" 
-            y2="50" 
-            stroke="white" 
-            strokeWidth="4"
-          />
-          
-          {/* Left leg */}
-          <line 
-            x1="50" 
-            y1="75" 
-            x2="30" 
-            y2="105" 
-            stroke="white" 
-            strokeWidth="4"
-          />
-          
-          {/* Right leg */}
-          <line 
-            x1="50" 
-            y1="75" 
-            x2="70" 
-            y2="105" 
-            stroke="white" 
-            strokeWidth="4"
-          />
-        </svg>
+        👤
       </button>
       
       {/* Separator */}
@@ -6952,7 +6707,7 @@ export default function App() {
         edges: edgesToSave,
         whiteboards: whiteboards
       });
-      // Removed alert - bottom notification will show instead
+      alert('Project saved!');
     } catch (err) {
       console.error('Save error:', err);
       alert('Failed to save project: ' + err.message);

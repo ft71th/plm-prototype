@@ -268,7 +268,7 @@ function CustomEdge({
         markerEnd={`url(#arrow-${data?.relationType || 'related'})`}
       />
       <EdgeLabelRenderer>
-        {(data?.showLabel && (data?.customLabel || isEditing)) && (
+        {data?.showLabel !== false && (
           <div
             style={{
               position: 'absolute',
