@@ -296,7 +296,7 @@ function CustomEdge({
         markerEnd={`url(#arrow-${data?.relationType || 'related'})`}
       />
       <EdgeLabelRenderer>
-        {(data?.showLabel && (data?.customLabel || isEditing)) && (
+        {data?.showLabel && (!data?.isWhiteboardMode || data?.customLabel) && (
           <div
             style={{
               position: 'absolute',
@@ -1060,22 +1060,23 @@ function CustomNode({ data, id, selected }) {
           {renderActorStickFigure(50)}
         </div>
         
-        {/* Actor Name Below */}
+        {/* Actor Name Below - allows wrapping */}
         <div style={{
           fontSize: '12px',
           fontWeight: 'bold',
           color: '#2ecc71',
           textAlign: 'center',
-          maxWidth: '90px',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
+          maxWidth: '120px',
+          wordWrap: 'break-word',
+          overflowWrap: 'break-word',
+          whiteSpace: 'normal',
+          lineHeight: '1.3',
           textShadow: '0 0 3px #000, 0 0 3px #000',
         }}>
           {data.label}
         </div>
 
-        {/* Connection Handles */}
+        {/* Connection Handles - Left and Right only */}
         <Handle
           type="target"
           position={Position.Left}
@@ -1094,26 +1095,6 @@ function CustomNode({ data, id, selected }) {
             width: '8px', 
             height: '8px',
             right: '-4px' 
-          }}
-        />
-        <Handle
-          type="target"
-          position={Position.Top}
-          style={{ 
-            background: '#2ecc71', 
-            width: '8px', 
-            height: '8px',
-            top: '-4px' 
-          }}
-        />
-        <Handle
-          type="source"
-          position={Position.Bottom}
-          style={{ 
-            background: '#2ecc71', 
-            width: '8px', 
-            height: '8px',
-            bottom: '-4px' 
           }}
         />
 
@@ -1799,6 +1780,30 @@ function CustomNode({ data, id, selected }) {
         </div>
       )}
 
+      {/* Library Reference Indicator */}
+      {data.isLibraryReference && (
+        <div style={{
+          position: 'absolute',
+          bottom: '8px',
+          left: '8px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+          padding: '2px 6px',
+          backgroundColor: 'rgba(142, 68, 173, 0.9)',
+          borderRadius: '4px',
+          fontSize: '10px',
+          color: '#fff',
+        }}
+        title={`Library: ${data.libraryItemName} v${data.version}${data.useLatest ? ' (auto-update)' : ''}`}
+        >
+          📚 v{data.version}
+          {data.latestVersion && data.version !== data.latestVersion && (
+            <span style={{ color: '#f1c40f' }} title={`v${data.latestVersion} available`}>⬆️</span>
+          )}
+        </div>
+      )}
+
       {/* Issue Indicator */}
       {data.issues && data.issues.length > 0 && (
         <IssueIndicator 
@@ -2419,7 +2424,7 @@ function PortEditor({ ports = [], onChange, disabled }) {
 }
 
 // Enhanced Floating Panel for nodes
-function FloatingPanel({ node, onClose, onUpdate, initialPosition, hardwareTypes = [], onManageTypes, onCreateIssue }) {
+function FloatingPanel({ node, onClose, onUpdate, initialPosition, hardwareTypes = [], onManageTypes, onCreateIssue, onSaveToLibrary }) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [position, setPosition] = useState(initialPosition);
@@ -2530,6 +2535,27 @@ return (
           {!isEditable && <span style={{ fontSize: '12px', color: '#f39c12' }}>🔒 Read-Only</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {onSaveToLibrary && !node.data.isLibraryReference && (
+            <button
+              onClick={() => onSaveToLibrary(node)}
+              style={{
+                background: '#8e44ad',
+                border: 'none',
+                color: 'white',
+                fontSize: '12px',
+                cursor: 'pointer',
+                padding: '4px 10px',
+                borderRadius: '4px',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+              title="Save to Component Library"
+            >
+              📚 Library
+            </button>
+          )}
           {onCreateIssue && (
             <button
               onClick={() => onCreateIssue(node)}
@@ -2573,6 +2599,47 @@ return (
         flex: 1,
         minHeight: 0
       }}>
+        {/* Library Reference Info */}
+        {node.data.isLibraryReference && (
+          <div style={{
+            padding: '10px',
+            backgroundColor: 'rgba(142, 68, 173, 0.2)',
+            border: '1px solid #8e44ad',
+            borderRadius: '6px',
+            marginBottom: '15px',
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px',
+              marginBottom: '6px',
+            }}>
+              <span style={{ fontSize: '16px' }}>📚</span>
+              <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '13px' }}>
+                Library Reference
+              </span>
+            </div>
+            <div style={{ fontSize: '12px', color: '#bdc3c7' }}>
+              <div><strong>Component:</strong> {node.data.libraryItemName}</div>
+              <div><strong>Version:</strong> v{node.data.version}</div>
+              {node.data.useLatest && (
+                <div style={{ color: '#27ae60' }}>✓ Auto-updates to latest</div>
+              )}
+              {node.data.latestVersion && node.data.version !== node.data.latestVersion && (
+                <div style={{ 
+                  color: '#f1c40f', 
+                  marginTop: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}>
+                  ⚠️ v{node.data.latestVersion} available
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <div style={{ marginBottom: '15px' }}>
           <label style={{
             display: 'block',
@@ -5652,6 +5719,579 @@ function IssueManagerModal({ issues, nodes, onClose, onIssueClick, onUpdateIssue
 }
 
 // Text Annotation Formatting Toolbar
+// ============== COMPONENT LIBRARY COMPONENTS ==============
+
+// Component Library Panel - Slide out panel showing all library items
+function ComponentLibraryPanel({ 
+  isOpen, 
+  onClose, 
+  items, 
+  searchTerm, 
+  onSearchChange, 
+  onSelectItem, 
+  selectedItem, 
+  onAddToCanvas,
+  onCreateVersion 
+}) {
+  const [expandedItems, setExpandedItems] = useState({});
+
+  const toggleExpand = (itemId) => {
+    setExpandedItems(prev => ({ ...prev, [itemId]: !prev[itemId] }));
+  };
+
+  const getTypeIcon = (type) => {
+    const icons = {
+      system: '🔷',
+      subsystem: '🔶',
+      function: '⚡',
+      hardware: '📦',
+      requirement: '📋',
+      testcase: '🧪',
+      parameter: '⚙️',
+      usecase: '🎯',
+      actor: '👤',
+    };
+    return icons[type] || '📄';
+  };
+
+  const getTypeColor = (type) => {
+    const colors = {
+      system: '#1abc9c',
+      subsystem: '#3498db',
+      function: '#00bcd4',
+      hardware: '#795548',
+      requirement: '#e67e22',
+      testcase: '#27ae60',
+      parameter: '#9c27b0',
+      usecase: '#f39c12',
+      actor: '#2ecc71',
+    };
+    return colors[type] || '#95a5a6';
+  };
+
+  // Group items by type
+  const groupedItems = items.reduce((acc, item) => {
+    const type = item.type || 'other';
+    if (!acc[type]) acc[type] = [];
+    acc[type].push(item);
+    return acc;
+  }, {});
+
+  if (!isOpen) return null;
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      right: 0,
+      width: '380px',
+      height: '100vh',
+      backgroundColor: '#1a252f',
+      boxShadow: '-4px 0 20px rgba(0,0,0,0.4)',
+      zIndex: 4000,
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+    }}>
+      {/* Header */}
+      <div style={{
+        padding: '20px',
+        borderBottom: '1px solid #34495e',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#2c3e50',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '24px' }}>📚</span>
+          <div>
+            <h3 style={{ margin: 0, color: '#fff', fontSize: '16px' }}>
+              Component Library
+            </h3>
+            <span style={{ fontSize: '11px', color: '#7f8c8d' }}>
+              {items.length} items available
+            </span>
+          </div>
+        </div>
+        <button
+          onClick={onClose}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#95a5a6',
+            fontSize: '24px',
+            cursor: 'pointer',
+          }}
+        >
+          ×
+        </button>
+      </div>
+
+      {/* Search */}
+      <div style={{ padding: '15px', borderBottom: '1px solid #34495e' }}>
+        <input
+          type="text"
+          placeholder="🔍 Search components..."
+          value={searchTerm}
+          onChange={(e) => onSearchChange(e.target.value)}
+          style={{
+            width: '100%',
+            padding: '10px 15px',
+            backgroundColor: '#34495e',
+            color: '#fff',
+            border: '1px solid #4a5f7f',
+            borderRadius: '6px',
+            fontSize: '14px',
+          }}
+        />
+      </div>
+
+      {/* Content */}
+      <div style={{
+        flex: 1,
+        overflowY: 'auto',
+        padding: '10px',
+      }}>
+        {items.length === 0 ? (
+          <div style={{
+            textAlign: 'center',
+            padding: '40px 20px',
+            color: '#7f8c8d',
+          }}>
+            <div style={{ fontSize: '48px', marginBottom: '15px' }}>📭</div>
+            <div style={{ fontSize: '14px', marginBottom: '10px' }}>No components in library</div>
+            <div style={{ fontSize: '12px' }}>
+              Right-click a node and select<br/>"Save to Library" to add items
+            </div>
+          </div>
+        ) : (
+          Object.entries(groupedItems).map(([type, typeItems]) => (
+            <div key={type} style={{ marginBottom: '15px' }}>
+              {/* Type Header */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 10px',
+                backgroundColor: '#2c3e50',
+                borderRadius: '6px',
+                marginBottom: '8px',
+              }}>
+                <span style={{ fontSize: '14px' }}>{getTypeIcon(type)}</span>
+                <span style={{ 
+                  color: '#fff', 
+                  fontSize: '12px', 
+                  fontWeight: 'bold',
+                  textTransform: 'uppercase',
+                }}>
+                  {type}s ({typeItems.length})
+                </span>
+              </div>
+
+              {/* Items */}
+              {typeItems.map(item => (
+                <div key={item.id} style={{ marginBottom: '6px' }}>
+                  {/* Item Row */}
+                  <div
+                    onClick={() => toggleExpand(item.id)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '10px 12px',
+                      backgroundColor: expandedItems[item.id] ? '#34495e' : '#253545',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      borderLeft: `3px solid ${getTypeColor(item.type)}`,
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <div style={{ 
+                        color: '#fff', 
+                        fontSize: '13px', 
+                        fontWeight: 'bold',
+                        marginBottom: '3px',
+                      }}>
+                        {item.name}
+                      </div>
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '10px',
+                        fontSize: '11px',
+                        color: '#7f8c8d',
+                      }}>
+                        <span>v{item.currentVersion}</span>
+                        <span>•</span>
+                        <span>{item.versions?.length || 1} version(s)</span>
+                      </div>
+                    </div>
+                    <span style={{ 
+                      color: '#7f8c8d', 
+                      fontSize: '12px',
+                      transform: expandedItems[item.id] ? 'rotate(180deg)' : 'rotate(0deg)',
+                      transition: 'transform 0.2s ease',
+                    }}>
+                      ▼
+                    </span>
+                  </div>
+
+                  {/* Expanded Details */}
+                  {expandedItems[item.id] && (
+                    <div style={{
+                      padding: '12px',
+                      backgroundColor: '#1e2d3a',
+                      borderRadius: '0 0 6px 6px',
+                      marginTop: '-4px',
+                      borderLeft: `3px solid ${getTypeColor(item.type)}`,
+                    }}>
+                      {/* Description */}
+                      {item.description && (
+                        <div style={{ 
+                          fontSize: '12px', 
+                          color: '#bdc3c7',
+                          marginBottom: '12px',
+                          lineHeight: '1.4',
+                        }}>
+                          {item.description}
+                        </div>
+                      )}
+
+                      {/* Version List */}
+                      <div style={{ marginBottom: '12px' }}>
+                        <div style={{ 
+                          fontSize: '10px', 
+                          color: '#7f8c8d',
+                          textTransform: 'uppercase',
+                          fontWeight: 'bold',
+                          marginBottom: '6px',
+                        }}>
+                          Versions
+                        </div>
+                        <div style={{
+                          maxHeight: '120px',
+                          overflowY: 'auto',
+                        }}>
+                          {(item.versions || []).slice().reverse().map((ver, idx) => (
+                            <div
+                              key={ver.id}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                padding: '6px 8px',
+                                backgroundColor: idx === 0 ? 'rgba(39, 174, 96, 0.2)' : 'transparent',
+                                borderRadius: '4px',
+                                marginBottom: '2px',
+                              }}
+                            >
+                              <span style={{
+                                width: '8px',
+                                height: '8px',
+                                borderRadius: '50%',
+                                backgroundColor: idx === 0 ? '#27ae60' : '#7f8c8d',
+                                marginRight: '8px',
+                              }} />
+                              <div style={{ flex: 1 }}>
+                                <div style={{ 
+                                  fontSize: '12px', 
+                                  color: '#fff',
+                                  fontWeight: idx === 0 ? 'bold' : 'normal',
+                                }}>
+                                  v{ver.version} {idx === 0 && '(latest)'}
+                                </div>
+                                <div style={{ fontSize: '10px', color: '#7f8c8d' }}>
+                                  {ver.changelog}
+                                </div>
+                              </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onAddToCanvas(item, ver.id);
+                                }}
+                                style={{
+                                  padding: '4px 8px',
+                                  backgroundColor: '#3498db',
+                                  color: '#fff',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  fontSize: '10px',
+                                  cursor: 'pointer',
+                                }}
+                                title="Add this version to canvas"
+                              >
+                                + Add
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onAddToCanvas(item, null); // null = use latest
+                          }}
+                          style={{
+                            flex: 1,
+                            padding: '8px',
+                            backgroundColor: '#27ae60',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          ➕ Add Latest (v{item.currentVersion})
+                        </button>
+                      </div>
+
+                      {/* Metadata */}
+                      <div style={{
+                        marginTop: '10px',
+                        paddingTop: '10px',
+                        borderTop: '1px solid #34495e',
+                        fontSize: '10px',
+                        color: '#7f8c8d',
+                      }}>
+                        <div>Owner: {item.owner}</div>
+                        <div>Created: {new Date(item.createdAt).toLocaleDateString()}</div>
+                        {item.tags?.length > 0 && (
+                          <div style={{ marginTop: '4px' }}>
+                            Tags: {item.tags.map(tag => (
+                              <span key={tag} style={{
+                                padding: '2px 6px',
+                                backgroundColor: '#34495e',
+                                borderRadius: '3px',
+                                marginRight: '4px',
+                              }}>
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Save to Library Modal
+function SaveToLibraryModal({ node, onClose, onSave }) {
+  const [formData, setFormData] = useState({
+    name: node?.data?.label || '',
+    description: node?.data?.description || '',
+    tags: '',
+    changelog: 'Initial version',
+  });
+
+  const handleSave = () => {
+    if (!formData.name.trim()) {
+      alert('Please enter a name');
+      return;
+    }
+    onSave(node, {
+      ...formData,
+      tags: formData.tags.split(',').map(t => t.trim()).filter(t => t),
+    });
+    onClose();
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0,0,0,0.8)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 5000,
+    }}>
+      <div style={{
+        backgroundColor: '#2c3e50',
+        borderRadius: '12px',
+        padding: '25px',
+        width: '450px',
+        boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+      }}>
+        <h2 style={{ color: '#fff', marginTop: 0, marginBottom: '20px', fontSize: '18px' }}>
+          📚 Save to Component Library
+        </h2>
+
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{
+            display: 'block',
+            color: '#bdc3c7',
+            fontSize: '11px',
+            textTransform: 'uppercase',
+            fontWeight: 'bold',
+            marginBottom: '6px',
+          }}>
+            Component Name *
+          </label>
+          <input
+            type="text"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            style={{
+              width: '100%',
+              padding: '10px',
+              backgroundColor: '#34495e',
+              color: '#fff',
+              border: '1px solid #4a5f7f',
+              borderRadius: '6px',
+              fontSize: '14px',
+            }}
+          />
+        </div>
+
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{
+            display: 'block',
+            color: '#bdc3c7',
+            fontSize: '11px',
+            textTransform: 'uppercase',
+            fontWeight: 'bold',
+            marginBottom: '6px',
+          }}>
+            Description
+          </label>
+          <textarea
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            style={{
+              width: '100%',
+              minHeight: '80px',
+              padding: '10px',
+              backgroundColor: '#34495e',
+              color: '#fff',
+              border: '1px solid #4a5f7f',
+              borderRadius: '6px',
+              fontSize: '14px',
+              resize: 'vertical',
+            }}
+          />
+        </div>
+
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{
+            display: 'block',
+            color: '#bdc3c7',
+            fontSize: '11px',
+            textTransform: 'uppercase',
+            fontWeight: 'bold',
+            marginBottom: '6px',
+          }}>
+            Tags (comma separated)
+          </label>
+          <input
+            type="text"
+            value={formData.tags}
+            onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+            placeholder="e.g., propulsion, control, safety"
+            style={{
+              width: '100%',
+              padding: '10px',
+              backgroundColor: '#34495e',
+              color: '#fff',
+              border: '1px solid #4a5f7f',
+              borderRadius: '6px',
+              fontSize: '14px',
+            }}
+          />
+        </div>
+
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{
+            display: 'block',
+            color: '#bdc3c7',
+            fontSize: '11px',
+            textTransform: 'uppercase',
+            fontWeight: 'bold',
+            marginBottom: '6px',
+          }}>
+            Version Notes
+          </label>
+          <input
+            type="text"
+            value={formData.changelog}
+            onChange={(e) => setFormData({ ...formData, changelog: e.target.value })}
+            style={{
+              width: '100%',
+              padding: '10px',
+              backgroundColor: '#34495e',
+              color: '#fff',
+              border: '1px solid #4a5f7f',
+              borderRadius: '6px',
+              fontSize: '14px',
+            }}
+          />
+        </div>
+
+        {/* Info */}
+        <div style={{
+          padding: '10px',
+          backgroundColor: '#1a252f',
+          borderRadius: '6px',
+          marginBottom: '20px',
+          fontSize: '12px',
+          color: '#7f8c8d',
+        }}>
+          <div><strong>Type:</strong> {node?.data?.itemType || node?.data?.type}</div>
+          <div><strong>ID:</strong> {node?.data?.reqId || node?.id}</div>
+          <div style={{ marginTop: '8px', color: '#3498db' }}>
+            ℹ️ This will create version 1.0 of this component in the library
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+          <button
+            onClick={onClose}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#7f8c8d',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#27ae60',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+            }}
+          >
+            📚 Save to Library
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TextAnnotationToolbar({ node, onUpdate }) {
   const data = node.data;
   const isLightBackground = data.isWhiteboardMode;
@@ -6232,6 +6872,7 @@ function LeftIconStrip({
   onAddUseCase,
   onAddActor,
   onAddTextNote,
+  onOpenLibrary,
   onVoice,
   isListening,
   voiceStatus
@@ -6423,6 +7064,18 @@ function LeftIconStrip({
         style={{ ...iconButtonStyle, background: '#34495e', border: '2px dashed #7f8c8d' }}
       >
         📝
+      </button>
+      
+      {/* Separator */}
+      <div style={{ height: '1px', background: '#4a5f7f', margin: '4px 0' }} />
+      
+      {/* Component Library */}
+      <button 
+        onClick={handleClick(onOpenLibrary)} 
+        title="Component Library"
+        style={{ ...iconButtonStyle, background: '#8e44ad' }}
+      >
+        📚
       </button>
       
       {/* Separator */}
@@ -8176,12 +8829,21 @@ export default function App() {
   const [showCreateIssueModal, setShowCreateIssueModal] = useState(false);
   const [createIssueForNode, setCreateIssueForNode] = useState(null);
 
+  // Component Library State
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [libraryItems, setLibraryItems] = useState([]);  // All library items
+  const [librarySearchTerm, setLibrarySearchTerm] = useState('');
+  const [selectedLibraryItem, setSelectedLibraryItem] = useState(null);
+  const [showSaveToLibraryModal, setShowSaveToLibraryModal] = useState(false);
+  const [nodeToSaveToLibrary, setNodeToSaveToLibrary] = useState(null);
+
 
    // Handle login
   const handleLogin = (userData) => {
     setUser(userData);
     realtime.connect();
     fetchHardwareTypes();  // Load hardware types from database
+    fetchLibraryItems();   // Load library items from database
   };
 
   // ============== ISSUE MANAGEMENT FUNCTIONS ==============
@@ -8245,6 +8907,177 @@ export default function App() {
   const openCreateIssueModal = useCallback((node) => {
     setCreateIssueForNode(node);
     setShowCreateIssueModal(true);
+  }, []);
+
+  // ============== COMPONENT LIBRARY FUNCTIONS ==============
+
+  // Fetch library items from database
+  const fetchLibraryItems = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/library`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('plm_token')}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setLibraryItems(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch library items:', error);
+    }
+  }, []);
+
+  // Save a node to the library
+  const saveNodeToLibrary = useCallback(async (node, libraryData) => {
+    // Data format for local storage (fallback)
+    const localLibraryItem = {
+      id: `lib-${Date.now()}`,
+      name: libraryData.name || node.data.label,
+      description: libraryData.description || node.data.description || '',
+      type: node.data.itemType || node.data.type,
+      tags: libraryData.tags || [],
+      owner: user?.username || 'Unknown',
+      createdAt: new Date().toISOString(),
+      currentVersion: '1.0',
+      versions: [{
+        id: `ver-${Date.now()}`,
+        version: '1.0',
+        branch: 'main',
+        parentVersion: null,
+        data: { ...node.data },
+        changelog: libraryData.changelog || 'Initial version',
+        createdBy: user?.username || 'Unknown',
+        createdAt: new Date().toISOString(),
+        state: 'released',
+      }],
+    };
+
+    // Try to save to backend
+    try {
+      // Backend expects this format
+      const backendPayload = {
+        name: libraryData.name || node.data.label,
+        description: libraryData.description || node.data.description || '',
+        type: node.data.itemType || node.data.type,
+        tags: libraryData.tags || [],
+        owner: user?.username || 'Unknown',
+        nodeData: { ...node.data },
+        changelog: libraryData.changelog || 'Initial version',
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/library`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('plm_token')}`
+        },
+        body: JSON.stringify(backendPayload),
+      });
+      
+      if (response.ok) {
+        const savedItem = await response.json();
+        setLibraryItems(prev => [...prev, savedItem]);
+        console.log('✅ Saved to library backend:', savedItem.name);
+        return savedItem;
+      }
+    } catch (error) {
+      console.error('Failed to save to backend, storing locally:', error);
+    }
+
+    // Fallback to local storage
+    console.log('📦 Saved to local library:', localLibraryItem.name);
+    setLibraryItems(prev => [...prev, localLibraryItem]);
+    return localLibraryItem;
+  }, [user]);
+
+  // Create a new version of a library item
+  const createLibraryVersion = useCallback(async (libraryItemId, node, changelog) => {
+    setLibraryItems(prev => prev.map(item => {
+      if (item.id !== libraryItemId) return item;
+      
+      const versionNumbers = item.versions.map(v => parseFloat(v.version));
+      const nextVersion = (Math.max(...versionNumbers) + 0.1).toFixed(1);
+      
+      const newVersion = {
+        id: `ver-${Date.now()}`,
+        version: nextVersion,
+        branch: 'main',
+        parentVersion: item.currentVersion,
+        data: { ...node.data },
+        changelog: changelog || `Updated to v${nextVersion}`,
+        createdBy: user?.username || 'Unknown',
+        createdAt: new Date().toISOString(),
+        state: 'released',
+      };
+
+      return {
+        ...item,
+        currentVersion: nextVersion,
+        versions: [...item.versions, newVersion],
+      };
+    }));
+  }, [user]);
+
+  // Add a library item to canvas as a reference
+  const addLibraryItemToCanvas = useCallback((libraryItem, versionId = null) => {
+    // Find the version to use
+    const version = versionId 
+      ? libraryItem.versions.find(v => v.id === versionId)
+      : libraryItem.versions.find(v => v.version === libraryItem.currentVersion);
+
+    if (!version) return;
+
+    // Get position in center of viewport
+    let position = { x: 200, y: 200 };
+    if (reactFlowInstance) {
+      const viewport = reactFlowInstance.getViewport();
+      const centerX = (-viewport.x + window.innerWidth / 2) / viewport.zoom;
+      const centerY = (-viewport.y + window.innerHeight / 2) / viewport.zoom;
+      position = { 
+        x: centerX + (Math.random() * 50 - 25), 
+        y: centerY + (Math.random() * 50 - 25) 
+      };
+    }
+
+    const newNode = {
+      id: `ref-${Date.now()}`,
+      type: 'custom',
+      position: position,
+      data: {
+        ...version.data,
+        // Library reference metadata
+        isLibraryReference: true,
+        libraryItemId: libraryItem.id,
+        libraryItemName: libraryItem.name,
+        versionId: version.id,
+        version: version.version,
+        useLatest: versionId === null,
+        latestVersion: libraryItem.currentVersion,
+        // Note: onChange will be added by processedNodes
+      },
+    };
+
+    setNodes(nds => [...nds, newNode]);
+    setShowLibrary(false);
+  }, [reactFlowInstance, setNodes]);
+
+  // Filter library items based on search
+  const filteredLibraryItems = useMemo(() => {
+    if (!librarySearchTerm) return libraryItems;
+    const search = librarySearchTerm.toLowerCase();
+    return libraryItems.filter(item => 
+      item.name.toLowerCase().includes(search) ||
+      item.description?.toLowerCase().includes(search) ||
+      item.type?.toLowerCase().includes(search) ||
+      item.tags?.some(tag => tag.toLowerCase().includes(search))
+    );
+  }, [libraryItems, librarySearchTerm]);
+
+  // Open save to library modal
+  const openSaveToLibraryModal = useCallback((node) => {
+    setNodeToSaveToLibrary(node);
+    setShowSaveToLibraryModal(true);
   }, []);
 
   // Add text annotation to canvas
@@ -11216,6 +12049,7 @@ const createNewObject = (name, version, description) => {
         onAddUseCase={addUseCaseNode}
         onAddActor={addActorNode}
         onAddTextNote={addTextAnnotation}
+        onOpenLibrary={() => setShowLibrary(true)}
         onVoice={startVoiceRecognition}
         isListening={isListening}
         voiceStatus={voiceStatus}
@@ -11716,6 +12550,7 @@ const createNewObject = (name, version, description) => {
           hardwareTypes={hardwareTypes.length > 0 ? hardwareTypes : defaultHardwareTypes}
           onManageTypes={() => setShowHardwareTypesModal(true)}
           onCreateIssue={openCreateIssueModal}
+          onSaveToLibrary={openSaveToLibraryModal}
         />
       )}
 
@@ -11816,6 +12651,30 @@ const createNewObject = (name, version, description) => {
           }}
           onUpdate={updateIssue}
           onDelete={deleteIssue}
+        />
+      )}
+
+      {/* Component Library Panel */}
+      <ComponentLibraryPanel
+        isOpen={showLibrary}
+        onClose={() => setShowLibrary(false)}
+        items={filteredLibraryItems}
+        searchTerm={librarySearchTerm}
+        onSearchChange={setLibrarySearchTerm}
+        selectedItem={selectedLibraryItem}
+        onSelectItem={setSelectedLibraryItem}
+        onAddToCanvas={addLibraryItemToCanvas}
+      />
+
+      {/* Save to Library Modal */}
+      {showSaveToLibraryModal && nodeToSaveToLibrary && (
+        <SaveToLibraryModal
+          node={nodeToSaveToLibrary}
+          onClose={() => {
+            setShowSaveToLibraryModal(false);
+            setNodeToSaveToLibrary(null);
+          }}
+          onSave={saveNodeToLibrary}
         />
       )}
 
