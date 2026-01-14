@@ -53,6 +53,34 @@ const RELATIONSHIP_TYPES = {
   reuses: { label: 'Reuses', color: '#16a085', style: 'solid' },
 };
 
+// Issue priority levels
+const ISSUE_PRIORITIES = {
+  critical: { label: 'Critical', color: '#e74c3c', icon: '🔴' },
+  high: { label: 'High', color: '#e67e22', icon: '🟠' },
+  medium: { label: 'Medium', color: '#f1c40f', icon: '🟡' },
+  low: { label: 'Low', color: '#27ae60', icon: '🟢' },
+};
+
+// Issue status options
+const ISSUE_STATUSES = {
+  open: { label: 'Open', color: '#e74c3c', icon: '⭕' },
+  investigating: { label: 'Investigating', color: '#e67e22', icon: '🔍' },
+  inProgress: { label: 'In Progress', color: '#3498db', icon: '🔄' },
+  resolved: { label: 'Resolved', color: '#27ae60', icon: '✅' },
+  closed: { label: 'Closed', color: '#95a5a6', icon: '⬜' },
+};
+
+// Issue categories
+const ISSUE_CATEGORIES = {
+  bug: { label: 'Bug', icon: '🐛' },
+  designFlaw: { label: 'Design Flaw', icon: '📐' },
+  requirement: { label: 'Requirement Issue', icon: '📋' },
+  performance: { label: 'Performance', icon: '⚡' },
+  safety: { label: 'Safety Concern', icon: '⚠️' },
+  compliance: { label: 'Compliance', icon: '📜' },
+  other: { label: 'Other', icon: '📌' },
+};
+
 // Auto-inference engine
 function inferRelationshipType(sourceNode, targetNode) {
   const sourceClass = sourceNode?.data?.classification || 'requirement';
@@ -268,7 +296,7 @@ function CustomEdge({
         markerEnd={`url(#arrow-${data?.relationType || 'related'})`}
       />
       <EdgeLabelRenderer>
-        {data?.showLabel !== false && (
+        {(data?.showLabel && (data?.customLabel || isEditing)) && (
           <div
             style={{
               position: 'absolute',
@@ -349,6 +377,52 @@ function CustomEdge({
 const edgeTypes = {
   custom: CustomEdge,
 };
+
+// Issue Indicator Component - shows on nodes with issues
+function IssueIndicator({ issues, onDoubleClick, nodeId }) {
+  if (!issues || issues.length === 0) return null;
+
+  const priorityOrder = ['critical', 'high', 'medium', 'low'];
+  const highestPriority = issues.reduce((highest, issue) => {
+    const currentIndex = priorityOrder.indexOf(issue.priority);
+    const highestIndex = priorityOrder.indexOf(highest);
+    return currentIndex < highestIndex ? issue.priority : highest;
+  }, 'low');
+
+  const openIssues = issues.filter(i => i.status !== 'closed' && i.status !== 'resolved');
+  const indicatorColor = ISSUE_PRIORITIES[highestPriority]?.color || '#e74c3c';
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: '-8px',
+        right: '-8px',
+        width: '24px',
+        height: '24px',
+        borderRadius: '50%',
+        backgroundColor: indicatorColor,
+        border: '2px solid #fff',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+        zIndex: 100,
+        fontSize: '12px',
+        fontWeight: 'bold',
+        color: '#fff',
+      }}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        if (onDoubleClick) onDoubleClick(nodeId);
+      }}
+      title={`${openIssues.length} open issue(s) - Double-click to view`}
+    >
+      {openIssues.length > 0 ? openIssues.length : '✓'}
+    </div>
+  );
+}
 
 // Custom node component with enhanced requirement attributes
 function CustomNode({ data, id, selected }) {
@@ -942,6 +1016,15 @@ function CustomNode({ data, id, selected }) {
             title={port.name}
           />
         ))}
+
+        {/* Issue Indicator */}
+        {data.issues && data.issues.length > 0 && (
+          <IssueIndicator 
+            issues={data.issues}
+            nodeId={id}
+            onDoubleClick={data.onIssueClick}
+          />
+        )}
       </div>
     );
   }
@@ -1033,6 +1116,15 @@ function CustomNode({ data, id, selected }) {
             bottom: '-4px' 
           }}
         />
+
+        {/* Issue Indicator */}
+        {data.issues && data.issues.length > 0 && (
+          <IssueIndicator 
+            issues={data.issues}
+            nodeId={id}
+            onDoubleClick={data.onIssueClick}
+          />
+        )}
       </div>
     );
   }
@@ -1311,6 +1403,15 @@ function CustomNode({ data, id, selected }) {
             </div>
           )}
         </div>
+
+        {/* Issue Indicator */}
+        {data.issues && data.issues.length > 0 && (
+          <IssueIndicator 
+            issues={data.issues}
+            nodeId={id}
+            onDoubleClick={data.onIssueClick}
+          />
+        )}
       </div>
     );
   }
@@ -1696,6 +1797,15 @@ function CustomNode({ data, id, selected }) {
         }}>
           📎
         </div>
+      )}
+
+      {/* Issue Indicator */}
+      {data.issues && data.issues.length > 0 && (
+        <IssueIndicator 
+          issues={data.issues}
+          nodeId={id}
+          onDoubleClick={data.onIssueClick}
+        />
       )}
     </div>
   );
@@ -2309,7 +2419,7 @@ function PortEditor({ ports = [], onChange, disabled }) {
 }
 
 // Enhanced Floating Panel for nodes
-function FloatingPanel({ node, onClose, onUpdate, initialPosition, hardwareTypes = [], onManageTypes }) {
+function FloatingPanel({ node, onClose, onUpdate, initialPosition, hardwareTypes = [], onManageTypes, onCreateIssue }) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [position, setPosition] = useState(initialPosition);
@@ -2419,8 +2529,30 @@ return (
           </span>
           {!isEditable && <span style={{ fontSize: '12px', color: '#f39c12' }}>🔒 Read-Only</span>}
         </div>
-        <button
-          onClick={onClose}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {onCreateIssue && (
+            <button
+              onClick={() => onCreateIssue(node)}
+              style={{
+                background: '#e74c3c',
+                border: 'none',
+                color: 'white',
+                fontSize: '12px',
+                cursor: 'pointer',
+                padding: '4px 10px',
+                borderRadius: '4px',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+              title="Create Issue for this node"
+            >
+              🐛 Issue
+            </button>
+          )}
+          <button
+            onClick={onClose}
           style={{
             background: 'transparent',
             border: 'none',
@@ -2432,6 +2564,7 @@ return (
           }}   >
         ×
         </button>
+        </div>
       </div>
 
       <div style={{ 
@@ -3868,7 +4001,119 @@ return (
 
 const nodeTypes = {
   custom: CustomNode,
+  textAnnotation: TextAnnotationNode,
 };
+
+// Text Annotation Node - free text on canvas without node frame
+function TextAnnotationNode({ data, id, selected }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [text, setText] = useState(data.text || 'Double-click to edit');
+  const textareaRef = useRef(null);
+
+  useEffect(() => {
+    if (isEditing && textareaRef.current) {
+      textareaRef.current.focus();
+      textareaRef.current.select();
+    }
+  }, [isEditing]);
+
+  const handleDoubleClick = (e) => {
+    e.stopPropagation();
+    setIsEditing(true);
+  };
+
+  const handleBlur = () => {
+    setIsEditing(false);
+    if (data.onTextChange) {
+      data.onTextChange(id, text);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      setIsEditing(false);
+    }
+    if ((e.key === 'Enter' && (e.shiftKey || e.ctrlKey))) {
+      setIsEditing(false);
+      if (data.onTextChange) {
+        data.onTextChange(id, text);
+      }
+    }
+  };
+
+  // Detect if we're in whiteboard mode (light background) or PLM mode (dark background)
+  const isLightBackground = data.isWhiteboardMode;
+  
+  // Default colors based on background
+  const defaultColor = isLightBackground ? '#2c3e50' : '#ffffff';
+  const defaultBgColor = isLightBackground ? 'rgba(255,255,255,0.8)' : 'transparent';
+
+  const fontSize = data.fontSize || 16;
+  const color = data.color || defaultColor;
+  const fontWeight = data.fontWeight || 'normal';
+  const fontStyle = data.fontStyle || 'normal';
+  const textAlign = data.textAlign || 'left';
+  const backgroundColor = data.backgroundColor || defaultBgColor;
+
+  return (
+    <div
+      style={{
+        minWidth: '120px',
+        minHeight: '40px',
+        padding: '10px 14px',
+        backgroundColor: backgroundColor,
+        borderRadius: '6px',
+        border: selected ? '2px dashed #3498db' : (isLightBackground ? '2px dashed #bdc3c7' : '2px dashed rgba(255,255,255,0.3)'),
+        cursor: 'text',
+        transition: 'border 0.2s ease',
+        boxShadow: isLightBackground ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+      }}
+      onDoubleClick={handleDoubleClick}
+    >
+      {isEditing ? (
+        <textarea
+          ref={textareaRef}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+          style={{
+            width: '100%',
+            minHeight: '60px',
+            padding: '4px',
+            fontSize: `${fontSize}px`,
+            color: isLightBackground ? '#2c3e50' : '#ffffff',
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            textAlign: textAlign,
+            backgroundColor: isLightBackground ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.3)',
+            border: '1px solid #3498db',
+            borderRadius: '4px',
+            resize: 'both',
+            outline: 'none',
+            fontFamily: 'inherit',
+          }}
+        />
+      ) : (
+        <div
+          style={{
+            fontSize: `${fontSize}px`,
+            color: color,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            textAlign: textAlign,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            userSelect: 'none',
+            textShadow: isLightBackground ? 'none' : '1px 1px 2px rgba(0,0,0,0.5)',
+          }}
+        >
+          {text || 'Double-click to edit'}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const initialNodes = [
   // SYSTEM
@@ -4257,6 +4502,1322 @@ function NewObjectModal({ onClose, onCreate }) {
             🚀 Create Object
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ============== ISSUE MANAGEMENT COMPONENTS ==============
+
+// Issue Detail Panel - Side panel showing issue details
+function IssueDetailPanel({ issue, onClose, onUpdate, onDelete }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedIssue, setEditedIssue] = useState({ ...issue });
+
+  const handleSave = () => {
+    onUpdate(editedIssue);
+    setIsEditing(false);
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      right: 0,
+      width: '450px',
+      height: '100vh',
+      backgroundColor: '#2c3e50',
+      boxShadow: '-4px 0 20px rgba(0,0,0,0.3)',
+      zIndex: 4000,
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+    }}>
+      {/* Header */}
+      <div style={{
+        padding: '20px',
+        borderBottom: '1px solid #34495e',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '24px' }}>
+            {ISSUE_CATEGORIES[issue.category]?.icon || '📌'}
+          </span>
+          <div>
+            <h3 style={{ margin: 0, color: '#fff', fontSize: '16px' }}>
+              Issue: {issue.id}
+            </h3>
+            <span style={{
+              fontSize: '11px',
+              padding: '2px 8px',
+              borderRadius: '10px',
+              backgroundColor: ISSUE_PRIORITIES[issue.priority]?.color || '#95a5a6',
+              color: '#fff',
+            }}>
+              {ISSUE_PRIORITIES[issue.priority]?.label || 'Unknown'}
+            </span>
+          </div>
+        </div>
+        <button
+          onClick={onClose}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#95a5a6',
+            fontSize: '24px',
+            cursor: 'pointer',
+          }}
+        >
+          ×
+        </button>
+      </div>
+
+      {/* Content */}
+      <div style={{
+        flex: 1,
+        overflowY: 'auto',
+        padding: '20px',
+      }}>
+        {/* Status */}
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{
+            display: 'block',
+            color: '#7f8c8d',
+            fontSize: '11px',
+            textTransform: 'uppercase',
+            marginBottom: '6px',
+          }}>
+            Status
+          </label>
+          {isEditing ? (
+            <select
+              value={editedIssue.status}
+              onChange={(e) => setEditedIssue({ ...editedIssue, status: e.target.value })}
+              style={{
+                width: '100%',
+                padding: '10px',
+                backgroundColor: '#34495e',
+                color: '#fff',
+                border: '1px solid #4a5f7f',
+                borderRadius: '6px',
+              }}
+            >
+              {Object.entries(ISSUE_STATUSES).map(([key, val]) => (
+                <option key={key} value={key}>{val.icon} {val.label}</option>
+              ))}
+            </select>
+          ) : (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px',
+              backgroundColor: '#34495e',
+              borderRadius: '6px',
+            }}>
+              <span style={{ color: ISSUE_STATUSES[issue.status]?.color }}>
+                {ISSUE_STATUSES[issue.status]?.icon}
+              </span>
+              <span style={{ color: '#fff' }}>
+                {ISSUE_STATUSES[issue.status]?.label || issue.status}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Title */}
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{
+            display: 'block',
+            color: '#7f8c8d',
+            fontSize: '11px',
+            textTransform: 'uppercase',
+            marginBottom: '6px',
+          }}>
+            Title
+          </label>
+          {isEditing ? (
+            <input
+              type="text"
+              value={editedIssue.title}
+              onChange={(e) => setEditedIssue({ ...editedIssue, title: e.target.value })}
+              style={{
+                width: '100%',
+                padding: '10px',
+                backgroundColor: '#34495e',
+                color: '#fff',
+                border: '1px solid #4a5f7f',
+                borderRadius: '6px',
+              }}
+            />
+          ) : (
+            <div style={{
+              padding: '10px',
+              backgroundColor: '#34495e',
+              borderRadius: '6px',
+              color: '#fff',
+            }}>
+              {issue.title}
+            </div>
+          )}
+        </div>
+
+        {/* Description */}
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{
+            display: 'block',
+            color: '#7f8c8d',
+            fontSize: '11px',
+            textTransform: 'uppercase',
+            marginBottom: '6px',
+          }}>
+            Description
+          </label>
+          {isEditing ? (
+            <textarea
+              value={editedIssue.description}
+              onChange={(e) => setEditedIssue({ ...editedIssue, description: e.target.value })}
+              style={{
+                width: '100%',
+                minHeight: '100px',
+                padding: '10px',
+                backgroundColor: '#34495e',
+                color: '#fff',
+                border: '1px solid #4a5f7f',
+                borderRadius: '6px',
+                resize: 'vertical',
+              }}
+            />
+          ) : (
+            <div style={{
+              padding: '10px',
+              backgroundColor: '#34495e',
+              borderRadius: '6px',
+              color: '#bdc3c7',
+              whiteSpace: 'pre-wrap',
+              minHeight: '60px',
+            }}>
+              {issue.description || 'No description provided'}
+            </div>
+          )}
+        </div>
+
+        {/* Root Cause */}
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{
+            display: 'block',
+            color: '#7f8c8d',
+            fontSize: '11px',
+            textTransform: 'uppercase',
+            marginBottom: '6px',
+          }}>
+            🔍 Root Cause Analysis
+          </label>
+          {isEditing ? (
+            <textarea
+              value={editedIssue.rootCause || ''}
+              onChange={(e) => setEditedIssue({ ...editedIssue, rootCause: e.target.value })}
+              placeholder="What is causing this issue?"
+              style={{
+                width: '100%',
+                minHeight: '80px',
+                padding: '10px',
+                backgroundColor: '#34495e',
+                color: '#fff',
+                border: '1px solid #4a5f7f',
+                borderRadius: '6px',
+                resize: 'vertical',
+              }}
+            />
+          ) : (
+            <div style={{
+              padding: '10px',
+              backgroundColor: '#34495e',
+              borderRadius: '6px',
+              color: '#bdc3c7',
+              whiteSpace: 'pre-wrap',
+              minHeight: '40px',
+            }}>
+              {issue.rootCause || 'Not yet analyzed'}
+            </div>
+          )}
+        </div>
+
+        {/* Solution */}
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{
+            display: 'block',
+            color: '#7f8c8d',
+            fontSize: '11px',
+            textTransform: 'uppercase',
+            marginBottom: '6px',
+          }}>
+            💡 Solution / Corrective Action
+          </label>
+          {isEditing ? (
+            <textarea
+              value={editedIssue.solution || ''}
+              onChange={(e) => setEditedIssue({ ...editedIssue, solution: e.target.value })}
+              placeholder="How should this be fixed?"
+              style={{
+                width: '100%',
+                minHeight: '80px',
+                padding: '10px',
+                backgroundColor: '#34495e',
+                color: '#fff',
+                border: '1px solid #4a5f7f',
+                borderRadius: '6px',
+                resize: 'vertical',
+              }}
+            />
+          ) : (
+            <div style={{
+              padding: '10px',
+              backgroundColor: '#34495e',
+              borderRadius: '6px',
+              color: '#bdc3c7',
+              whiteSpace: 'pre-wrap',
+              minHeight: '40px',
+            }}>
+              {issue.solution || 'No solution proposed yet'}
+            </div>
+          )}
+        </div>
+
+        {/* Impact */}
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{
+            display: 'block',
+            color: '#7f8c8d',
+            fontSize: '11px',
+            textTransform: 'uppercase',
+            marginBottom: '6px',
+          }}>
+            ⚠️ Impact Assessment
+          </label>
+          {isEditing ? (
+            <textarea
+              value={editedIssue.impact || ''}
+              onChange={(e) => setEditedIssue({ ...editedIssue, impact: e.target.value })}
+              placeholder="What is the impact of this issue?"
+              style={{
+                width: '100%',
+                minHeight: '60px',
+                padding: '10px',
+                backgroundColor: '#34495e',
+                color: '#fff',
+                border: '1px solid #4a5f7f',
+                borderRadius: '6px',
+                resize: 'vertical',
+              }}
+            />
+          ) : (
+            <div style={{
+              padding: '10px',
+              backgroundColor: '#34495e',
+              borderRadius: '6px',
+              color: '#bdc3c7',
+              whiteSpace: 'pre-wrap',
+            }}>
+              {issue.impact || 'Not assessed'}
+            </div>
+          )}
+        </div>
+
+        {/* Assignee */}
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{
+            display: 'block',
+            color: '#7f8c8d',
+            fontSize: '11px',
+            textTransform: 'uppercase',
+            marginBottom: '6px',
+          }}>
+            👤 Assignee
+          </label>
+          {isEditing ? (
+            <input
+              type="text"
+              value={editedIssue.assignee || ''}
+              onChange={(e) => setEditedIssue({ ...editedIssue, assignee: e.target.value })}
+              placeholder="Who is responsible?"
+              style={{
+                width: '100%',
+                padding: '10px',
+                backgroundColor: '#34495e',
+                color: '#fff',
+                border: '1px solid #4a5f7f',
+                borderRadius: '6px',
+              }}
+            />
+          ) : (
+            <div style={{
+              padding: '10px',
+              backgroundColor: '#34495e',
+              borderRadius: '6px',
+              color: '#fff',
+            }}>
+              {issue.assignee || 'Unassigned'}
+            </div>
+          )}
+        </div>
+
+        {/* Due Date */}
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{
+            display: 'block',
+            color: '#7f8c8d',
+            fontSize: '11px',
+            textTransform: 'uppercase',
+            marginBottom: '6px',
+          }}>
+            📅 Due Date
+          </label>
+          {isEditing ? (
+            <input
+              type="date"
+              value={editedIssue.dueDate || ''}
+              onChange={(e) => setEditedIssue({ ...editedIssue, dueDate: e.target.value })}
+              style={{
+                width: '100%',
+                padding: '10px',
+                backgroundColor: '#34495e',
+                color: '#fff',
+                border: '1px solid #4a5f7f',
+                borderRadius: '6px',
+              }}
+            />
+          ) : (
+            <div style={{
+              padding: '10px',
+              backgroundColor: '#34495e',
+              borderRadius: '6px',
+              color: '#fff',
+            }}>
+              {issue.dueDate || 'No due date set'}
+            </div>
+          )}
+        </div>
+
+        {/* Metadata */}
+        <div style={{
+          padding: '15px',
+          backgroundColor: '#1a252f',
+          borderRadius: '6px',
+          marginTop: '20px',
+        }}>
+          <div style={{ fontSize: '11px', color: '#7f8c8d', marginBottom: '8px' }}>
+            Created: {formatDate(issue.createdAt)}
+          </div>
+          <div style={{ fontSize: '11px', color: '#7f8c8d', marginBottom: '8px' }}>
+            Updated: {formatDate(issue.updatedAt)}
+          </div>
+          <div style={{ fontSize: '11px', color: '#7f8c8d' }}>
+            Created by: {issue.createdBy || 'Unknown'}
+          </div>
+        </div>
+      </div>
+
+      {/* Footer Actions */}
+      <div style={{
+        padding: '15px 20px',
+        borderTop: '1px solid #34495e',
+        display: 'flex',
+        gap: '10px',
+        justifyContent: 'space-between',
+      }}>
+        {isEditing ? (
+          <>
+            <button
+              onClick={() => setIsEditing(false)}
+              style={{
+                padding: '10px 20px',
+                backgroundColor: '#7f8c8d',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              style={{
+                padding: '10px 20px',
+                backgroundColor: '#27ae60',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+              }}
+            >
+              💾 Save Changes
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={() => {
+                if (window.confirm('Delete this issue?')) {
+                  onDelete(issue.id);
+                }
+              }}
+              style={{
+                padding: '10px 20px',
+                backgroundColor: '#e74c3c',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+              }}
+            >
+              🗑️ Delete
+            </button>
+            <button
+              onClick={() => setIsEditing(true)}
+              style={{
+                padding: '10px 20px',
+                backgroundColor: '#3498db',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+              }}
+            >
+              ✏️ Edit Issue
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Create Issue Modal
+function CreateIssueModal({ nodeId, nodeName, onClose, onCreate }) {
+  const [issue, setIssue] = useState({
+    title: '',
+    description: '',
+    category: 'bug',
+    priority: 'medium',
+    status: 'open',
+    rootCause: '',
+    solution: '',
+    impact: '',
+    assignee: '',
+    dueDate: '',
+  });
+
+  const handleCreate = () => {
+    if (!issue.title.trim()) {
+      alert('Please enter an issue title');
+      return;
+    }
+    onCreate({
+      ...issue,
+      id: `ISS-${Date.now().toString(36).toUpperCase()}`,
+      nodeId: nodeId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    onClose();
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0,0,0,0.8)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 5000,
+    }}>
+      <div style={{
+        backgroundColor: '#2c3e50',
+        borderRadius: '12px',
+        padding: '30px',
+        width: '550px',
+        maxHeight: '85vh',
+        overflow: 'auto',
+        boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+      }}>
+        <h2 style={{ color: '#fff', marginTop: 0, marginBottom: '10px', fontSize: '20px' }}>
+          🐛 Create New Issue
+        </h2>
+        <p style={{ color: '#7f8c8d', marginBottom: '20px', fontSize: '13px' }}>
+          Creating issue for: <strong style={{ color: '#3498db' }}>{nodeName}</strong>
+        </p>
+
+        {/* Title */}
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{
+            display: 'block',
+            color: '#bdc3c7',
+            fontSize: '11px',
+            textTransform: 'uppercase',
+            fontWeight: 'bold',
+            marginBottom: '6px',
+          }}>
+            Issue Title *
+          </label>
+          <input
+            type="text"
+            value={issue.title}
+            onChange={(e) => setIssue({ ...issue, title: e.target.value })}
+            placeholder="Brief description of the issue"
+            autoFocus
+            style={{
+              width: '100%',
+              padding: '12px',
+              backgroundColor: '#34495e',
+              color: '#fff',
+              border: '1px solid #4a5f7f',
+              borderRadius: '6px',
+              fontSize: '14px',
+            }}
+          />
+        </div>
+
+        {/* Category & Priority Row */}
+        <div style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
+          <div style={{ flex: 1 }}>
+            <label style={{
+              display: 'block',
+              color: '#bdc3c7',
+              fontSize: '11px',
+              textTransform: 'uppercase',
+              fontWeight: 'bold',
+              marginBottom: '6px',
+            }}>
+              Category
+            </label>
+            <select
+              value={issue.category}
+              onChange={(e) => setIssue({ ...issue, category: e.target.value })}
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: '#34495e',
+                color: '#fff',
+                border: '1px solid #4a5f7f',
+                borderRadius: '6px',
+              }}
+            >
+              {Object.entries(ISSUE_CATEGORIES).map(([key, val]) => (
+                <option key={key} value={key}>{val.icon} {val.label}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{
+              display: 'block',
+              color: '#bdc3c7',
+              fontSize: '11px',
+              textTransform: 'uppercase',
+              fontWeight: 'bold',
+              marginBottom: '6px',
+            }}>
+              Priority
+            </label>
+            <select
+              value={issue.priority}
+              onChange={(e) => setIssue({ ...issue, priority: e.target.value })}
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: '#34495e',
+                color: '#fff',
+                border: '1px solid #4a5f7f',
+                borderRadius: '6px',
+              }}
+            >
+              {Object.entries(ISSUE_PRIORITIES).map(([key, val]) => (
+                <option key={key} value={key}>{val.icon} {val.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Description */}
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{
+            display: 'block',
+            color: '#bdc3c7',
+            fontSize: '11px',
+            textTransform: 'uppercase',
+            fontWeight: 'bold',
+            marginBottom: '6px',
+          }}>
+            Description
+          </label>
+          <textarea
+            value={issue.description}
+            onChange={(e) => setIssue({ ...issue, description: e.target.value })}
+            placeholder="Detailed description of the issue..."
+            style={{
+              width: '100%',
+              minHeight: '80px',
+              padding: '12px',
+              backgroundColor: '#34495e',
+              color: '#fff',
+              border: '1px solid #4a5f7f',
+              borderRadius: '6px',
+              fontSize: '14px',
+              resize: 'vertical',
+            }}
+          />
+        </div>
+
+        {/* Impact */}
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{
+            display: 'block',
+            color: '#bdc3c7',
+            fontSize: '11px',
+            textTransform: 'uppercase',
+            fontWeight: 'bold',
+            marginBottom: '6px',
+          }}>
+            ⚠️ Impact Assessment
+          </label>
+          <textarea
+            value={issue.impact}
+            onChange={(e) => setIssue({ ...issue, impact: e.target.value })}
+            placeholder="What is affected by this issue?"
+            style={{
+              width: '100%',
+              minHeight: '60px',
+              padding: '12px',
+              backgroundColor: '#34495e',
+              color: '#fff',
+              border: '1px solid #4a5f7f',
+              borderRadius: '6px',
+              fontSize: '14px',
+              resize: 'vertical',
+            }}
+          />
+        </div>
+
+        {/* Assignee & Due Date Row */}
+        <div style={{ display: 'flex', gap: '15px', marginBottom: '25px' }}>
+          <div style={{ flex: 1 }}>
+            <label style={{
+              display: 'block',
+              color: '#bdc3c7',
+              fontSize: '11px',
+              textTransform: 'uppercase',
+              fontWeight: 'bold',
+              marginBottom: '6px',
+            }}>
+              Assignee
+            </label>
+            <input
+              type="text"
+              value={issue.assignee}
+              onChange={(e) => setIssue({ ...issue, assignee: e.target.value })}
+              placeholder="Who should fix this?"
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: '#34495e',
+                color: '#fff',
+                border: '1px solid #4a5f7f',
+                borderRadius: '6px',
+              }}
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{
+              display: 'block',
+              color: '#bdc3c7',
+              fontSize: '11px',
+              textTransform: 'uppercase',
+              fontWeight: 'bold',
+              marginBottom: '6px',
+            }}>
+              Due Date
+            </label>
+            <input
+              type="date"
+              value={issue.dueDate}
+              onChange={(e) => setIssue({ ...issue, dueDate: e.target.value })}
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: '#34495e',
+                color: '#fff',
+                border: '1px solid #4a5f7f',
+                borderRadius: '6px',
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+          <button
+            onClick={onClose}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: '#7f8c8d',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '14px',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleCreate}
+            disabled={!issue.title.trim()}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: issue.title.trim() ? '#e74c3c' : '#7f8c8d',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: issue.title.trim() ? 'pointer' : 'not-allowed',
+              fontSize: '14px',
+              fontWeight: 'bold',
+            }}
+          >
+            🐛 Create Issue
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Issue Manager Modal - View all issues
+function IssueManagerModal({ issues, nodes, onClose, onIssueClick, onUpdateIssue, onDeleteIssue }) {
+  const [filter, setFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('priority');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const getNodeName = (nodeId) => {
+    const node = nodes.find(n => n.id === nodeId);
+    return node?.data?.label || node?.data?.reqId || nodeId;
+  };
+
+  const filteredIssues = issues
+    .filter(issue => {
+      if (filter === 'all') return true;
+      if (filter === 'open') return !['resolved', 'closed'].includes(issue.status);
+      if (filter === 'resolved') return issue.status === 'resolved';
+      if (filter === 'closed') return issue.status === 'closed';
+      return issue.priority === filter || issue.category === filter;
+    })
+    .filter(issue => {
+      if (!searchTerm) return true;
+      const search = searchTerm.toLowerCase();
+      return (
+        issue.title.toLowerCase().includes(search) ||
+        issue.description?.toLowerCase().includes(search) ||
+        issue.id.toLowerCase().includes(search) ||
+        getNodeName(issue.nodeId).toLowerCase().includes(search)
+      );
+    })
+    .sort((a, b) => {
+      if (sortBy === 'priority') {
+        const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+        return priorityOrder[a.priority] - priorityOrder[b.priority];
+      }
+      if (sortBy === 'date') {
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      }
+      if (sortBy === 'status') {
+        const statusOrder = { open: 0, investigating: 1, inProgress: 2, resolved: 3, closed: 4 };
+        return statusOrder[a.status] - statusOrder[b.status];
+      }
+      return 0;
+    });
+
+  const stats = {
+    total: issues.length,
+    open: issues.filter(i => i.status === 'open').length,
+    inProgress: issues.filter(i => i.status === 'investigating' || i.status === 'inProgress').length,
+    resolved: issues.filter(i => i.status === 'resolved').length,
+    critical: issues.filter(i => i.priority === 'critical' && i.status !== 'closed').length,
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0,0,0,0.85)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 5000,
+    }}>
+      <div style={{
+        backgroundColor: '#1a252f',
+        borderRadius: '12px',
+        width: '90%',
+        maxWidth: '1200px',
+        height: '85vh',
+        display: 'flex',
+        flexDirection: 'column',
+        boxShadow: '0 10px 50px rgba(0,0,0,0.5)',
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: '20px 25px',
+          borderBottom: '1px solid #34495e',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}>
+          <div>
+            <h2 style={{ margin: 0, color: '#fff', fontSize: '22px' }}>
+              🐛 Issue Manager
+            </h2>
+            <p style={{ margin: '5px 0 0', color: '#7f8c8d', fontSize: '13px' }}>
+              Track and manage all issues across your project
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#95a5a6',
+              fontSize: '28px',
+              cursor: 'pointer',
+              padding: '0 10px',
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Stats Bar */}
+        <div style={{
+          display: 'flex',
+          gap: '15px',
+          padding: '15px 25px',
+          backgroundColor: '#2c3e50',
+          borderBottom: '1px solid #34495e',
+        }}>
+          <div style={{
+            padding: '10px 20px',
+            backgroundColor: '#34495e',
+            borderRadius: '8px',
+            textAlign: 'center',
+          }}>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff' }}>{stats.total}</div>
+            <div style={{ fontSize: '11px', color: '#7f8c8d' }}>Total Issues</div>
+          </div>
+          <div style={{
+            padding: '10px 20px',
+            backgroundColor: '#34495e',
+            borderRadius: '8px',
+            textAlign: 'center',
+          }}>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#e74c3c' }}>{stats.open}</div>
+            <div style={{ fontSize: '11px', color: '#7f8c8d' }}>Open</div>
+          </div>
+          <div style={{
+            padding: '10px 20px',
+            backgroundColor: '#34495e',
+            borderRadius: '8px',
+            textAlign: 'center',
+          }}>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#3498db' }}>{stats.inProgress}</div>
+            <div style={{ fontSize: '11px', color: '#7f8c8d' }}>In Progress</div>
+          </div>
+          <div style={{
+            padding: '10px 20px',
+            backgroundColor: '#34495e',
+            borderRadius: '8px',
+            textAlign: 'center',
+          }}>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#27ae60' }}>{stats.resolved}</div>
+            <div style={{ fontSize: '11px', color: '#7f8c8d' }}>Resolved</div>
+          </div>
+          {stats.critical > 0 && (
+            <div style={{
+              padding: '10px 20px',
+              backgroundColor: '#e74c3c',
+              borderRadius: '8px',
+              textAlign: 'center',
+            }}>
+              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff' }}>{stats.critical}</div>
+              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.8)' }}>Critical!</div>
+            </div>
+          )}
+        </div>
+
+        {/* Filters & Search */}
+        <div style={{
+          display: 'flex',
+          gap: '15px',
+          padding: '15px 25px',
+          backgroundColor: '#2c3e50',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+        }}>
+          <input
+            type="text"
+            placeholder="🔍 Search issues..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{
+              flex: 1,
+              minWidth: '200px',
+              padding: '10px 15px',
+              backgroundColor: '#34495e',
+              color: '#fff',
+              border: '1px solid #4a5f7f',
+              borderRadius: '6px',
+            }}
+          />
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            style={{
+              padding: '10px 15px',
+              backgroundColor: '#34495e',
+              color: '#fff',
+              border: '1px solid #4a5f7f',
+              borderRadius: '6px',
+            }}
+          >
+            <option value="all">All Issues</option>
+            <option value="open">Open Only</option>
+            <option value="resolved">Resolved</option>
+            <option value="closed">Closed</option>
+            <option value="critical">🔴 Critical</option>
+            <option value="high">🟠 High Priority</option>
+          </select>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            style={{
+              padding: '10px 15px',
+              backgroundColor: '#34495e',
+              color: '#fff',
+              border: '1px solid #4a5f7f',
+              borderRadius: '6px',
+            }}
+          >
+            <option value="priority">Sort by Priority</option>
+            <option value="date">Sort by Date</option>
+            <option value="status">Sort by Status</option>
+          </select>
+        </div>
+
+        {/* Issue List */}
+        <div style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '20px 25px',
+        }}>
+          {filteredIssues.length === 0 ? (
+            <div style={{
+              textAlign: 'center',
+              padding: '60px',
+              color: '#7f8c8d',
+            }}>
+              <div style={{ fontSize: '48px', marginBottom: '20px' }}>🎉</div>
+              <div style={{ fontSize: '18px' }}>No issues found</div>
+              <div style={{ fontSize: '13px', marginTop: '10px' }}>
+                {issues.length === 0 
+                  ? 'Create issues from the node panel' 
+                  : 'Try adjusting your filters'}
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {filteredIssues.map(issue => (
+                <div
+                  key={issue.id}
+                  onClick={() => onIssueClick(issue)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '15px 20px',
+                    backgroundColor: '#2c3e50',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    borderLeft: `4px solid ${ISSUE_PRIORITIES[issue.priority]?.color || '#95a5a6'}`,
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#34495e'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2c3e50'}
+                >
+                  <div style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '8px',
+                    backgroundColor: ISSUE_PRIORITIES[issue.priority]?.color || '#95a5a6',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: '15px',
+                    fontSize: '20px',
+                  }}>
+                    {ISSUE_CATEGORIES[issue.category]?.icon || '📌'}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                      <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '14px' }}>
+                        {issue.title}
+                      </span>
+                      <span style={{
+                        fontSize: '10px',
+                        padding: '2px 8px',
+                        borderRadius: '10px',
+                        backgroundColor: ISSUE_STATUSES[issue.status]?.color || '#95a5a6',
+                        color: '#fff',
+                      }}>
+                        {ISSUE_STATUSES[issue.status]?.label || issue.status}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px', fontSize: '12px', color: '#7f8c8d' }}>
+                      <span>📍 {getNodeName(issue.nodeId)}</span>
+                      <span>#{issue.id}</span>
+                      {issue.assignee && <span>👤 {issue.assignee}</span>}
+                      {issue.dueDate && (
+                        <span style={{
+                          color: new Date(issue.dueDate) < new Date() ? '#e74c3c' : '#7f8c8d',
+                        }}>
+                          📅 {issue.dueDate}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const newStatus = issue.status === 'open' ? 'inProgress' : 
+                                         issue.status === 'inProgress' ? 'resolved' : issue.status;
+                        onUpdateIssue({ ...issue, status: newStatus, updatedAt: new Date().toISOString() });
+                      }}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: '#3498db',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '11px',
+                      }}
+                      title="Advance status"
+                    >
+                      →
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Text Annotation Formatting Toolbar
+function TextAnnotationToolbar({ node, onUpdate }) {
+  const data = node.data;
+  const isLightBackground = data.isWhiteboardMode;
+
+  const updateData = (updates) => {
+    onUpdate(node.id, { ...data, ...updates });
+  };
+
+  const fontSizes = [12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 64];
+  
+  // Colors - include both dark and light options
+  const colors = [
+    '#2c3e50',  // Dark blue-gray (good for light bg)
+    '#1a1a2e',  // Very dark (good for light bg)
+    '#ffffff',  // White (good for dark bg)
+    '#e74c3c',  // Red
+    '#e67e22',  // Orange
+    '#f1c40f',  // Yellow
+    '#27ae60',  // Green
+    '#3498db',  // Blue
+    '#9b59b6',  // Purple
+  ];
+  
+  // Background colors - include options for both modes
+  const bgColors = [
+    'transparent',
+    'rgba(255,255,255,0.9)',  // White bg (for dark mode)
+    'rgba(255,255,255,0.5)',  // Semi-white
+    'rgba(0,0,0,0.3)',        // Dark bg (for light mode)
+    'rgba(0,0,0,0.6)',        // Darker bg
+    'rgba(52,152,219,0.3)',   // Blue tint
+    'rgba(46,204,113,0.3)',   // Green tint
+    'rgba(241,196,15,0.3)',   // Yellow tint
+  ];
+
+  return (
+    <div style={{
+      position: 'fixed',
+      bottom: '20px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      backgroundColor: '#2c3e50',
+      borderRadius: '12px',
+      padding: '12px 20px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '15px',
+      boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+      zIndex: 3000,
+    }}>
+      {/* Font Size */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span style={{ color: '#7f8c8d', fontSize: '11px' }}>Size:</span>
+        <select
+          value={data.fontSize || 14}
+          onChange={(e) => updateData({ fontSize: parseInt(e.target.value) })}
+          style={{
+            padding: '6px 10px',
+            backgroundColor: '#34495e',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+          }}
+        >
+          {fontSizes.map(size => (
+            <option key={size} value={size}>{size}px</option>
+          ))}
+        </select>
+      </div>
+
+      <div style={{ width: '1px', height: '24px', backgroundColor: '#4a5f7f' }} />
+
+      {/* Text Color */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <span style={{ color: '#7f8c8d', fontSize: '11px' }}>Color:</span>
+        {colors.map(color => (
+          <button
+            key={color}
+            onClick={() => updateData({ color })}
+            style={{
+              width: '20px',
+              height: '20px',
+              borderRadius: '4px',
+              backgroundColor: color,
+              border: data.color === color ? '2px solid #3498db' : '1px solid #4a5f7f',
+              cursor: 'pointer',
+            }}
+          />
+        ))}
+      </div>
+
+      <div style={{ width: '1px', height: '24px', backgroundColor: '#4a5f7f' }} />
+
+      {/* Background Color */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <span style={{ color: '#7f8c8d', fontSize: '11px' }}>Bg:</span>
+        {bgColors.map((color, i) => (
+          <button
+            key={i}
+            onClick={() => updateData({ backgroundColor: color })}
+            style={{
+              width: '20px',
+              height: '20px',
+              borderRadius: '4px',
+              backgroundColor: color === 'transparent' ? '#34495e' : color,
+              border: data.backgroundColor === color ? '2px solid #3498db' : '1px solid #4a5f7f',
+              cursor: 'pointer',
+              position: 'relative',
+            }}
+          >
+            {color === 'transparent' && (
+              <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '10px', color: '#fff' }}>∅</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ width: '1px', height: '24px', backgroundColor: '#4a5f7f' }} />
+
+      {/* Text Style */}
+      <div style={{ display: 'flex', gap: '4px' }}>
+        <button
+          onClick={() => updateData({ fontWeight: data.fontWeight === 'bold' ? 'normal' : 'bold' })}
+          style={{
+            padding: '6px 10px',
+            backgroundColor: data.fontWeight === 'bold' ? '#3498db' : '#34495e',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+          }}
+        >
+          B
+        </button>
+        <button
+          onClick={() => updateData({ fontStyle: data.fontStyle === 'italic' ? 'normal' : 'italic' })}
+          style={{
+            padding: '6px 10px',
+            backgroundColor: data.fontStyle === 'italic' ? '#3498db' : '#34495e',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontStyle: 'italic',
+          }}
+        >
+          I
+        </button>
+      </div>
+
+      <div style={{ width: '1px', height: '24px', backgroundColor: '#4a5f7f' }} />
+
+      {/* Text Align */}
+      <div style={{ display: 'flex', gap: '4px' }}>
+        {['left', 'center', 'right'].map(align => (
+          <button
+            key={align}
+            onClick={() => updateData({ textAlign: align })}
+            style={{
+              padding: '6px 10px',
+              backgroundColor: data.textAlign === align ? '#3498db' : '#34495e',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '11px',
+            }}
+          >
+            {align === 'left' ? '⬅' : align === 'center' ? '⬌' : '➡'}
+          </button>
+        ))}
       </div>
     </div>
   );
@@ -4664,6 +6225,7 @@ function LeftIconStrip({
   onAddHardware,
   onAddUseCase,
   onAddActor,
+  onAddTextNote,
   onVoice,
   isListening,
   voiceStatus
@@ -4843,6 +6405,18 @@ function LeftIconStrip({
         style={{ ...iconButtonStyle, background: '#9b59b6' }}
       >
         🟣
+      </button>
+      
+      {/* Separator */}
+      <div style={{ height: '1px', background: '#4a5f7f', margin: '4px 0' }} />
+      
+      {/* Text Note */}
+      <button 
+        onClick={handleClick(onAddTextNote)} 
+        title="Add Text Note"
+        style={{ ...iconButtonStyle, background: '#34495e', border: '2px dashed #7f8c8d' }}
+      >
+        📝
       </button>
       
       {/* Separator */}
@@ -6588,6 +8162,14 @@ export default function App() {
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showSaveToast, setShowSaveToast] = useState(false);
 
+  // Issue Management State
+  const [issues, setIssues] = useState({});  // { nodeId: [issue1, issue2, ...] }
+  const [showIssueDetailPanel, setShowIssueDetailPanel] = useState(false);
+  const [selectedIssue, setSelectedIssue] = useState(null);
+  const [showIssueManager, setShowIssueManager] = useState(false);
+  const [showCreateIssueModal, setShowCreateIssueModal] = useState(false);
+  const [createIssueForNode, setCreateIssueForNode] = useState(null);
+
 
    // Handle login
   const handleLogin = (userData) => {
@@ -6595,6 +8177,106 @@ export default function App() {
     realtime.connect();
     fetchHardwareTypes();  // Load hardware types from database
   };
+
+  // ============== ISSUE MANAGEMENT FUNCTIONS ==============
+  
+  // Get all issues as flat array
+  const getAllIssues = useCallback(() => {
+    return Object.values(issues).flat();
+  }, [issues]);
+
+  // Get issues for a specific node
+  const getNodeIssues = useCallback((nodeId) => {
+    return issues[nodeId] || [];
+  }, [issues]);
+
+  // Add issue to a node
+  const addIssue = useCallback((issue) => {
+    setIssues(prev => ({
+      ...prev,
+      [issue.nodeId]: [...(prev[issue.nodeId] || []), issue],
+    }));
+  }, []);
+
+  // Update an issue
+  const updateIssue = useCallback((updatedIssue) => {
+    setIssues(prev => ({
+      ...prev,
+      [updatedIssue.nodeId]: (prev[updatedIssue.nodeId] || []).map(i => 
+        i.id === updatedIssue.id ? { ...updatedIssue, updatedAt: new Date().toISOString() } : i
+      ),
+    }));
+  }, []);
+
+  // Delete an issue
+  const deleteIssue = useCallback((issueId) => {
+    setIssues(prev => {
+      const newIssues = {};
+      for (const [nodeId, nodeIssues] of Object.entries(prev)) {
+        const filtered = nodeIssues.filter(i => i.id !== issueId);
+        if (filtered.length > 0) {
+          newIssues[nodeId] = filtered;
+        }
+      }
+      return newIssues;
+    });
+    setShowIssueDetailPanel(false);
+    setSelectedIssue(null);
+  }, []);
+
+  // Handle issue indicator double-click
+  const handleIssueIndicatorClick = useCallback((nodeId) => {
+    const nodeIssues = getNodeIssues(nodeId);
+    if (nodeIssues.length === 1) {
+      setSelectedIssue(nodeIssues[0]);
+      setShowIssueDetailPanel(true);
+    } else if (nodeIssues.length > 1) {
+      setShowIssueManager(true);
+    }
+  }, [getNodeIssues]);
+
+  // Open create issue modal for a node
+  const openCreateIssueModal = useCallback((node) => {
+    setCreateIssueForNode(node);
+    setShowCreateIssueModal(true);
+  }, []);
+
+  // Add text annotation to canvas
+  const addTextAnnotation = useCallback(() => {
+    // Get current viewport center for proper positioning
+    let position = { x: 200, y: 200 };
+    
+    if (reactFlowInstance) {
+      const viewport = reactFlowInstance.getViewport();
+      const centerX = (-viewport.x + window.innerWidth / 2) / viewport.zoom;
+      const centerY = (-viewport.y + window.innerHeight / 2) / viewport.zoom;
+      position = { 
+        x: centerX + (Math.random() * 50 - 25), 
+        y: centerY + (Math.random() * 50 - 25) 
+      };
+    }
+
+    const newNode = {
+      id: `text-${Date.now()}`,
+      type: 'textAnnotation',
+      position: position,
+      data: {
+        text: 'Double-click to edit',
+        fontSize: 16,
+        color: '#ffffff',
+        fontWeight: 'normal',
+        fontStyle: 'normal',
+        textAlign: 'left',
+        backgroundColor: 'transparent',
+        onTextChange: (id, newText) => {
+          setNodes(nds => nds.map(n => 
+            n.id === id ? { ...n, data: { ...n.data, text: newText } } : n
+          ));
+        },
+      },
+    };
+    setNodes(nds => [...nds, newNode]);
+  }, [setNodes, reactFlowInstance]);
 
   // Fetch hardware types from database
   const fetchHardwareTypes = async () => {
@@ -8008,10 +9690,18 @@ export default function App() {
 
       return {
         ...node,
-        data: { ...node.data, isFiltered, isHighlighted, isWhiteboardMode: viewMode === 'whiteboard', onChange: handleNodeLabelChange },
+        data: { 
+          ...node.data, 
+          isFiltered, 
+          isHighlighted, 
+          isWhiteboardMode: viewMode === 'whiteboard', 
+          onChange: handleNodeLabelChange,
+          issues: issues[node.id] || [],
+          onIssueClick: handleIssueIndicatorClick,
+        },
       };
     });
-  }, [nodes, searchText, typeFilter, statusFilter, priorityFilter, stateFilter, reqTypeFilter, classificationFilter, handleNodeLabelChange,viewMode ]);
+  }, [nodes, searchText, typeFilter, statusFilter, priorityFilter, stateFilter, reqTypeFilter, classificationFilter, handleNodeLabelChange, viewMode, issues, handleIssueIndicatorClick]);
 
   const filteredCount = processedNodes.filter(n => n.data.isFiltered).length;
 
@@ -9519,6 +11209,7 @@ const createNewObject = (name, version, description) => {
         onAddHardware={addHardwareNode}
         onAddUseCase={addUseCaseNode}
         onAddActor={addActorNode}
+        onAddTextNote={addTextAnnotation}
         onVoice={startVoiceRecognition}
         isListening={isListening}
         voiceStatus={voiceStatus}
@@ -9649,6 +11340,45 @@ const createNewObject = (name, version, description) => {
                 </span>
               </div>
             )}
+          </div>
+        </SidebarSection>
+        
+        <SidebarSection title="🐛 Issues & Notes">
+          <SidebarButton 
+            icon="📋" 
+            label="Issue Manager" 
+            onClick={() => { 
+              setShowIssueManager(true); 
+              setSidebarOpen(false); 
+            }} 
+          />
+          <SidebarButton 
+            icon="📝" 
+            label="Add Text Note" 
+            onClick={() => { 
+              addTextAnnotation(); 
+              setSidebarOpen(false); 
+            }} 
+          />
+          <div style={{ 
+            padding: '10px', 
+            background: '#2c3e50', 
+            borderRadius: '6px',
+            fontSize: '12px',
+            marginTop: '8px'
+          }}>
+            <div style={{ marginBottom: '6px' }}>
+              <span style={{ color: '#7f8c8d' }}>Open Issues:</span>
+              <span style={{ float: 'right', fontWeight: 'bold', color: '#e74c3c' }}>
+                {getAllIssues().filter(i => i.status === 'open').length}
+              </span>
+            </div>
+            <div>
+              <span style={{ color: '#7f8c8d' }}>Total Issues:</span>
+              <span style={{ float: 'right', fontWeight: 'bold' }}>
+                {getAllIssues().length}
+              </span>
+            </div>
           </div>
         </SidebarSection>
         
@@ -9979,6 +11709,7 @@ const createNewObject = (name, version, description) => {
           initialPosition={floatingPanelPosition}
           hardwareTypes={hardwareTypes.length > 0 ? hardwareTypes : defaultHardwareTypes}
           onManageTypes={() => setShowHardwareTypesModal(true)}
+          onCreateIssue={openCreateIssueModal}
         />
       )}
 
@@ -10039,6 +11770,58 @@ const createNewObject = (name, version, description) => {
         <NewObjectModal
           onClose={() => setShowNewObjectModal(false)}
           onCreate={createNewObject}
+        />
+      )}
+
+      {/* Issue Management Modals */}
+      {showCreateIssueModal && createIssueForNode && (
+        <CreateIssueModal
+          nodeId={createIssueForNode.id}
+          nodeName={createIssueForNode.data?.label || createIssueForNode.data?.reqId || createIssueForNode.id}
+          onClose={() => {
+            setShowCreateIssueModal(false);
+            setCreateIssueForNode(null);
+          }}
+          onCreate={addIssue}
+        />
+      )}
+
+      {showIssueManager && (
+        <IssueManagerModal
+          issues={getAllIssues()}
+          nodes={nodes}
+          onClose={() => setShowIssueManager(false)}
+          onIssueClick={(issue) => {
+            setSelectedIssue(issue);
+            setShowIssueDetailPanel(true);
+            setShowIssueManager(false);
+          }}
+          onUpdateIssue={updateIssue}
+          onDeleteIssue={deleteIssue}
+        />
+      )}
+
+      {showIssueDetailPanel && selectedIssue && (
+        <IssueDetailPanel
+          issue={selectedIssue}
+          onClose={() => {
+            setShowIssueDetailPanel(false);
+            setSelectedIssue(null);
+          }}
+          onUpdate={updateIssue}
+          onDelete={deleteIssue}
+        />
+      )}
+
+      {/* Text Annotation Toolbar */}
+      {selectedNode?.type === 'textAnnotation' && (
+        <TextAnnotationToolbar
+          node={selectedNode}
+          onUpdate={(id, data) => {
+            setNodes(nds => nds.map(n => 
+              n.id === id ? { ...n, data } : n
+            ));
+          }}
         />
       )}
 
