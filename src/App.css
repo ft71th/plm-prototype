@@ -36,3 +36,24 @@
     transform: rotate(360deg);
   }
 }
+
+/* Node Resizer Styles */
+.react-flow__resize-control {
+  background: #3498db !important;
+  border: 2px solid #fff !important;
+  border-radius: 3px !important;
+}
+
+.react-flow__resize-control:hover {
+  background: #2980b9 !important;
+  transform: scale(1.2);
+}
+
+.react-flow__resize-control.line {
+  border: none !important;
+  background: transparent !important;
+}
+
+.react-flow__resize-control.line:hover {
+  background: rgba(52, 152, 219, 0.3) !important;
+}

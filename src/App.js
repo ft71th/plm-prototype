@@ -21,6 +21,8 @@ import ReactFlow, {
   useReactFlow,
   SelectionMode,
 } from 'reactflow';
+import { NodeResizer } from '@reactflow/node-resizer';
+import '@reactflow/node-resizer/dist/style.css';
 import 'reactflow/dist/style.css';
 import * as XLSX from 'xlsx';
 
@@ -880,233 +882,293 @@ function CustomNode({ data, id, selected }) {
     };
 
     // Icon-based sizing - the node IS the icon
-    const iconSize = data.hwIconSize || 64;  // Configurable icon size
+    const defaultIconSize = 64;
     const maxPorts = Math.max(inputPorts.length, outputPorts.length, 1);
-    const nodeHeight = Math.max(iconSize + 30, maxPorts * 24 + 20);  // Icon + label space
-    const nodeWidth = Math.max(iconSize + 20, 80);  // Icon width + padding
+    const defaultHeight = Math.max(defaultIconSize + 30, maxPorts * 24 + 20);
+    const defaultWidth = Math.max(defaultIconSize + 20, 80);
+    
+    // Use stored dimensions or defaults
+    const nodeWidth = data.nodeWidth || defaultWidth;
+    const nodeHeight = data.nodeHeight || defaultHeight;
+    // Scale icon based on node size
+    const iconSize = data.nodeWidth ? Math.min(data.nodeWidth - 20, data.nodeHeight - 30) : defaultIconSize;
 
     return (
-      <div 
-        style={{
-          width: `${nodeWidth}px`,
-          minHeight: `${nodeHeight}px`,
-          backgroundColor: 'transparent',
-          position: 'relative',
-          cursor: 'pointer',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'flex-start',
-          paddingTop: '4px',
-        }}>
+      <>
+        {/* Resizer for hardware nodes */}
+        <NodeResizer
+          color="#795548"
+          isVisible={selected}
+          minWidth={60}
+          minHeight={60}
+          onResize={(event, params) => {
+            if (data.onResize) {
+              data.onResize(id, params.width, params.height);
+            }
+          }}
+          handleStyle={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '2px',
+            border: '2px solid #fff',
+          }}
+        />
+        <div 
+          style={{
+            width: `${nodeWidth}px`,
+            height: `${nodeHeight}px`,
+            minWidth: '60px',
+            minHeight: '60px',
+            backgroundColor: 'transparent',
+            position: 'relative',
+            cursor: 'pointer',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'flex-start',
+            paddingTop: '4px',
+          }}>
 
-        {/* The Icon IS the node */}
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          padding: '4px',
-          borderRadius: '8px',
-          background: selected ? 'rgba(52, 152, 219, 0.3)' : 'transparent',
-          border: selected ? '2px solid #3498db' : '2px solid transparent',
-          transition: 'all 0.2s ease',
-        }}>
-          {(data.hwCustomIcon || data.hwIcon?.startsWith('data:') || data.hwIcon?.startsWith('http')) ? (
-            <img 
-              src={data.hwCustomIcon || data.hwIcon} 
-              alt={data.label || 'Hardware'}
-              style={{ 
-                width: `${iconSize}px`, 
-                height: `${iconSize}px`, 
-                objectFit: 'contain',
+          {/* The Icon IS the node */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            padding: '4px',
+            borderRadius: '8px',
+            background: selected ? 'rgba(52, 152, 219, 0.3)' : 'transparent',
+            border: selected ? '2px solid #3498db' : '2px solid transparent',
+            transition: 'all 0.2s ease',
+            width: '100%',
+            height: '100%',
+            justifyContent: 'center',
+          }}>
+            {(data.hwCustomIcon || data.hwIcon?.startsWith('data:') || data.hwIcon?.startsWith('http')) ? (
+              <img 
+                src={data.hwCustomIcon || data.hwIcon} 
+                alt={data.label || 'Hardware'}
+                style={{ 
+                  width: `${iconSize}px`, 
+                  height: `${iconSize}px`, 
+                  objectFit: 'contain',
+                  filter: selected 
+                    ? 'drop-shadow(0 0 8px rgba(52, 152, 219, 0.8))' 
+                    : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+                }}
+              />
+            ) : (
+              <span style={{ 
+                fontSize: `${iconSize * 0.75}px`,
+                lineHeight: 1,
                 filter: selected 
                   ? 'drop-shadow(0 0 8px rgba(52, 152, 219, 0.8))' 
                   : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
-              }}
-            />
-          ) : (
-            <span style={{ 
-              fontSize: `${iconSize * 0.75}px`,
-              lineHeight: 1,
-              filter: selected 
-                ? 'drop-shadow(0 0 8px rgba(52, 152, 219, 0.8))' 
-                : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+              }}>
+                {data.hwIcon || '📦'}
+              </span>
+            )}
+            
+            {/* Label below icon */}
+            <div style={{
+              marginTop: '4px',
+              fontSize: '10px',
+              fontWeight: 'bold',
+              color: '#333',
+              textAlign: 'center',
+              maxWidth: `${nodeWidth + 40}px`,
+              wordWrap: 'break-word',
+              overflowWrap: 'break-word',
+              textShadow: '0 0 3px #fff, 0 0 3px #fff',
             }}>
-              {data.hwIcon || '📦'}
-            </span>
-          )}
-          
-          {/* Label below icon */}
-          <div style={{
-            marginTop: '4px',
-            fontSize: '10px',
-            fontWeight: 'bold',
-            color: '#333',
-            textAlign: 'center',
-            maxWidth: `${nodeWidth + 40}px`,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            textShadow: '0 0 3px #fff, 0 0 3px #fff',
-          }}>
-            {data.label}
+              {data.label}
+            </div>
           </div>
-        </div>
 
-        {/* Connection handles */}
-        <Handle
-          type="target"
-          position={Position.Left}
-          id="default-target"
-          style={{
-            background: '#27ae60',
-            width: '10px',
-            height: '10px',
-            left: '-5px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            border: '2px solid #fff',
-          }}
-        />
-        <Handle
-          type="source"
-          position={Position.Right}
-          id="default-source"
-          style={{
-            background: '#e67e22',
-            width: '10px',
-            height: '10px',
-            right: '-5px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            border: '2px solid #fff',
-          }}
-        />
-
-        {/* Port handles if any */}
-        {inputPorts.map((port, index) => (
+          {/* Connection handles */}
           <Handle
-            key={port.id}
             type="target"
             position={Position.Left}
-            id={port.id}
+            id="default-target"
             style={{
               background: '#27ae60',
-              width: 8,
-              height: 8,
-              top: getHandlePosition(index, inputPorts.length),
-              border: '2px solid #fff'
+              width: '10px',
+              height: '10px',
+              left: '-5px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              border: '2px solid #fff',
             }}
-            title={port.name}
           />
-        ))}
-        {outputPorts.map((port, index) => (
           <Handle
-            key={port.id}
             type="source"
             position={Position.Right}
-            id={port.id}
+            id="default-source"
             style={{
               background: '#e67e22',
-              width: 8,
-              height: 8,
-              top: getHandlePosition(index, outputPorts.length),
-              border: '2px solid #fff'
+              width: '10px',
+              height: '10px',
+              right: '-5px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              border: '2px solid #fff',
             }}
-            title={port.name}
           />
-        ))}
 
-        {/* Issue Indicator */}
-        {data.issues && data.issues.length > 0 && (
-          <IssueIndicator 
-            issues={data.issues}
-            nodeId={id}
-            onDoubleClick={data.onIssueClick}
-          />
-        )}
-      </div>
+          {/* Port handles if any */}
+          {inputPorts.map((port, index) => (
+            <Handle
+              key={port.id}
+              type="target"
+              position={Position.Left}
+              id={port.id}
+              style={{
+                background: '#27ae60',
+                width: 8,
+                height: 8,
+                top: getHandlePosition(index, inputPorts.length),
+                border: '2px solid #fff'
+              }}
+              title={port.name}
+            />
+          ))}
+          {outputPorts.map((port, index) => (
+            <Handle
+              key={port.id}
+              type="source"
+              position={Position.Right}
+              id={port.id}
+              style={{
+                background: '#e67e22',
+                width: 8,
+                height: 8,
+                top: getHandlePosition(index, outputPorts.length),
+                border: '2px solid #fff'
+              }}
+              title={port.name}
+            />
+          ))}
+
+          {/* Issue Indicator */}
+          {data.issues && data.issues.length > 0 && (
+            <IssueIndicator 
+              issues={data.issues}
+              nodeId={id}
+              onDoubleClick={data.onIssueClick}
+            />
+          )}
+        </div>
+      </>
     );
   }
 
     // WHITEBOARD MODE - UML ACTOR NODES (Stick figure with name below)
   if (data.isWhiteboardMode && (data.itemType === 'actor' || data.type === 'actor')) {
+    // Use stored dimensions or defaults
+    const actorWidth = data.nodeWidth || 100;
+    const actorHeight = data.nodeHeight || 120;
+    // Scale stick figure based on node size
+    const figureSize = Math.min(actorWidth - 20, actorHeight - 40, 80);
+    
     return (
-      <div 
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minWidth: '100px',
-          minHeight: '120px',
-          backgroundColor: 'transparent',
-          position: 'relative',
-          cursor: 'pointer',
-          padding: '10px',
-          borderRadius: '8px',
-          background: selected ? 'rgba(46, 204, 113, 0.1)' : 'transparent',
-          border: selected ? '2px solid #2ecc71' : '2px solid transparent',
-          transition: 'all 0.2s ease',
-        }}>
-        
-        {/* UML Actor Stick Figure */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: '8px',
-        }}>
-          {renderActorStickFigure(50)}
-        </div>
-        
-        {/* Actor Name Below - allows wrapping */}
-        <div style={{
-          fontSize: '12px',
-          fontWeight: 'bold',
-          color: '#2ecc71',
-          textAlign: 'center',
-          maxWidth: '120px',
-          wordWrap: 'break-word',
-          overflowWrap: 'break-word',
-          whiteSpace: 'normal',
-          lineHeight: '1.3',
-          textShadow: '0 0 3px #000, 0 0 3px #000',
-        }}>
-          {data.label}
-        </div>
-
-        {/* Connection Handles - Left and Right only */}
-        <Handle
-          type="target"
-          position={Position.Left}
-          style={{ 
-            background: '#2ecc71', 
-            width: '8px', 
+      <>
+        {/* Resizer for actor nodes */}
+        <NodeResizer
+          color="#2ecc71"
+          isVisible={selected}
+          minWidth={60}
+          minHeight={80}
+          onResize={(event, params) => {
+            if (data.onResize) {
+              data.onResize(id, params.width, params.height);
+            }
+          }}
+          handleStyle={{
+            width: '8px',
             height: '8px',
-            left: '-4px' 
+            borderRadius: '2px',
+            border: '2px solid #fff',
           }}
         />
-        <Handle
-          type="source"
-          position={Position.Right}
-          style={{ 
-            background: '#2ecc71', 
-            width: '8px', 
-            height: '8px',
-            right: '-4px' 
-          }}
-        />
+        <div 
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: `${actorWidth}px`,
+            height: `${actorHeight}px`,
+            minWidth: '60px',
+            minHeight: '80px',
+            backgroundColor: 'transparent',
+            position: 'relative',
+            cursor: 'pointer',
+            padding: '10px',
+            borderRadius: '8px',
+            background: selected ? 'rgba(46, 204, 113, 0.1)' : 'transparent',
+            border: selected ? '2px solid #2ecc71' : '2px solid transparent',
+            transition: 'all 0.2s ease',
+            boxSizing: 'border-box',
+          }}>
+          
+          {/* UML Actor Stick Figure */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '8px',
+            flex: 1,
+          }}>
+            {renderActorStickFigure(figureSize)}
+          </div>
+          
+          {/* Actor Name Below - allows wrapping */}
+          <div style={{
+            fontSize: '12px',
+            fontWeight: 'bold',
+            color: '#2ecc71',
+            textAlign: 'center',
+            maxWidth: `${actorWidth - 10}px`,
+            wordWrap: 'break-word',
+            overflowWrap: 'break-word',
+            whiteSpace: 'normal',
+            lineHeight: '1.3',
+            textShadow: '0 0 3px #000, 0 0 3px #000',
+          }}>
+            {data.label}
+          </div>
 
-        {/* Issue Indicator */}
-        {data.issues && data.issues.length > 0 && (
-          <IssueIndicator 
-            issues={data.issues}
-            nodeId={id}
-            onDoubleClick={data.onIssueClick}
+          {/* Connection Handles - Left and Right only */}
+          <Handle
+            type="target"
+            position={Position.Left}
+            style={{ 
+              background: '#2ecc71', 
+              width: '8px', 
+              height: '8px',
+              left: '-4px' 
+            }}
           />
-        )}
-      </div>
+          <Handle
+            type="source"
+            position={Position.Right}
+            style={{ 
+              background: '#2ecc71', 
+              width: '8px', 
+              height: '8px',
+              right: '-4px' 
+            }}
+          />
+
+          {/* Issue Indicator */}
+          {data.issues && data.issues.length > 0 && (
+            <IssueIndicator 
+              issues={data.issues}
+              nodeId={id}
+              onDoubleClick={data.onIssueClick}
+            />
+          )}
+        </div>
+      </>
     );
   }
 
@@ -1141,24 +1203,46 @@ function CustomNode({ data, id, selected }) {
     const labelWidth = getTextWidth(data.label);
     
     // Total width = left ports + padding + label + padding + right ports
-    const nodeWidth = Math.max(
+    const computedWidth = Math.max(
       140,  // Minimum width
       longestInput + labelWidth + longestOutput + 60  // ports + label + spacing
     );
 
     return (
-      <div 
-        style={{
-          width: `${nodeWidth}px`,
-          minHeight: `${nodeHeight}px`,
-          backgroundColor: getWhiteboardColor(),
-          borderRadius: getNodeShape().borderRadius || '8px',
-          borderStyle: getNodeShape().borderStyle || 'solid',
-          border: selected ? '3px solid #3498db' : '2px solid rgba(255,255,255,0.3)',
-          boxShadow: selected ? '0 0 20px rgba(52, 152, 219, 0.5)' : '0 4px 12px rgba(0,0,0,0.2)',
-          position: 'relative',
-          cursor: 'pointer',
-          transition: 'all 0.2s ease',
+      <>
+        {/* Resizer for whiteboard mode */}
+        <NodeResizer
+          color={getWhiteboardColor()}
+          isVisible={selected}
+          minWidth={100}
+          minHeight={60}
+          onResize={(event, params) => {
+            if (data.onResize) {
+              data.onResize(id, params.width, params.height);
+            }
+          }}
+          handleStyle={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '2px',
+            border: '2px solid #fff',
+          }}
+        />
+        <div 
+          style={{
+            width: data.nodeWidth || `${computedWidth}px`,
+            height: data.nodeHeight || `${nodeHeight}px`,
+            minWidth: '100px',
+            minHeight: '60px',
+            backgroundColor: getWhiteboardColor(),
+            borderRadius: getNodeShape().borderRadius || '8px',
+            borderStyle: getNodeShape().borderStyle || 'solid',
+            border: selected ? '3px solid #3498db' : '2px solid rgba(255,255,255,0.3)',
+            boxShadow: selected ? '0 0 20px rgba(52, 152, 219, 0.5)' : '0 4px 12px rgba(0,0,0,0.2)',
+            position: 'relative',
+            cursor: 'pointer',
+            transition: 'box-shadow 0.2s ease',
+            boxSizing: 'border-box',
         }}>
 
         {/* TYPE BADGE - Special handling for Hardware with larger icons */}
@@ -1206,15 +1290,17 @@ function CustomNode({ data, id, selected }) {
         ) : (
           <div style={{
             position: 'absolute',
-            top: '4px',
-            left: '4px',
+            top: (isUseCaseItem()) ? '8px' : '4px',
+            left: '50%',
+            transform: 'translateX(-50%)',
             fontSize: '8px',
             padding: '2px 6px',
             borderRadius: '3px',
-            background: 'rgba(0,0,0,0.3)',
+            background: 'rgba(0,0,0,0.4)',
             color: '#fff',
             fontWeight: 'bold',
-            textTransform: 'uppercase'
+            textTransform: 'uppercase',
+            zIndex: 10,
           }}>
             {data.itemType === 'requirement' ? 'REQ' :
              data.itemType === 'system' ? 'SYS' :
@@ -1344,7 +1430,7 @@ function CustomNode({ data, id, selected }) {
           left: '50%',
           transform: 'translate(-50%, -50%)',
           textAlign: 'center',
-          maxWidth: `${nodeWidth - longestInput - longestOutput - 40}px`,
+          maxWidth: `${computedWidth - longestInput - longestOutput - 40}px`,
           padding: '0 10px'
         }}>
           {isEditing ? (
@@ -1394,27 +1480,50 @@ function CustomNode({ data, id, selected }) {
           />
         )}
       </div>
+      </>
     );
   }
 
   // NORMAL PLM MODE - Full details (existing code below)
   return (
-    <div 
-      style={{
-        padding: '15px',
-        paddingLeft: (isSystemItem() || isTestItem() || isParameterItem() || isHardwareItem() || isUseCaseItem() || isActorItem()) ? '20px' : '15px',
-        border: '3px solid ' + getBorderColor(),
-        borderLeft: (isSystemItem() || isTestItem() || isParameterItem() || isHardwareItem() || isUseCaseItem() || isActorItem()) ? `6px solid ${getSystemAccentColor()}` : '3px solid ' + getBorderColor(),
-        backgroundColor: (isSystemItem() || isTestItem() || isParameterItem() || isHardwareItem() || isUseCaseItem() || isActorItem()) ? '#1a2634' : '#2c3e50',
-        minWidth: '180px',
-        opacity: data.isFiltered === false ? 0.3 : 1,
-        boxShadow: selected ? '0 0 20px rgba(52, 152, 219, 0.8)' : 
-                  isHighlighted ? '0 0 15px rgba(241, 196, 15, 0.6)' : '0 4px 8px rgba(0,0,0,0.3)',
-        transition: 'all 0.2s ease',
-        position: 'relative',
-        alignItems: 'center',
-        ...getNodeShape()
-      }}>
+    <>
+      {/* Resizer - visible when selected */}
+      <NodeResizer
+        color={getSystemAccentColor()}
+        isVisible={selected}
+        minWidth={150}
+        minHeight={100}
+        onResize={(event, params) => {
+          if (data.onResize) {
+            data.onResize(id, params.width, params.height);
+          }
+        }}
+        handleStyle={{
+          width: '8px',
+          height: '8px',
+          borderRadius: '2px',
+        }}
+      />
+      <div 
+        style={{
+          width: data.nodeWidth || '180px',
+          height: data.nodeHeight || 'auto',
+          padding: '15px',
+          paddingLeft: (isSystemItem() || isTestItem() || isParameterItem() || isHardwareItem() || isUseCaseItem() || isActorItem()) ? '20px' : '15px',
+          border: '3px solid ' + getBorderColor(),
+          borderLeft: (isSystemItem() || isTestItem() || isParameterItem() || isHardwareItem() || isUseCaseItem() || isActorItem()) ? `6px solid ${getSystemAccentColor()}` : '3px solid ' + getBorderColor(),
+          backgroundColor: (isSystemItem() || isTestItem() || isParameterItem() || isHardwareItem() || isUseCaseItem() || isActorItem()) ? '#1a2634' : '#2c3e50',
+          minWidth: '150px',
+          minHeight: '100px',
+          opacity: data.isFiltered === false ? 0.3 : 1,
+          boxShadow: selected ? '0 0 20px rgba(52, 152, 219, 0.8)' : 
+                    isHighlighted ? '0 0 15px rgba(241, 196, 15, 0.6)' : '0 4px 8px rgba(0,0,0,0.3)',
+          transition: 'box-shadow 0.2s ease',
+          position: 'relative',
+          alignItems: 'center',
+          boxSizing: 'border-box',
+          ...getNodeShape()
+        }}>
       
       {/* Dynamic Port Handles */}
       {(() => {
@@ -1813,6 +1922,7 @@ function CustomNode({ data, id, selected }) {
         />
       )}
     </div>
+    </>
   );
 }
 
@@ -4129,62 +4239,93 @@ function TextAnnotationNode({ data, id, selected }) {
   const textAlign = data.textAlign || 'left';
   const backgroundColor = data.backgroundColor || defaultBgColor;
 
+  // Use stored dimensions or defaults
+  const width = data.nodeWidth || 'auto';
+  const height = data.nodeHeight || 'auto';
+
   return (
-    <div
-      style={{
-        minWidth: '120px',
-        minHeight: '40px',
-        padding: '10px 14px',
-        backgroundColor: backgroundColor,
-        borderRadius: '6px',
-        border: selected ? '2px dashed #3498db' : (isLightBackground ? '2px dashed #95a5a6' : '2px dashed rgba(255,255,255,0.4)'),
-        cursor: 'text',
-        transition: 'border 0.2s ease',
-        boxShadow: isLightBackground ? '0 2px 8px rgba(0,0,0,0.15)' : '0 2px 8px rgba(0,0,0,0.3)',
-      }}
-      onDoubleClick={handleDoubleClick}
-    >
-      {isEditing ? (
-        <textarea
-          ref={textareaRef}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
-          style={{
-            width: '100%',
-            minHeight: '60px',
-            padding: '4px',
-            fontSize: `${fontSize}px`,
-            color: isLightBackground ? '#2c3e50' : '#ffffff',
-            fontWeight: fontWeight,
-            fontStyle: fontStyle,
-            textAlign: textAlign,
-            backgroundColor: isLightBackground ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.5)',
-            border: '2px solid #3498db',
-            borderRadius: '4px',
-            resize: 'both',
-            outline: 'none',
-            fontFamily: 'inherit',
-          }}
-        />
-      ) : (
-        <div
-          style={{
-            fontSize: `${fontSize}px`,
-            color: color,
-            fontWeight: fontWeight,
-            fontStyle: fontStyle,
-            textAlign: textAlign,
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-            userSelect: 'none',
-          }}
-        >
-          {text || 'Double-click to edit'}
-        </div>
-      )}
-    </div>
+    <>
+      {/* Resizer - only visible when selected */}
+      <NodeResizer
+        color="#3498db"
+        isVisible={selected}
+        minWidth={80}
+        minHeight={30}
+        onResize={(event, params) => {
+          if (data.onResize) {
+            data.onResize(id, params.width, params.height);
+          }
+        }}
+        handleStyle={{
+          width: '10px',
+          height: '10px',
+          borderRadius: '2px',
+        }}
+      />
+      <div
+        style={{
+          width: width,
+          height: height,
+          minWidth: '80px',
+          minHeight: '30px',
+          padding: '10px 14px',
+          backgroundColor: backgroundColor,
+          borderRadius: '6px',
+          border: selected ? '2px dashed #3498db' : (isLightBackground ? '2px dashed #95a5a6' : '2px dashed rgba(255,255,255,0.4)'),
+          cursor: 'text',
+          transition: 'border 0.2s ease',
+          boxShadow: isLightBackground ? '0 2px 8px rgba(0,0,0,0.15)' : '0 2px 8px rgba(0,0,0,0.3)',
+          boxSizing: 'border-box',
+        }}
+        onDoubleClick={handleDoubleClick}
+      >
+        {isEditing ? (
+          <textarea
+            ref={textareaRef}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            style={{
+              width: '100%',
+              height: '100%',
+              minHeight: '40px',
+              padding: '4px',
+              fontSize: `${fontSize}px`,
+              color: isLightBackground ? '#2c3e50' : '#ffffff',
+              fontWeight: fontWeight,
+              fontStyle: fontStyle,
+              textAlign: textAlign,
+              backgroundColor: isLightBackground ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.5)',
+              border: '2px solid #3498db',
+              borderRadius: '4px',
+              resize: 'none',
+              outline: 'none',
+              fontFamily: 'inherit',
+              boxSizing: 'border-box',
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              fontSize: `${fontSize}px`,
+              color: color,
+              fontWeight: fontWeight,
+              fontStyle: fontStyle,
+              textAlign: textAlign,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              userSelect: 'none',
+              overflow: 'hidden',
+            }}
+          >
+            {text || 'Double-click to edit'}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -9944,6 +10085,17 @@ export default function App() {
   }
 }, [setNodes]);
 
+  // Handle node resize - stores new dimensions in node data
+  const handleNodeResize = useCallback((nodeId, width, height) => {
+    setNodes((nds) =>
+      nds.map((node) =>
+        node.id === nodeId
+          ? { ...node, data: { ...node.data, nodeWidth: width, nodeHeight: height } }
+          : node
+      )
+    );
+  }, [setNodes]);
+
   // Copy selected nodes to clipboard
   const copySelectedNodes = useCallback(() => {
     const selectedNodes = nodes.filter(n => n.selected);
@@ -10535,12 +10687,13 @@ export default function App() {
           isHighlighted, 
           isWhiteboardMode: viewMode === 'whiteboard', 
           onChange: handleNodeLabelChange,
+          onResize: handleNodeResize,
           issues: issues[node.id] || [],
           onIssueClick: handleIssueIndicatorClick,
         },
       };
     });
-  }, [nodes, searchText, typeFilter, statusFilter, priorityFilter, stateFilter, reqTypeFilter, classificationFilter, handleNodeLabelChange, viewMode, issues, handleIssueIndicatorClick]);
+  }, [nodes, searchText, typeFilter, statusFilter, priorityFilter, stateFilter, reqTypeFilter, classificationFilter, handleNodeLabelChange, handleNodeResize, viewMode, issues, handleIssueIndicatorClick]);
 
   const filteredCount = processedNodes.filter(n => n.data.isFiltered).length;
 
