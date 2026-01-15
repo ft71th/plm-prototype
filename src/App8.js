@@ -2252,43 +2252,6 @@ function PortEditor({ ports = [], onChange, disabled }) {
     ));
   };
 
-  // Move port up or down in the list
-  const movePort = (portId, direction) => {
-    const index = ports.findIndex(p => p.id === portId);
-    if (index === -1) return;
-    
-    const port = ports[index];
-    const portDirection = port.direction || (port.type === 'output' ? 'output' : 'input');
-    
-    // Get same-direction ports
-    const sameDirPorts = ports.filter(p => 
-      (p.direction || (p.type === 'output' ? 'output' : 'input')) === portDirection
-    );
-    const otherPorts = ports.filter(p => 
-      (p.direction || (p.type === 'output' ? 'output' : 'input')) !== portDirection
-    );
-    
-    const sameDirIndex = sameDirPorts.findIndex(p => p.id === portId);
-    
-    // Check bounds
-    if (direction === 'up' && sameDirIndex === 0) return;
-    if (direction === 'down' && sameDirIndex === sameDirPorts.length - 1) return;
-    
-    // Swap positions
-    const newSameDirPorts = [...sameDirPorts];
-    const swapIndex = direction === 'up' ? sameDirIndex - 1 : sameDirIndex + 1;
-    [newSameDirPorts[sameDirIndex], newSameDirPorts[swapIndex]] = 
-      [newSameDirPorts[swapIndex], newSameDirPorts[sameDirIndex]];
-    
-    // Reconstruct ports array (inputs first, then outputs)
-    const newInputs = portDirection === 'input' ? newSameDirPorts : 
-      otherPorts.filter(p => (p.direction || (p.type === 'output' ? 'output' : 'input')) === 'input');
-    const newOutputs = portDirection === 'output' ? newSameDirPorts :
-      otherPorts.filter(p => (p.direction || (p.type === 'output' ? 'output' : 'input')) === 'output');
-    
-    onChange([...newInputs, ...newOutputs]);
-  };
-
   const inputPorts = ports.filter(p => p.direction === 'input' || p.type === 'input');
   const outputPorts = ports.filter(p => p.direction === 'output' || p.type === 'output');
 
@@ -2318,7 +2281,7 @@ function PortEditor({ ports = [], onChange, disabled }) {
         }}>
           ○ INPUTS ({inputPorts.length})
         </div>
-        {inputPorts.map((port, index) => (
+        {inputPorts.map(port => (
           <div key={port.id} style={{
             display: 'flex',
             alignItems: 'center',
@@ -2329,45 +2292,6 @@ function PortEditor({ ports = [], onChange, disabled }) {
             marginBottom: '4px',
             fontSize: '12px'
           }}>
-            {/* Up/Down arrows */}
-            {!disabled && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0px' }}>
-                <button
-                  onClick={() => movePort(port.id, 'up')}
-                  disabled={index === 0}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: index === 0 ? '#555' : '#27ae60',
-                    cursor: index === 0 ? 'default' : 'pointer',
-                    fontSize: '10px',
-                    padding: '0',
-                    lineHeight: '1',
-                    opacity: index === 0 ? 0.3 : 1
-                  }}
-                  title="Move up"
-                >
-                  ▲
-                </button>
-                <button
-                  onClick={() => movePort(port.id, 'down')}
-                  disabled={index === inputPorts.length - 1}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: index === inputPorts.length - 1 ? '#555' : '#27ae60',
-                    cursor: index === inputPorts.length - 1 ? 'default' : 'pointer',
-                    fontSize: '10px',
-                    padding: '0',
-                    lineHeight: '1',
-                    opacity: index === inputPorts.length - 1 ? 0.3 : 1
-                  }}
-                  title="Move down"
-                >
-                  ▼
-                </button>
-              </div>
-            )}
             <span style={{ color: '#27ae60' }}>○</span>
             <input
               type="text"
@@ -2430,7 +2354,7 @@ function PortEditor({ ports = [], onChange, disabled }) {
         }}>
           ● OUTPUTS ({outputPorts.length})
         </div>
-        {outputPorts.map((port, index) => (
+        {outputPorts.map(port => (
           <div key={port.id} style={{
             display: 'flex',
             alignItems: 'center',
@@ -2441,52 +2365,12 @@ function PortEditor({ ports = [], onChange, disabled }) {
             marginBottom: '4px',
             fontSize: '12px'
           }}>
-            {/* Up/Down arrows */}
-            {!disabled && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0px' }}>
-                <button
-                  onClick={() => movePort(port.id, 'up')}
-                  disabled={index === 0}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: index === 0 ? '#555' : '#e67e22',
-                    cursor: index === 0 ? 'default' : 'pointer',
-                    fontSize: '10px',
-                    padding: '0',
-                    lineHeight: '1',
-                    opacity: index === 0 ? 0.3 : 1
-                  }}
-                  title="Move up"
-                >
-                  ▲
-                </button>
-                <button
-                  onClick={() => movePort(port.id, 'down')}
-                  disabled={index === outputPorts.length - 1}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: index === outputPorts.length - 1 ? '#555' : '#e67e22',
-                    cursor: index === outputPorts.length - 1 ? 'default' : 'pointer',
-                    fontSize: '10px',
-                    padding: '0',
-                    lineHeight: '1',
-                    opacity: index === outputPorts.length - 1 ? 0.3 : 1
-                  }}
-                  title="Move down"
-                >
-                  ▼
-                </button>
-              </div>
-            )}
             <span style={{ color: '#e67e22' }}>●</span>
             <input
               type="text"
               value={port.name}
               onChange={(e) => updatePort(port.id, 'name', e.target.value)}
               disabled={disabled}
-              onFocus={(e) => e.target.select()}
               style={{
                 flex: 1,
                 background: 'transparent',
