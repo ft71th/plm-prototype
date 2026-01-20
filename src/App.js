@@ -21,8 +21,6 @@ import ReactFlow, {
   useReactFlow,
   SelectionMode,
 } from 'reactflow';
-import { NodeResizer } from '@reactflow/node-resizer';
-import '@reactflow/node-resizer/dist/style.css';
 import 'reactflow/dist/style.css';
 import * as XLSX from 'xlsx';
 
@@ -53,34 +51,6 @@ const RELATIONSHIP_TYPES = {
   related: { label: 'Related to', color: '#95a5a6', style: 'dotted' },
   flowsDown: { label: 'Flows down', color: '#00bcd4', style: 'solid' },
   reuses: { label: 'Reuses', color: '#16a085', style: 'solid' },
-};
-
-// Issue priority levels
-const ISSUE_PRIORITIES = {
-  critical: { label: 'Critical', color: '#e74c3c', icon: '🔴' },
-  high: { label: 'High', color: '#e67e22', icon: '🟠' },
-  medium: { label: 'Medium', color: '#f1c40f', icon: '🟡' },
-  low: { label: 'Low', color: '#27ae60', icon: '🟢' },
-};
-
-// Issue status options
-const ISSUE_STATUSES = {
-  open: { label: 'Open', color: '#e74c3c', icon: '⭕' },
-  investigating: { label: 'Investigating', color: '#e67e22', icon: '🔍' },
-  inProgress: { label: 'In Progress', color: '#3498db', icon: '🔄' },
-  resolved: { label: 'Resolved', color: '#27ae60', icon: '✅' },
-  closed: { label: 'Closed', color: '#95a5a6', icon: '⬜' },
-};
-
-// Issue categories
-const ISSUE_CATEGORIES = {
-  bug: { label: 'Bug', icon: '🐛' },
-  designFlaw: { label: 'Design Flaw', icon: '📐' },
-  requirement: { label: 'Requirement Issue', icon: '📋' },
-  performance: { label: 'Performance', icon: '⚡' },
-  safety: { label: 'Safety Concern', icon: '⚠️' },
-  compliance: { label: 'Compliance', icon: '📜' },
-  other: { label: 'Other', icon: '📌' },
 };
 
 // Auto-inference engine
@@ -298,7 +268,7 @@ function CustomEdge({
         markerEnd={`url(#arrow-${data?.relationType || 'related'})`}
       />
       <EdgeLabelRenderer>
-        {data?.showLabel && (!data?.isWhiteboardMode || data?.customLabel) && (
+        {(data?.showLabel && (data?.customLabel || isEditing)) && (
           <div
             style={{
               position: 'absolute',
@@ -379,52 +349,6 @@ function CustomEdge({
 const edgeTypes = {
   custom: CustomEdge,
 };
-
-// Issue Indicator Component - shows on nodes with issues
-function IssueIndicator({ issues, onDoubleClick, nodeId }) {
-  if (!issues || issues.length === 0) return null;
-
-  const priorityOrder = ['critical', 'high', 'medium', 'low'];
-  const highestPriority = issues.reduce((highest, issue) => {
-    const currentIndex = priorityOrder.indexOf(issue.priority);
-    const highestIndex = priorityOrder.indexOf(highest);
-    return currentIndex < highestIndex ? issue.priority : highest;
-  }, 'low');
-
-  const openIssues = issues.filter(i => i.status !== 'closed' && i.status !== 'resolved');
-  const indicatorColor = ISSUE_PRIORITIES[highestPriority]?.color || '#e74c3c';
-
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        top: '-8px',
-        right: '-8px',
-        width: '24px',
-        height: '24px',
-        borderRadius: '50%',
-        backgroundColor: indicatorColor,
-        border: '2px solid #fff',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: 'pointer',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-        zIndex: 100,
-        fontSize: '12px',
-        fontWeight: 'bold',
-        color: '#fff',
-      }}
-      onDoubleClick={(e) => {
-        e.stopPropagation();
-        if (onDoubleClick) onDoubleClick(nodeId);
-      }}
-      title={`${openIssues.length} open issue(s) - Double-click to view`}
-    >
-      {openIssues.length > 0 ? openIssues.length : '✓'}
-    </div>
-  );
-}
 
 // Custom node component with enhanced requirement attributes
 function CustomNode({ data, id, selected }) {
@@ -882,293 +806,234 @@ function CustomNode({ data, id, selected }) {
     };
 
     // Icon-based sizing - the node IS the icon
-    const defaultIconSize = 64;
+    const iconSize = data.hwIconSize || 64;  // Configurable icon size
     const maxPorts = Math.max(inputPorts.length, outputPorts.length, 1);
-    const defaultHeight = Math.max(defaultIconSize + 30, maxPorts * 24 + 20);
-    const defaultWidth = Math.max(defaultIconSize + 20, 80);
-    
-    // Use stored dimensions or defaults
-    const nodeWidth = data.nodeWidth || defaultWidth;
-    const nodeHeight = data.nodeHeight || defaultHeight;
-    // Scale icon based on node size
-    const iconSize = data.nodeWidth ? Math.min(data.nodeWidth - 20, data.nodeHeight - 30) : defaultIconSize;
+    const nodeHeight = Math.max(iconSize + 30, maxPorts * 24 + 20);  // Icon + label space
+    const nodeWidth = Math.max(iconSize + 20, 80);  // Icon width + padding
 
     return (
-      <>
-        {/* Resizer for hardware nodes */}
-        <NodeResizer
-          color="#795548"
-          isVisible={selected}
-          minWidth={60}
-          minHeight={60}
-          onResize={(event, params) => {
-            if (data.onResize) {
-              data.onResize(id, params.width, params.height);
-            }
-          }}
-          handleStyle={{
-            width: '8px',
-            height: '8px',
-            borderRadius: '2px',
-            border: '2px solid #fff',
-          }}
-        />
-        <div 
-          style={{
-            width: `${nodeWidth}px`,
-            height: `${nodeHeight}px`,
-            minWidth: '60px',
-            minHeight: '60px',
-            backgroundColor: 'transparent',
-            position: 'relative',
-            cursor: 'pointer',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'flex-start',
-            paddingTop: '4px',
-          }}>
+      <div 
+        style={{
+          width: `${nodeWidth}px`,
+          minHeight: `${nodeHeight}px`,
+          backgroundColor: 'transparent',
+          position: 'relative',
+          cursor: 'pointer',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'flex-start',
+          paddingTop: '4px',
+        }}>
 
-          {/* The Icon IS the node */}
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            padding: '4px',
-            borderRadius: '8px',
-            background: selected ? 'rgba(52, 152, 219, 0.3)' : 'transparent',
-            border: selected ? '2px solid #3498db' : '2px solid transparent',
-            transition: 'all 0.2s ease',
-            width: '100%',
-            height: '100%',
-            justifyContent: 'center',
-          }}>
-            {(data.hwCustomIcon || data.hwIcon?.startsWith('data:') || data.hwIcon?.startsWith('http')) ? (
-              <img 
-                src={data.hwCustomIcon || data.hwIcon} 
-                alt={data.label || 'Hardware'}
-                style={{ 
-                  width: `${iconSize}px`, 
-                  height: `${iconSize}px`, 
-                  objectFit: 'contain',
-                  filter: selected 
-                    ? 'drop-shadow(0 0 8px rgba(52, 152, 219, 0.8))' 
-                    : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
-                }}
-              />
-            ) : (
-              <span style={{ 
-                fontSize: `${iconSize * 0.75}px`,
-                lineHeight: 1,
+        {/* The Icon IS the node */}
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          padding: '4px',
+          borderRadius: '8px',
+          background: selected ? 'rgba(52, 152, 219, 0.3)' : 'transparent',
+          border: selected ? '2px solid #3498db' : '2px solid transparent',
+          transition: 'all 0.2s ease',
+        }}>
+          {(data.hwCustomIcon || data.hwIcon?.startsWith('data:') || data.hwIcon?.startsWith('http')) ? (
+            <img 
+              src={data.hwCustomIcon || data.hwIcon} 
+              alt={data.label || 'Hardware'}
+              style={{ 
+                width: `${iconSize}px`, 
+                height: `${iconSize}px`, 
+                objectFit: 'contain',
                 filter: selected 
                   ? 'drop-shadow(0 0 8px rgba(52, 152, 219, 0.8))' 
                   : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
-              }}>
-                {data.hwIcon || '📦'}
-              </span>
-            )}
-            
-            {/* Label below icon */}
-            <div style={{
-              marginTop: '4px',
-              fontSize: '10px',
-              fontWeight: 'bold',
-              color: '#333',
-              textAlign: 'center',
-              maxWidth: `${nodeWidth + 40}px`,
-              wordWrap: 'break-word',
-              overflowWrap: 'break-word',
-              textShadow: '0 0 3px #fff, 0 0 3px #fff',
+              }}
+            />
+          ) : (
+            <span style={{ 
+              fontSize: `${iconSize * 0.75}px`,
+              lineHeight: 1,
+              filter: selected 
+                ? 'drop-shadow(0 0 8px rgba(52, 152, 219, 0.8))' 
+                : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
             }}>
-              {data.label}
-            </div>
+              {data.hwIcon || '📦'}
+            </span>
+          )}
+          
+          {/* Label below icon */}
+          <div style={{
+            marginTop: '4px',
+            fontSize: '10px',
+            fontWeight: 'bold',
+            color: '#333',
+            textAlign: 'center',
+            maxWidth: `${nodeWidth + 40}px`,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            textShadow: '0 0 3px #fff, 0 0 3px #fff',
+          }}>
+            {data.label}
           </div>
+        </div>
 
-          {/* Connection handles */}
+        {/* Connection handles */}
+        <Handle
+          type="target"
+          position={Position.Left}
+          id="default-target"
+          style={{
+            background: '#27ae60',
+            width: '10px',
+            height: '10px',
+            left: '-5px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            border: '2px solid #fff',
+          }}
+        />
+        <Handle
+          type="source"
+          position={Position.Right}
+          id="default-source"
+          style={{
+            background: '#e67e22',
+            width: '10px',
+            height: '10px',
+            right: '-5px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            border: '2px solid #fff',
+          }}
+        />
+
+        {/* Port handles if any */}
+        {inputPorts.map((port, index) => (
           <Handle
+            key={port.id}
             type="target"
             position={Position.Left}
-            id="default-target"
+            id={port.id}
             style={{
               background: '#27ae60',
-              width: '10px',
-              height: '10px',
-              left: '-5px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              border: '2px solid #fff',
+              width: 8,
+              height: 8,
+              top: getHandlePosition(index, inputPorts.length),
+              border: '2px solid #fff'
             }}
+            title={port.name}
           />
+        ))}
+        {outputPorts.map((port, index) => (
           <Handle
+            key={port.id}
             type="source"
             position={Position.Right}
-            id="default-source"
+            id={port.id}
             style={{
               background: '#e67e22',
-              width: '10px',
-              height: '10px',
-              right: '-5px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              border: '2px solid #fff',
+              width: 8,
+              height: 8,
+              top: getHandlePosition(index, outputPorts.length),
+              border: '2px solid #fff'
             }}
+            title={port.name}
           />
-
-          {/* Port handles if any */}
-          {inputPorts.map((port, index) => (
-            <Handle
-              key={port.id}
-              type="target"
-              position={Position.Left}
-              id={port.id}
-              style={{
-                background: '#27ae60',
-                width: 8,
-                height: 8,
-                top: getHandlePosition(index, inputPorts.length),
-                border: '2px solid #fff'
-              }}
-              title={port.name}
-            />
-          ))}
-          {outputPorts.map((port, index) => (
-            <Handle
-              key={port.id}
-              type="source"
-              position={Position.Right}
-              id={port.id}
-              style={{
-                background: '#e67e22',
-                width: 8,
-                height: 8,
-                top: getHandlePosition(index, outputPorts.length),
-                border: '2px solid #fff'
-              }}
-              title={port.name}
-            />
-          ))}
-
-          {/* Issue Indicator */}
-          {data.issues && data.issues.length > 0 && (
-            <IssueIndicator 
-              issues={data.issues}
-              nodeId={id}
-              onDoubleClick={data.onIssueClick}
-            />
-          )}
-        </div>
-      </>
+        ))}
+      </div>
     );
   }
 
     // WHITEBOARD MODE - UML ACTOR NODES (Stick figure with name below)
   if (data.isWhiteboardMode && (data.itemType === 'actor' || data.type === 'actor')) {
-    // Use stored dimensions or defaults
-    const actorWidth = data.nodeWidth || 100;
-    const actorHeight = data.nodeHeight || 120;
-    // Scale stick figure based on node size
-    const figureSize = Math.min(actorWidth - 20, actorHeight - 40, 80);
-    
     return (
-      <>
-        {/* Resizer for actor nodes */}
-        <NodeResizer
-          color="#2ecc71"
-          isVisible={selected}
-          minWidth={60}
-          minHeight={80}
-          onResize={(event, params) => {
-            if (data.onResize) {
-              data.onResize(id, params.width, params.height);
-            }
-          }}
-          handleStyle={{
-            width: '8px',
+      <div 
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minWidth: '100px',
+          minHeight: '120px',
+          backgroundColor: 'transparent',
+          position: 'relative',
+          cursor: 'pointer',
+          padding: '10px',
+          borderRadius: '8px',
+          background: selected ? 'rgba(46, 204, 113, 0.1)' : 'transparent',
+          border: selected ? '2px solid #2ecc71' : '2px solid transparent',
+          transition: 'all 0.2s ease',
+        }}>
+        
+        {/* UML Actor Stick Figure */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: '8px',
+        }}>
+          {renderActorStickFigure(50)}
+        </div>
+        
+        {/* Actor Name Below */}
+        <div style={{
+          fontSize: '12px',
+          fontWeight: 'bold',
+          color: '#2ecc71',
+          textAlign: 'center',
+          maxWidth: '90px',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          textShadow: '0 0 3px #000, 0 0 3px #000',
+        }}>
+          {data.label}
+        </div>
+
+        {/* Connection Handles */}
+        <Handle
+          type="target"
+          position={Position.Left}
+          style={{ 
+            background: '#2ecc71', 
+            width: '8px', 
             height: '8px',
-            borderRadius: '2px',
-            border: '2px solid #fff',
+            left: '-4px' 
           }}
         />
-        <div 
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: `${actorWidth}px`,
-            height: `${actorHeight}px`,
-            minWidth: '60px',
-            minHeight: '80px',
-            backgroundColor: 'transparent',
-            position: 'relative',
-            cursor: 'pointer',
-            padding: '10px',
-            borderRadius: '8px',
-            background: selected ? 'rgba(46, 204, 113, 0.1)' : 'transparent',
-            border: selected ? '2px solid #2ecc71' : '2px solid transparent',
-            transition: 'all 0.2s ease',
-            boxSizing: 'border-box',
-          }}>
-          
-          {/* UML Actor Stick Figure */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: '8px',
-            flex: 1,
-          }}>
-            {renderActorStickFigure(figureSize)}
-          </div>
-          
-          {/* Actor Name Below - allows wrapping */}
-          <div style={{
-            fontSize: '12px',
-            fontWeight: 'bold',
-            color: '#2ecc71',
-            textAlign: 'center',
-            maxWidth: `${actorWidth - 10}px`,
-            wordWrap: 'break-word',
-            overflowWrap: 'break-word',
-            whiteSpace: 'normal',
-            lineHeight: '1.3',
-            textShadow: '0 0 3px #000, 0 0 3px #000',
-          }}>
-            {data.label}
-          </div>
-
-          {/* Connection Handles - Left and Right only */}
-          <Handle
-            type="target"
-            position={Position.Left}
-            style={{ 
-              background: '#2ecc71', 
-              width: '8px', 
-              height: '8px',
-              left: '-4px' 
-            }}
-          />
-          <Handle
-            type="source"
-            position={Position.Right}
-            style={{ 
-              background: '#2ecc71', 
-              width: '8px', 
-              height: '8px',
-              right: '-4px' 
-            }}
-          />
-
-          {/* Issue Indicator */}
-          {data.issues && data.issues.length > 0 && (
-            <IssueIndicator 
-              issues={data.issues}
-              nodeId={id}
-              onDoubleClick={data.onIssueClick}
-            />
-          )}
-        </div>
-      </>
+        <Handle
+          type="source"
+          position={Position.Right}
+          style={{ 
+            background: '#2ecc71', 
+            width: '8px', 
+            height: '8px',
+            right: '-4px' 
+          }}
+        />
+        <Handle
+          type="target"
+          position={Position.Top}
+          style={{ 
+            background: '#2ecc71', 
+            width: '8px', 
+            height: '8px',
+            top: '-4px' 
+          }}
+        />
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          style={{ 
+            background: '#2ecc71', 
+            width: '8px', 
+            height: '8px',
+            bottom: '-4px' 
+          }}
+        />
+      </div>
     );
   }
 
@@ -1203,46 +1068,24 @@ function CustomNode({ data, id, selected }) {
     const labelWidth = getTextWidth(data.label);
     
     // Total width = left ports + padding + label + padding + right ports
-    const computedWidth = Math.max(
+    const nodeWidth = Math.max(
       140,  // Minimum width
       longestInput + labelWidth + longestOutput + 60  // ports + label + spacing
     );
 
     return (
-      <>
-        {/* Resizer for whiteboard mode */}
-        <NodeResizer
-          color={getWhiteboardColor()}
-          isVisible={selected}
-          minWidth={100}
-          minHeight={60}
-          onResize={(event, params) => {
-            if (data.onResize) {
-              data.onResize(id, params.width, params.height);
-            }
-          }}
-          handleStyle={{
-            width: '8px',
-            height: '8px',
-            borderRadius: '2px',
-            border: '2px solid #fff',
-          }}
-        />
-        <div 
-          style={{
-            width: data.nodeWidth || `${computedWidth}px`,
-            height: data.nodeHeight || `${nodeHeight}px`,
-            minWidth: '100px',
-            minHeight: '60px',
-            backgroundColor: getWhiteboardColor(),
-            borderRadius: getNodeShape().borderRadius || '8px',
-            borderStyle: getNodeShape().borderStyle || 'solid',
-            border: selected ? '3px solid #3498db' : '2px solid rgba(255,255,255,0.3)',
-            boxShadow: selected ? '0 0 20px rgba(52, 152, 219, 0.5)' : '0 4px 12px rgba(0,0,0,0.2)',
-            position: 'relative',
-            cursor: 'pointer',
-            transition: 'box-shadow 0.2s ease',
-            boxSizing: 'border-box',
+      <div 
+        style={{
+          width: `${nodeWidth}px`,
+          minHeight: `${nodeHeight}px`,
+          backgroundColor: getWhiteboardColor(),
+          borderRadius: getNodeShape().borderRadius || '8px',
+          borderStyle: getNodeShape().borderStyle || 'solid',
+          border: selected ? '3px solid #3498db' : '2px solid rgba(255,255,255,0.3)',
+          boxShadow: selected ? '0 0 20px rgba(52, 152, 219, 0.5)' : '0 4px 12px rgba(0,0,0,0.2)',
+          position: 'relative',
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
         }}>
 
         {/* TYPE BADGE - Special handling for Hardware with larger icons */}
@@ -1290,17 +1133,15 @@ function CustomNode({ data, id, selected }) {
         ) : (
           <div style={{
             position: 'absolute',
-            top: (isUseCaseItem()) ? '8px' : '4px',
-            left: '50%',
-            transform: 'translateX(-50%)',
+            top: '4px',
+            left: '4px',
             fontSize: '8px',
             padding: '2px 6px',
             borderRadius: '3px',
-            background: 'rgba(0,0,0,0.4)',
+            background: 'rgba(0,0,0,0.3)',
             color: '#fff',
             fontWeight: 'bold',
-            textTransform: 'uppercase',
-            zIndex: 10,
+            textTransform: 'uppercase'
           }}>
             {data.itemType === 'requirement' ? 'REQ' :
              data.itemType === 'system' ? 'SYS' :
@@ -1430,7 +1271,7 @@ function CustomNode({ data, id, selected }) {
           left: '50%',
           transform: 'translate(-50%, -50%)',
           textAlign: 'center',
-          maxWidth: `${computedWidth - longestInput - longestOutput - 40}px`,
+          maxWidth: `${nodeWidth - longestInput - longestOutput - 40}px`,
           padding: '0 10px'
         }}>
           {isEditing ? (
@@ -1470,60 +1311,28 @@ function CustomNode({ data, id, selected }) {
             </div>
           )}
         </div>
-
-        {/* Issue Indicator */}
-        {data.issues && data.issues.length > 0 && (
-          <IssueIndicator 
-            issues={data.issues}
-            nodeId={id}
-            onDoubleClick={data.onIssueClick}
-          />
-        )}
       </div>
-      </>
     );
   }
 
   // NORMAL PLM MODE - Full details (existing code below)
   return (
-    <>
-      {/* Resizer - visible when selected */}
-      <NodeResizer
-        color={getSystemAccentColor()}
-        isVisible={selected}
-        minWidth={150}
-        minHeight={100}
-        onResize={(event, params) => {
-          if (data.onResize) {
-            data.onResize(id, params.width, params.height);
-          }
-        }}
-        handleStyle={{
-          width: '8px',
-          height: '8px',
-          borderRadius: '2px',
-        }}
-      />
-      <div 
-        style={{
-          width: data.nodeWidth || '180px',
-          height: data.nodeHeight || 'auto',
-          padding: '15px',
-          paddingLeft: (isSystemItem() || isTestItem() || isParameterItem() || isHardwareItem() || isUseCaseItem() || isActorItem()) ? '20px' : '15px',
-          border: '3px solid ' + getBorderColor(),
-          borderLeft: (isSystemItem() || isTestItem() || isParameterItem() || isHardwareItem() || isUseCaseItem() || isActorItem()) ? `6px solid ${getSystemAccentColor()}` : '3px solid ' + getBorderColor(),
-          backgroundColor: (isSystemItem() || isTestItem() || isParameterItem() || isHardwareItem() || isUseCaseItem() || isActorItem()) ? '#1a2634' : '#2c3e50',
-          minWidth: '150px',
-          minHeight: '100px',
-          opacity: data.isFiltered === false ? 0.3 : 1,
-          boxShadow: selected ? '0 0 20px rgba(52, 152, 219, 0.8)' : 
-                    isHighlighted ? '0 0 15px rgba(241, 196, 15, 0.6)' : '0 4px 8px rgba(0,0,0,0.3)',
-          transition: 'box-shadow 0.2s ease',
-          position: 'relative',
-          alignItems: 'center',
-          boxSizing: 'border-box',
-          ...getNodeShape()
-        }}>
+    <div 
+      style={{
+        padding: '15px',
+        paddingLeft: (isSystemItem() || isTestItem() || isParameterItem() || isHardwareItem() || isUseCaseItem() || isActorItem()) ? '20px' : '15px',
+        border: '3px solid ' + getBorderColor(),
+        borderLeft: (isSystemItem() || isTestItem() || isParameterItem() || isHardwareItem() || isUseCaseItem() || isActorItem()) ? `6px solid ${getSystemAccentColor()}` : '3px solid ' + getBorderColor(),
+        backgroundColor: (isSystemItem() || isTestItem() || isParameterItem() || isHardwareItem() || isUseCaseItem() || isActorItem()) ? '#1a2634' : '#2c3e50',
+        minWidth: '180px',
+        opacity: data.isFiltered === false ? 0.3 : 1,
+        boxShadow: selected ? '0 0 20px rgba(52, 152, 219, 0.8)' : 
+                  isHighlighted ? '0 0 15px rgba(241, 196, 15, 0.6)' : '0 4px 8px rgba(0,0,0,0.3)',
+        transition: 'all 0.2s ease',
+        position: 'relative',
+        alignItems: 'center',
+        ...getNodeShape()
+      }}>
       
       {/* Dynamic Port Handles */}
       {(() => {
@@ -1888,41 +1697,7 @@ function CustomNode({ data, id, selected }) {
           📎
         </div>
       )}
-
-      {/* Library Reference Indicator */}
-      {data.isLibraryReference && (
-        <div style={{
-          position: 'absolute',
-          bottom: '8px',
-          left: '8px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '4px',
-          padding: '2px 6px',
-          backgroundColor: 'rgba(142, 68, 173, 0.9)',
-          borderRadius: '4px',
-          fontSize: '10px',
-          color: '#fff',
-        }}
-        title={`Library: ${data.libraryItemName} v${data.version}${data.useLatest ? ' (auto-update)' : ''}`}
-        >
-          📚 v{data.version}
-          {data.latestVersion && data.version !== data.latestVersion && (
-            <span style={{ color: '#f1c40f' }} title={`v${data.latestVersion} available`}>⬆️</span>
-          )}
-        </div>
-      )}
-
-      {/* Issue Indicator */}
-      {data.issues && data.issues.length > 0 && (
-        <IssueIndicator 
-          issues={data.issues}
-          nodeId={id}
-          onDoubleClick={data.onIssueClick}
-        />
-      )}
     </div>
-    </>
   );
 }
 
@@ -2252,43 +2027,6 @@ function PortEditor({ ports = [], onChange, disabled }) {
     ));
   };
 
-  // Move port up or down in the list
-  const movePort = (portId, direction) => {
-    const index = ports.findIndex(p => p.id === portId);
-    if (index === -1) return;
-    
-    const port = ports[index];
-    const portDirection = port.direction || (port.type === 'output' ? 'output' : 'input');
-    
-    // Get same-direction ports
-    const sameDirPorts = ports.filter(p => 
-      (p.direction || (p.type === 'output' ? 'output' : 'input')) === portDirection
-    );
-    const otherPorts = ports.filter(p => 
-      (p.direction || (p.type === 'output' ? 'output' : 'input')) !== portDirection
-    );
-    
-    const sameDirIndex = sameDirPorts.findIndex(p => p.id === portId);
-    
-    // Check bounds
-    if (direction === 'up' && sameDirIndex === 0) return;
-    if (direction === 'down' && sameDirIndex === sameDirPorts.length - 1) return;
-    
-    // Swap positions
-    const newSameDirPorts = [...sameDirPorts];
-    const swapIndex = direction === 'up' ? sameDirIndex - 1 : sameDirIndex + 1;
-    [newSameDirPorts[sameDirIndex], newSameDirPorts[swapIndex]] = 
-      [newSameDirPorts[swapIndex], newSameDirPorts[sameDirIndex]];
-    
-    // Reconstruct ports array (inputs first, then outputs)
-    const newInputs = portDirection === 'input' ? newSameDirPorts : 
-      otherPorts.filter(p => (p.direction || (p.type === 'output' ? 'output' : 'input')) === 'input');
-    const newOutputs = portDirection === 'output' ? newSameDirPorts :
-      otherPorts.filter(p => (p.direction || (p.type === 'output' ? 'output' : 'input')) === 'output');
-    
-    onChange([...newInputs, ...newOutputs]);
-  };
-
   const inputPorts = ports.filter(p => p.direction === 'input' || p.type === 'input');
   const outputPorts = ports.filter(p => p.direction === 'output' || p.type === 'output');
 
@@ -2318,7 +2056,7 @@ function PortEditor({ ports = [], onChange, disabled }) {
         }}>
           ○ INPUTS ({inputPorts.length})
         </div>
-        {inputPorts.map((port, index) => (
+        {inputPorts.map(port => (
           <div key={port.id} style={{
             display: 'flex',
             alignItems: 'center',
@@ -2329,45 +2067,6 @@ function PortEditor({ ports = [], onChange, disabled }) {
             marginBottom: '4px',
             fontSize: '12px'
           }}>
-            {/* Up/Down arrows */}
-            {!disabled && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0px' }}>
-                <button
-                  onClick={() => movePort(port.id, 'up')}
-                  disabled={index === 0}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: index === 0 ? '#555' : '#27ae60',
-                    cursor: index === 0 ? 'default' : 'pointer',
-                    fontSize: '10px',
-                    padding: '0',
-                    lineHeight: '1',
-                    opacity: index === 0 ? 0.3 : 1
-                  }}
-                  title="Move up"
-                >
-                  ▲
-                </button>
-                <button
-                  onClick={() => movePort(port.id, 'down')}
-                  disabled={index === inputPorts.length - 1}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: index === inputPorts.length - 1 ? '#555' : '#27ae60',
-                    cursor: index === inputPorts.length - 1 ? 'default' : 'pointer',
-                    fontSize: '10px',
-                    padding: '0',
-                    lineHeight: '1',
-                    opacity: index === inputPorts.length - 1 ? 0.3 : 1
-                  }}
-                  title="Move down"
-                >
-                  ▼
-                </button>
-              </div>
-            )}
             <span style={{ color: '#27ae60' }}>○</span>
             <input
               type="text"
@@ -2430,7 +2129,7 @@ function PortEditor({ ports = [], onChange, disabled }) {
         }}>
           ● OUTPUTS ({outputPorts.length})
         </div>
-        {outputPorts.map((port, index) => (
+        {outputPorts.map(port => (
           <div key={port.id} style={{
             display: 'flex',
             alignItems: 'center',
@@ -2441,52 +2140,12 @@ function PortEditor({ ports = [], onChange, disabled }) {
             marginBottom: '4px',
             fontSize: '12px'
           }}>
-            {/* Up/Down arrows */}
-            {!disabled && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0px' }}>
-                <button
-                  onClick={() => movePort(port.id, 'up')}
-                  disabled={index === 0}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: index === 0 ? '#555' : '#e67e22',
-                    cursor: index === 0 ? 'default' : 'pointer',
-                    fontSize: '10px',
-                    padding: '0',
-                    lineHeight: '1',
-                    opacity: index === 0 ? 0.3 : 1
-                  }}
-                  title="Move up"
-                >
-                  ▲
-                </button>
-                <button
-                  onClick={() => movePort(port.id, 'down')}
-                  disabled={index === outputPorts.length - 1}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: index === outputPorts.length - 1 ? '#555' : '#e67e22',
-                    cursor: index === outputPorts.length - 1 ? 'default' : 'pointer',
-                    fontSize: '10px',
-                    padding: '0',
-                    lineHeight: '1',
-                    opacity: index === outputPorts.length - 1 ? 0.3 : 1
-                  }}
-                  title="Move down"
-                >
-                  ▼
-                </button>
-              </div>
-            )}
             <span style={{ color: '#e67e22' }}>●</span>
             <input
               type="text"
               value={port.name}
               onChange={(e) => updatePort(port.id, 'name', e.target.value)}
               disabled={disabled}
-              onFocus={(e) => e.target.select()}
               style={{
                 flex: 1,
                 background: 'transparent',
@@ -2650,7 +2309,7 @@ function PortEditor({ ports = [], onChange, disabled }) {
 }
 
 // Enhanced Floating Panel for nodes
-function FloatingPanel({ node, onClose, onUpdate, initialPosition, hardwareTypes = [], onManageTypes, onCreateIssue, onSaveToLibrary }) {
+function FloatingPanel({ node, onClose, onUpdate, initialPosition, hardwareTypes = [], onManageTypes }) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [position, setPosition] = useState(initialPosition);
@@ -2756,55 +2415,17 @@ return (
           <span style={{ fontSize: '14px', fontWeight: 'bold' }}>
             Edit {node.data.itemType === 'system' ? 'System' : 
                   node.data.itemType === 'subsystem' ? 'Sub-System' : 
-                  node.data.itemType === 'function' ? 'Function' : 'Requirement'}
+                  node.data.itemType === 'function' ? 'Function' :
+                  node.data.itemType === 'testcase' ? 'Test Case' :
+                  node.data.itemType === 'parameter' ? 'Parameter' :
+                  node.data.itemType === 'hardware' ? 'Hardware' :
+                  node.data.itemType === 'usecase' ? 'Use Case' :
+                  node.data.itemType === 'actor' ? 'Actor' : 'Requirement'}
           </span>
           {!isEditable && <span style={{ fontSize: '12px', color: '#f39c12' }}>🔒 Read-Only</span>}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {onSaveToLibrary && !node.data.isLibraryReference && (
-            <button
-              onClick={() => onSaveToLibrary(node)}
-              style={{
-                background: '#8e44ad',
-                border: 'none',
-                color: 'white',
-                fontSize: '12px',
-                cursor: 'pointer',
-                padding: '4px 10px',
-                borderRadius: '4px',
-                fontWeight: 'bold',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-              title="Save to Component Library"
-            >
-              📚 Library
-            </button>
-          )}
-          {onCreateIssue && (
-            <button
-              onClick={() => onCreateIssue(node)}
-              style={{
-                background: '#e74c3c',
-                border: 'none',
-                color: 'white',
-                fontSize: '12px',
-                cursor: 'pointer',
-                padding: '4px 10px',
-                borderRadius: '4px',
-                fontWeight: 'bold',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-              title="Create Issue for this node"
-            >
-              🐛 Issue
-            </button>
-          )}
-          <button
-            onClick={onClose}
+        <button
+          onClick={onClose}
           style={{
             background: 'transparent',
             border: 'none',
@@ -2816,7 +2437,6 @@ return (
           }}   >
         ×
         </button>
-        </div>
       </div>
 
       <div style={{ 
@@ -2825,47 +2445,6 @@ return (
         flex: 1,
         minHeight: 0
       }}>
-        {/* Library Reference Info */}
-        {node.data.isLibraryReference && (
-          <div style={{
-            padding: '10px',
-            backgroundColor: 'rgba(142, 68, 173, 0.2)',
-            border: '1px solid #8e44ad',
-            borderRadius: '6px',
-            marginBottom: '15px',
-          }}>
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '8px',
-              marginBottom: '6px',
-            }}>
-              <span style={{ fontSize: '16px' }}>📚</span>
-              <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '13px' }}>
-                Library Reference
-              </span>
-            </div>
-            <div style={{ fontSize: '12px', color: '#bdc3c7' }}>
-              <div><strong>Component:</strong> {node.data.libraryItemName}</div>
-              <div><strong>Version:</strong> v{node.data.version}</div>
-              {node.data.useLatest && (
-                <div style={{ color: '#27ae60' }}>✓ Auto-updates to latest</div>
-              )}
-              {node.data.latestVersion && node.data.version !== node.data.latestVersion && (
-                <div style={{ 
-                  color: '#f1c40f', 
-                  marginTop: '6px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                }}>
-                  ⚠️ v{node.data.latestVersion} available
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
         <div style={{ marginBottom: '15px' }}>
           <label style={{
             display: 'block',
@@ -2877,7 +2456,12 @@ return (
           }}>
             {node.data.itemType === 'system' ? 'System ID' : 
              node.data.itemType === 'subsystem' ? 'Sub-System ID' : 
-             node.data.itemType === 'function' ? 'Function ID' : 'Requirement ID'}
+             node.data.itemType === 'function' ? 'Function ID' :
+             node.data.itemType === 'testcase' ? 'Test Case ID' :
+             node.data.itemType === 'parameter' ? 'Parameter ID' :
+             node.data.itemType === 'hardware' ? 'Hardware ID' :
+             node.data.itemType === 'usecase' ? 'Use Case ID' :
+             node.data.itemType === 'actor' ? 'Actor ID' : 'Item ID'}
           </label>
           <div style={{
             padding: '8px',
@@ -2890,6 +2474,58 @@ return (
           }}>
             {node.data.reqId || 'No ID'}
           </div>
+        </div>
+
+        {/* Node Type Selector */}
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{
+            display: 'block',
+            marginBottom: '6px',
+            fontSize: '11px',
+            color: '#bdc3c7',
+            textTransform: 'uppercase',
+            fontWeight: 'bold'
+          }}>
+            Node Type
+          </label>
+          <select
+            value={node.data.itemType || 'requirement'}
+            onChange={(e) => {
+              const newType = e.target.value;
+              onUpdate(node.id, 'itemType', newType);
+              // Also update 'type' for consistency
+              onUpdate(node.id, 'type', newType);
+            }}
+            disabled={!isEditable}
+            style={{
+              width: '100%',
+              padding: '8px',
+              background: isEditable ? '#34495e' : '#2c3e50',
+              color: 'white',
+              border: '1px solid #4a5f7f',
+              borderRadius: '4px',
+              fontSize: '14px',
+              cursor: isEditable ? 'pointer' : 'not-allowed'
+            }}
+          >
+            <optgroup label="Architecture">
+              <option value="system">System</option>
+              <option value="subsystem">Sub-System</option>
+              <option value="function">Function</option>
+            </optgroup>
+            <optgroup label="Requirements">
+              <option value="requirement">Requirement</option>
+            </optgroup>
+            <optgroup label="Testing">
+              <option value="testcase">Test Case</option>
+            </optgroup>
+            <optgroup label="Other">
+              <option value="parameter">Parameter</option>
+              <option value="hardware">Hardware</option>
+              <option value="usecase">Use Case</option>
+              <option value="actor">Actor</option>
+            </optgroup>
+          </select>
         </div>
 
           <div style={{ marginBottom: '15px' }}>
@@ -4294,156 +3930,7 @@ return (
 
 const nodeTypes = {
   custom: CustomNode,
-  textAnnotation: TextAnnotationNode,
 };
-
-// Text Annotation Node - free text on canvas without node frame
-function TextAnnotationNode({ data, id, selected }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [text, setText] = useState(data.text || 'Double-click to edit');
-  const textareaRef = useRef(null);
-
-  // Sync text state with data.text when it changes externally
-  useEffect(() => {
-    if (!isEditing && data.text !== undefined) {
-      setText(data.text || 'Double-click to edit');
-    }
-  }, [data.text, isEditing]);
-
-  useEffect(() => {
-    if (isEditing && textareaRef.current) {
-      textareaRef.current.focus();
-      textareaRef.current.select();
-    }
-  }, [isEditing]);
-
-  const handleDoubleClick = (e) => {
-    e.stopPropagation();
-    setIsEditing(true);
-  };
-
-  const handleBlur = () => {
-    setIsEditing(false);
-    if (data.onTextChange) {
-      data.onTextChange(id, text);
-    }
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Escape') {
-      setIsEditing(false);
-    }
-    if ((e.key === 'Enter' && (e.shiftKey || e.ctrlKey))) {
-      setIsEditing(false);
-      if (data.onTextChange) {
-        data.onTextChange(id, text);
-      }
-    }
-  };
-
-  // Detect if we're in whiteboard mode (light background) or PLM mode (dark background)
-  const isLightBackground = data.isWhiteboardMode;
-  
-  // Default colors based on background
-  const defaultColor = isLightBackground ? '#2c3e50' : '#ffffff';
-  const defaultBgColor = isLightBackground ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.3)';
-
-  const fontSize = data.fontSize || 16;
-  const color = data.color || defaultColor;
-  const fontWeight = data.fontWeight || 'normal';
-  const fontStyle = data.fontStyle || 'normal';
-  const textAlign = data.textAlign || 'left';
-  const backgroundColor = data.backgroundColor || defaultBgColor;
-
-  // Use stored dimensions or defaults
-  const width = data.nodeWidth || 'auto';
-  const height = data.nodeHeight || 'auto';
-
-  return (
-    <>
-      {/* Resizer - only visible when selected */}
-      <NodeResizer
-        color="#3498db"
-        isVisible={selected}
-        minWidth={80}
-        minHeight={30}
-        onResize={(event, params) => {
-          if (data.onResize) {
-            data.onResize(id, params.width, params.height);
-          }
-        }}
-        handleStyle={{
-          width: '10px',
-          height: '10px',
-          borderRadius: '2px',
-        }}
-      />
-      <div
-        style={{
-          width: width,
-          height: height,
-          minWidth: '80px',
-          minHeight: '30px',
-          padding: '10px 14px',
-          backgroundColor: backgroundColor,
-          borderRadius: '6px',
-          border: selected ? '2px dashed #3498db' : (isLightBackground ? '2px dashed #95a5a6' : '2px dashed rgba(255,255,255,0.4)'),
-          cursor: 'text',
-          transition: 'border 0.2s ease',
-          boxShadow: isLightBackground ? '0 2px 8px rgba(0,0,0,0.15)' : '0 2px 8px rgba(0,0,0,0.3)',
-          boxSizing: 'border-box',
-        }}
-        onDoubleClick={handleDoubleClick}
-      >
-        {isEditing ? (
-          <textarea
-            ref={textareaRef}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-            style={{
-              width: '100%',
-              height: '100%',
-              minHeight: '40px',
-              padding: '4px',
-              fontSize: `${fontSize}px`,
-              color: isLightBackground ? '#2c3e50' : '#ffffff',
-              fontWeight: fontWeight,
-              fontStyle: fontStyle,
-              textAlign: textAlign,
-              backgroundColor: isLightBackground ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.5)',
-              border: '2px solid #3498db',
-              borderRadius: '4px',
-              resize: 'none',
-              outline: 'none',
-              fontFamily: 'inherit',
-              boxSizing: 'border-box',
-            }}
-          />
-        ) : (
-          <div
-            style={{
-              width: '100%',
-              height: '100%',
-              fontSize: `${fontSize}px`,
-              color: color,
-              fontWeight: fontWeight,
-              fontStyle: fontStyle,
-              textAlign: textAlign,
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-              userSelect: 'none',
-              overflow: 'hidden',
-            }}
-          >
-            {text || 'Double-click to edit'}
-          </div>
-        )}
-      </div>
-    </>
-  );
-}
 
 const initialNodes = [
   // SYSTEM
@@ -4832,1895 +4319,6 @@ function NewObjectModal({ onClose, onCreate }) {
             🚀 Create Object
           </button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-// ============== ISSUE MANAGEMENT COMPONENTS ==============
-
-// Issue Detail Panel - Side panel showing issue details
-function IssueDetailPanel({ issue, onClose, onUpdate, onDelete }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedIssue, setEditedIssue] = useState({ ...issue });
-
-  const handleSave = () => {
-    onUpdate(editedIssue);
-    setIsEditing(false);
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      right: 0,
-      width: '450px',
-      height: '100vh',
-      backgroundColor: '#2c3e50',
-      boxShadow: '-4px 0 20px rgba(0,0,0,0.3)',
-      zIndex: 4000,
-      display: 'flex',
-      flexDirection: 'column',
-      overflow: 'hidden',
-    }}>
-      {/* Header */}
-      <div style={{
-        padding: '20px',
-        borderBottom: '1px solid #34495e',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '24px' }}>
-            {ISSUE_CATEGORIES[issue.category]?.icon || '📌'}
-          </span>
-          <div>
-            <h3 style={{ margin: 0, color: '#fff', fontSize: '16px' }}>
-              Issue: {issue.id}
-            </h3>
-            <span style={{
-              fontSize: '11px',
-              padding: '2px 8px',
-              borderRadius: '10px',
-              backgroundColor: ISSUE_PRIORITIES[issue.priority]?.color || '#95a5a6',
-              color: '#fff',
-            }}>
-              {ISSUE_PRIORITIES[issue.priority]?.label || 'Unknown'}
-            </span>
-          </div>
-        </div>
-        <button
-          onClick={onClose}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: '#95a5a6',
-            fontSize: '24px',
-            cursor: 'pointer',
-          }}
-        >
-          ×
-        </button>
-      </div>
-
-      {/* Content */}
-      <div style={{
-        flex: 1,
-        overflowY: 'auto',
-        padding: '20px',
-      }}>
-        {/* Status */}
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{
-            display: 'block',
-            color: '#7f8c8d',
-            fontSize: '11px',
-            textTransform: 'uppercase',
-            marginBottom: '6px',
-          }}>
-            Status
-          </label>
-          {isEditing ? (
-            <select
-              value={editedIssue.status}
-              onChange={(e) => setEditedIssue({ ...editedIssue, status: e.target.value })}
-              style={{
-                width: '100%',
-                padding: '10px',
-                backgroundColor: '#34495e',
-                color: '#fff',
-                border: '1px solid #4a5f7f',
-                borderRadius: '6px',
-              }}
-            >
-              {Object.entries(ISSUE_STATUSES).map(([key, val]) => (
-                <option key={key} value={key}>{val.icon} {val.label}</option>
-              ))}
-            </select>
-          ) : (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '10px',
-              backgroundColor: '#34495e',
-              borderRadius: '6px',
-            }}>
-              <span style={{ color: ISSUE_STATUSES[issue.status]?.color }}>
-                {ISSUE_STATUSES[issue.status]?.icon}
-              </span>
-              <span style={{ color: '#fff' }}>
-                {ISSUE_STATUSES[issue.status]?.label || issue.status}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Title */}
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{
-            display: 'block',
-            color: '#7f8c8d',
-            fontSize: '11px',
-            textTransform: 'uppercase',
-            marginBottom: '6px',
-          }}>
-            Title
-          </label>
-          {isEditing ? (
-            <input
-              type="text"
-              value={editedIssue.title}
-              onChange={(e) => setEditedIssue({ ...editedIssue, title: e.target.value })}
-              style={{
-                width: '100%',
-                padding: '10px',
-                backgroundColor: '#34495e',
-                color: '#fff',
-                border: '1px solid #4a5f7f',
-                borderRadius: '6px',
-              }}
-            />
-          ) : (
-            <div style={{
-              padding: '10px',
-              backgroundColor: '#34495e',
-              borderRadius: '6px',
-              color: '#fff',
-            }}>
-              {issue.title}
-            </div>
-          )}
-        </div>
-
-        {/* Description */}
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{
-            display: 'block',
-            color: '#7f8c8d',
-            fontSize: '11px',
-            textTransform: 'uppercase',
-            marginBottom: '6px',
-          }}>
-            Description
-          </label>
-          {isEditing ? (
-            <textarea
-              value={editedIssue.description}
-              onChange={(e) => setEditedIssue({ ...editedIssue, description: e.target.value })}
-              style={{
-                width: '100%',
-                minHeight: '100px',
-                padding: '10px',
-                backgroundColor: '#34495e',
-                color: '#fff',
-                border: '1px solid #4a5f7f',
-                borderRadius: '6px',
-                resize: 'vertical',
-              }}
-            />
-          ) : (
-            <div style={{
-              padding: '10px',
-              backgroundColor: '#34495e',
-              borderRadius: '6px',
-              color: '#bdc3c7',
-              whiteSpace: 'pre-wrap',
-              minHeight: '60px',
-            }}>
-              {issue.description || 'No description provided'}
-            </div>
-          )}
-        </div>
-
-        {/* Root Cause */}
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{
-            display: 'block',
-            color: '#7f8c8d',
-            fontSize: '11px',
-            textTransform: 'uppercase',
-            marginBottom: '6px',
-          }}>
-            🔍 Root Cause Analysis
-          </label>
-          {isEditing ? (
-            <textarea
-              value={editedIssue.rootCause || ''}
-              onChange={(e) => setEditedIssue({ ...editedIssue, rootCause: e.target.value })}
-              placeholder="What is causing this issue?"
-              style={{
-                width: '100%',
-                minHeight: '80px',
-                padding: '10px',
-                backgroundColor: '#34495e',
-                color: '#fff',
-                border: '1px solid #4a5f7f',
-                borderRadius: '6px',
-                resize: 'vertical',
-              }}
-            />
-          ) : (
-            <div style={{
-              padding: '10px',
-              backgroundColor: '#34495e',
-              borderRadius: '6px',
-              color: '#bdc3c7',
-              whiteSpace: 'pre-wrap',
-              minHeight: '40px',
-            }}>
-              {issue.rootCause || 'Not yet analyzed'}
-            </div>
-          )}
-        </div>
-
-        {/* Solution */}
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{
-            display: 'block',
-            color: '#7f8c8d',
-            fontSize: '11px',
-            textTransform: 'uppercase',
-            marginBottom: '6px',
-          }}>
-            💡 Solution / Corrective Action
-          </label>
-          {isEditing ? (
-            <textarea
-              value={editedIssue.solution || ''}
-              onChange={(e) => setEditedIssue({ ...editedIssue, solution: e.target.value })}
-              placeholder="How should this be fixed?"
-              style={{
-                width: '100%',
-                minHeight: '80px',
-                padding: '10px',
-                backgroundColor: '#34495e',
-                color: '#fff',
-                border: '1px solid #4a5f7f',
-                borderRadius: '6px',
-                resize: 'vertical',
-              }}
-            />
-          ) : (
-            <div style={{
-              padding: '10px',
-              backgroundColor: '#34495e',
-              borderRadius: '6px',
-              color: '#bdc3c7',
-              whiteSpace: 'pre-wrap',
-              minHeight: '40px',
-            }}>
-              {issue.solution || 'No solution proposed yet'}
-            </div>
-          )}
-        </div>
-
-        {/* Impact */}
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{
-            display: 'block',
-            color: '#7f8c8d',
-            fontSize: '11px',
-            textTransform: 'uppercase',
-            marginBottom: '6px',
-          }}>
-            ⚠️ Impact Assessment
-          </label>
-          {isEditing ? (
-            <textarea
-              value={editedIssue.impact || ''}
-              onChange={(e) => setEditedIssue({ ...editedIssue, impact: e.target.value })}
-              placeholder="What is the impact of this issue?"
-              style={{
-                width: '100%',
-                minHeight: '60px',
-                padding: '10px',
-                backgroundColor: '#34495e',
-                color: '#fff',
-                border: '1px solid #4a5f7f',
-                borderRadius: '6px',
-                resize: 'vertical',
-              }}
-            />
-          ) : (
-            <div style={{
-              padding: '10px',
-              backgroundColor: '#34495e',
-              borderRadius: '6px',
-              color: '#bdc3c7',
-              whiteSpace: 'pre-wrap',
-            }}>
-              {issue.impact || 'Not assessed'}
-            </div>
-          )}
-        </div>
-
-        {/* Assignee */}
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{
-            display: 'block',
-            color: '#7f8c8d',
-            fontSize: '11px',
-            textTransform: 'uppercase',
-            marginBottom: '6px',
-          }}>
-            👤 Assignee
-          </label>
-          {isEditing ? (
-            <input
-              type="text"
-              value={editedIssue.assignee || ''}
-              onChange={(e) => setEditedIssue({ ...editedIssue, assignee: e.target.value })}
-              placeholder="Who is responsible?"
-              style={{
-                width: '100%',
-                padding: '10px',
-                backgroundColor: '#34495e',
-                color: '#fff',
-                border: '1px solid #4a5f7f',
-                borderRadius: '6px',
-              }}
-            />
-          ) : (
-            <div style={{
-              padding: '10px',
-              backgroundColor: '#34495e',
-              borderRadius: '6px',
-              color: '#fff',
-            }}>
-              {issue.assignee || 'Unassigned'}
-            </div>
-          )}
-        </div>
-
-        {/* Due Date */}
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{
-            display: 'block',
-            color: '#7f8c8d',
-            fontSize: '11px',
-            textTransform: 'uppercase',
-            marginBottom: '6px',
-          }}>
-            📅 Due Date
-          </label>
-          {isEditing ? (
-            <input
-              type="date"
-              value={editedIssue.dueDate || ''}
-              onChange={(e) => setEditedIssue({ ...editedIssue, dueDate: e.target.value })}
-              style={{
-                width: '100%',
-                padding: '10px',
-                backgroundColor: '#34495e',
-                color: '#fff',
-                border: '1px solid #4a5f7f',
-                borderRadius: '6px',
-              }}
-            />
-          ) : (
-            <div style={{
-              padding: '10px',
-              backgroundColor: '#34495e',
-              borderRadius: '6px',
-              color: '#fff',
-            }}>
-              {issue.dueDate || 'No due date set'}
-            </div>
-          )}
-        </div>
-
-        {/* Metadata */}
-        <div style={{
-          padding: '15px',
-          backgroundColor: '#1a252f',
-          borderRadius: '6px',
-          marginTop: '20px',
-        }}>
-          <div style={{ fontSize: '11px', color: '#7f8c8d', marginBottom: '8px' }}>
-            Created: {formatDate(issue.createdAt)}
-          </div>
-          <div style={{ fontSize: '11px', color: '#7f8c8d', marginBottom: '8px' }}>
-            Updated: {formatDate(issue.updatedAt)}
-          </div>
-          <div style={{ fontSize: '11px', color: '#7f8c8d' }}>
-            Created by: {issue.createdBy || 'Unknown'}
-          </div>
-        </div>
-      </div>
-
-      {/* Footer Actions */}
-      <div style={{
-        padding: '15px 20px',
-        borderTop: '1px solid #34495e',
-        display: 'flex',
-        gap: '10px',
-        justifyContent: 'space-between',
-      }}>
-        {isEditing ? (
-          <>
-            <button
-              onClick={() => setIsEditing(false)}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: '#7f8c8d',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: '#27ae60',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-              }}
-            >
-              💾 Save Changes
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              onClick={() => {
-                if (window.confirm('Delete this issue?')) {
-                  onDelete(issue.id);
-                }
-              }}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: '#e74c3c',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-              }}
-            >
-              🗑️ Delete
-            </button>
-            <button
-              onClick={() => setIsEditing(true)}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: '#3498db',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-              }}
-            >
-              ✏️ Edit Issue
-            </button>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// Create Issue Modal
-function CreateIssueModal({ nodeId, nodeName, onClose, onCreate }) {
-  const [issue, setIssue] = useState({
-    title: '',
-    description: '',
-    category: 'bug',
-    priority: 'medium',
-    status: 'open',
-    rootCause: '',
-    solution: '',
-    impact: '',
-    assignee: '',
-    dueDate: '',
-  });
-
-  const handleCreate = () => {
-    if (!issue.title.trim()) {
-      alert('Please enter an issue title');
-      return;
-    }
-    onCreate({
-      ...issue,
-      id: `ISS-${Date.now().toString(36).toUpperCase()}`,
-      nodeId: nodeId,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-    onClose();
-  };
-
-  return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.8)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 5000,
-    }}>
-      <div style={{
-        backgroundColor: '#2c3e50',
-        borderRadius: '12px',
-        padding: '30px',
-        width: '550px',
-        maxHeight: '85vh',
-        overflow: 'auto',
-        boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
-      }}>
-        <h2 style={{ color: '#fff', marginTop: 0, marginBottom: '10px', fontSize: '20px' }}>
-          🐛 Create New Issue
-        </h2>
-        <p style={{ color: '#7f8c8d', marginBottom: '20px', fontSize: '13px' }}>
-          Creating issue for: <strong style={{ color: '#3498db' }}>{nodeName}</strong>
-        </p>
-
-        {/* Title */}
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{
-            display: 'block',
-            color: '#bdc3c7',
-            fontSize: '11px',
-            textTransform: 'uppercase',
-            fontWeight: 'bold',
-            marginBottom: '6px',
-          }}>
-            Issue Title *
-          </label>
-          <input
-            type="text"
-            value={issue.title}
-            onChange={(e) => setIssue({ ...issue, title: e.target.value })}
-            placeholder="Brief description of the issue"
-            autoFocus
-            style={{
-              width: '100%',
-              padding: '12px',
-              backgroundColor: '#34495e',
-              color: '#fff',
-              border: '1px solid #4a5f7f',
-              borderRadius: '6px',
-              fontSize: '14px',
-            }}
-          />
-        </div>
-
-        {/* Category & Priority Row */}
-        <div style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
-          <div style={{ flex: 1 }}>
-            <label style={{
-              display: 'block',
-              color: '#bdc3c7',
-              fontSize: '11px',
-              textTransform: 'uppercase',
-              fontWeight: 'bold',
-              marginBottom: '6px',
-            }}>
-              Category
-            </label>
-            <select
-              value={issue.category}
-              onChange={(e) => setIssue({ ...issue, category: e.target.value })}
-              style={{
-                width: '100%',
-                padding: '12px',
-                backgroundColor: '#34495e',
-                color: '#fff',
-                border: '1px solid #4a5f7f',
-                borderRadius: '6px',
-              }}
-            >
-              {Object.entries(ISSUE_CATEGORIES).map(([key, val]) => (
-                <option key={key} value={key}>{val.icon} {val.label}</option>
-              ))}
-            </select>
-          </div>
-          <div style={{ flex: 1 }}>
-            <label style={{
-              display: 'block',
-              color: '#bdc3c7',
-              fontSize: '11px',
-              textTransform: 'uppercase',
-              fontWeight: 'bold',
-              marginBottom: '6px',
-            }}>
-              Priority
-            </label>
-            <select
-              value={issue.priority}
-              onChange={(e) => setIssue({ ...issue, priority: e.target.value })}
-              style={{
-                width: '100%',
-                padding: '12px',
-                backgroundColor: '#34495e',
-                color: '#fff',
-                border: '1px solid #4a5f7f',
-                borderRadius: '6px',
-              }}
-            >
-              {Object.entries(ISSUE_PRIORITIES).map(([key, val]) => (
-                <option key={key} value={key}>{val.icon} {val.label}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Description */}
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{
-            display: 'block',
-            color: '#bdc3c7',
-            fontSize: '11px',
-            textTransform: 'uppercase',
-            fontWeight: 'bold',
-            marginBottom: '6px',
-          }}>
-            Description
-          </label>
-          <textarea
-            value={issue.description}
-            onChange={(e) => setIssue({ ...issue, description: e.target.value })}
-            placeholder="Detailed description of the issue..."
-            style={{
-              width: '100%',
-              minHeight: '80px',
-              padding: '12px',
-              backgroundColor: '#34495e',
-              color: '#fff',
-              border: '1px solid #4a5f7f',
-              borderRadius: '6px',
-              fontSize: '14px',
-              resize: 'vertical',
-            }}
-          />
-        </div>
-
-        {/* Impact */}
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{
-            display: 'block',
-            color: '#bdc3c7',
-            fontSize: '11px',
-            textTransform: 'uppercase',
-            fontWeight: 'bold',
-            marginBottom: '6px',
-          }}>
-            ⚠️ Impact Assessment
-          </label>
-          <textarea
-            value={issue.impact}
-            onChange={(e) => setIssue({ ...issue, impact: e.target.value })}
-            placeholder="What is affected by this issue?"
-            style={{
-              width: '100%',
-              minHeight: '60px',
-              padding: '12px',
-              backgroundColor: '#34495e',
-              color: '#fff',
-              border: '1px solid #4a5f7f',
-              borderRadius: '6px',
-              fontSize: '14px',
-              resize: 'vertical',
-            }}
-          />
-        </div>
-
-        {/* Assignee & Due Date Row */}
-        <div style={{ display: 'flex', gap: '15px', marginBottom: '25px' }}>
-          <div style={{ flex: 1 }}>
-            <label style={{
-              display: 'block',
-              color: '#bdc3c7',
-              fontSize: '11px',
-              textTransform: 'uppercase',
-              fontWeight: 'bold',
-              marginBottom: '6px',
-            }}>
-              Assignee
-            </label>
-            <input
-              type="text"
-              value={issue.assignee}
-              onChange={(e) => setIssue({ ...issue, assignee: e.target.value })}
-              placeholder="Who should fix this?"
-              style={{
-                width: '100%',
-                padding: '12px',
-                backgroundColor: '#34495e',
-                color: '#fff',
-                border: '1px solid #4a5f7f',
-                borderRadius: '6px',
-              }}
-            />
-          </div>
-          <div style={{ flex: 1 }}>
-            <label style={{
-              display: 'block',
-              color: '#bdc3c7',
-              fontSize: '11px',
-              textTransform: 'uppercase',
-              fontWeight: 'bold',
-              marginBottom: '6px',
-            }}>
-              Due Date
-            </label>
-            <input
-              type="date"
-              value={issue.dueDate}
-              onChange={(e) => setIssue({ ...issue, dueDate: e.target.value })}
-              style={{
-                width: '100%',
-                padding: '12px',
-                backgroundColor: '#34495e',
-                color: '#fff',
-                border: '1px solid #4a5f7f',
-                borderRadius: '6px',
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-          <button
-            onClick={onClose}
-            style={{
-              padding: '12px 24px',
-              backgroundColor: '#7f8c8d',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '14px',
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleCreate}
-            disabled={!issue.title.trim()}
-            style={{
-              padding: '12px 24px',
-              backgroundColor: issue.title.trim() ? '#e74c3c' : '#7f8c8d',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: issue.title.trim() ? 'pointer' : 'not-allowed',
-              fontSize: '14px',
-              fontWeight: 'bold',
-            }}
-          >
-            🐛 Create Issue
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Issue Manager Modal - View all issues
-function IssueManagerModal({ issues, nodes, onClose, onIssueClick, onUpdateIssue, onDeleteIssue }) {
-  const [filter, setFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('priority');
-  const [searchTerm, setSearchTerm] = useState('');
-
-  const getNodeName = (nodeId) => {
-    const node = nodes.find(n => n.id === nodeId);
-    return node?.data?.label || node?.data?.reqId || nodeId;
-  };
-
-  const filteredIssues = issues
-    .filter(issue => {
-      if (filter === 'all') return true;
-      if (filter === 'open') return !['resolved', 'closed'].includes(issue.status);
-      if (filter === 'resolved') return issue.status === 'resolved';
-      if (filter === 'closed') return issue.status === 'closed';
-      return issue.priority === filter || issue.category === filter;
-    })
-    .filter(issue => {
-      if (!searchTerm) return true;
-      const search = searchTerm.toLowerCase();
-      return (
-        issue.title.toLowerCase().includes(search) ||
-        issue.description?.toLowerCase().includes(search) ||
-        issue.id.toLowerCase().includes(search) ||
-        getNodeName(issue.nodeId).toLowerCase().includes(search)
-      );
-    })
-    .sort((a, b) => {
-      if (sortBy === 'priority') {
-        const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-        return priorityOrder[a.priority] - priorityOrder[b.priority];
-      }
-      if (sortBy === 'date') {
-        return new Date(b.createdAt) - new Date(a.createdAt);
-      }
-      if (sortBy === 'status') {
-        const statusOrder = { open: 0, investigating: 1, inProgress: 2, resolved: 3, closed: 4 };
-        return statusOrder[a.status] - statusOrder[b.status];
-      }
-      return 0;
-    });
-
-  const stats = {
-    total: issues.length,
-    open: issues.filter(i => i.status === 'open').length,
-    inProgress: issues.filter(i => i.status === 'investigating' || i.status === 'inProgress').length,
-    resolved: issues.filter(i => i.status === 'resolved').length,
-    critical: issues.filter(i => i.priority === 'critical' && i.status !== 'closed').length,
-  };
-
-  return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.85)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 5000,
-    }}>
-      <div style={{
-        backgroundColor: '#1a252f',
-        borderRadius: '12px',
-        width: '90%',
-        maxWidth: '1200px',
-        height: '85vh',
-        display: 'flex',
-        flexDirection: 'column',
-        boxShadow: '0 10px 50px rgba(0,0,0,0.5)',
-      }}>
-        {/* Header */}
-        <div style={{
-          padding: '20px 25px',
-          borderBottom: '1px solid #34495e',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}>
-          <div>
-            <h2 style={{ margin: 0, color: '#fff', fontSize: '22px' }}>
-              🐛 Issue Manager
-            </h2>
-            <p style={{ margin: '5px 0 0', color: '#7f8c8d', fontSize: '13px' }}>
-              Track and manage all issues across your project
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#95a5a6',
-              fontSize: '28px',
-              cursor: 'pointer',
-              padding: '0 10px',
-            }}
-          >
-            ×
-          </button>
-        </div>
-
-        {/* Stats Bar */}
-        <div style={{
-          display: 'flex',
-          gap: '15px',
-          padding: '15px 25px',
-          backgroundColor: '#2c3e50',
-          borderBottom: '1px solid #34495e',
-        }}>
-          <div style={{
-            padding: '10px 20px',
-            backgroundColor: '#34495e',
-            borderRadius: '8px',
-            textAlign: 'center',
-          }}>
-            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff' }}>{stats.total}</div>
-            <div style={{ fontSize: '11px', color: '#7f8c8d' }}>Total Issues</div>
-          </div>
-          <div style={{
-            padding: '10px 20px',
-            backgroundColor: '#34495e',
-            borderRadius: '8px',
-            textAlign: 'center',
-          }}>
-            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#e74c3c' }}>{stats.open}</div>
-            <div style={{ fontSize: '11px', color: '#7f8c8d' }}>Open</div>
-          </div>
-          <div style={{
-            padding: '10px 20px',
-            backgroundColor: '#34495e',
-            borderRadius: '8px',
-            textAlign: 'center',
-          }}>
-            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#3498db' }}>{stats.inProgress}</div>
-            <div style={{ fontSize: '11px', color: '#7f8c8d' }}>In Progress</div>
-          </div>
-          <div style={{
-            padding: '10px 20px',
-            backgroundColor: '#34495e',
-            borderRadius: '8px',
-            textAlign: 'center',
-          }}>
-            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#27ae60' }}>{stats.resolved}</div>
-            <div style={{ fontSize: '11px', color: '#7f8c8d' }}>Resolved</div>
-          </div>
-          {stats.critical > 0 && (
-            <div style={{
-              padding: '10px 20px',
-              backgroundColor: '#e74c3c',
-              borderRadius: '8px',
-              textAlign: 'center',
-            }}>
-              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff' }}>{stats.critical}</div>
-              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.8)' }}>Critical!</div>
-            </div>
-          )}
-        </div>
-
-        {/* Filters & Search */}
-        <div style={{
-          display: 'flex',
-          gap: '15px',
-          padding: '15px 25px',
-          backgroundColor: '#2c3e50',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-        }}>
-          <input
-            type="text"
-            placeholder="🔍 Search issues..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              flex: 1,
-              minWidth: '200px',
-              padding: '10px 15px',
-              backgroundColor: '#34495e',
-              color: '#fff',
-              border: '1px solid #4a5f7f',
-              borderRadius: '6px',
-            }}
-          />
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            style={{
-              padding: '10px 15px',
-              backgroundColor: '#34495e',
-              color: '#fff',
-              border: '1px solid #4a5f7f',
-              borderRadius: '6px',
-            }}
-          >
-            <option value="all">All Issues</option>
-            <option value="open">Open Only</option>
-            <option value="resolved">Resolved</option>
-            <option value="closed">Closed</option>
-            <option value="critical">🔴 Critical</option>
-            <option value="high">🟠 High Priority</option>
-          </select>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            style={{
-              padding: '10px 15px',
-              backgroundColor: '#34495e',
-              color: '#fff',
-              border: '1px solid #4a5f7f',
-              borderRadius: '6px',
-            }}
-          >
-            <option value="priority">Sort by Priority</option>
-            <option value="date">Sort by Date</option>
-            <option value="status">Sort by Status</option>
-          </select>
-        </div>
-
-        {/* Issue List */}
-        <div style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '20px 25px',
-        }}>
-          {filteredIssues.length === 0 ? (
-            <div style={{
-              textAlign: 'center',
-              padding: '60px',
-              color: '#7f8c8d',
-            }}>
-              <div style={{ fontSize: '48px', marginBottom: '20px' }}>🎉</div>
-              <div style={{ fontSize: '18px' }}>No issues found</div>
-              <div style={{ fontSize: '13px', marginTop: '10px' }}>
-                {issues.length === 0 
-                  ? 'Create issues from the node panel' 
-                  : 'Try adjusting your filters'}
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {filteredIssues.map(issue => (
-                <div
-                  key={issue.id}
-                  onClick={() => onIssueClick(issue)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: '15px 20px',
-                    backgroundColor: '#2c3e50',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    borderLeft: `4px solid ${ISSUE_PRIORITIES[issue.priority]?.color || '#95a5a6'}`,
-                    transition: 'all 0.2s ease',
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#34495e'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2c3e50'}
-                >
-                  <div style={{
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '8px',
-                    backgroundColor: ISSUE_PRIORITIES[issue.priority]?.color || '#95a5a6',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginRight: '15px',
-                    fontSize: '20px',
-                  }}>
-                    {ISSUE_CATEGORIES[issue.category]?.icon || '📌'}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                      <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '14px' }}>
-                        {issue.title}
-                      </span>
-                      <span style={{
-                        fontSize: '10px',
-                        padding: '2px 8px',
-                        borderRadius: '10px',
-                        backgroundColor: ISSUE_STATUSES[issue.status]?.color || '#95a5a6',
-                        color: '#fff',
-                      }}>
-                        {ISSUE_STATUSES[issue.status]?.label || issue.status}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px', fontSize: '12px', color: '#7f8c8d' }}>
-                      <span>📍 {getNodeName(issue.nodeId)}</span>
-                      <span>#{issue.id}</span>
-                      {issue.assignee && <span>👤 {issue.assignee}</span>}
-                      {issue.dueDate && (
-                        <span style={{
-                          color: new Date(issue.dueDate) < new Date() ? '#e74c3c' : '#7f8c8d',
-                        }}>
-                          📅 {issue.dueDate}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const newStatus = issue.status === 'open' ? 'inProgress' : 
-                                         issue.status === 'inProgress' ? 'resolved' : issue.status;
-                        onUpdateIssue({ ...issue, status: newStatus, updatedAt: new Date().toISOString() });
-                      }}
-                      style={{
-                        padding: '6px 12px',
-                        backgroundColor: '#3498db',
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '11px',
-                      }}
-                      title="Advance status"
-                    >
-                      →
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Text Annotation Formatting Toolbar
-// ============== COMPONENT LIBRARY COMPONENTS ==============
-
-// Component Library Panel - Slide out panel showing all library items
-function ComponentLibraryPanel({ 
-  isOpen, 
-  onClose, 
-  items, 
-  searchTerm, 
-  onSearchChange, 
-  onSelectItem, 
-  selectedItem, 
-  onAddToCanvas,
-  onCreateVersion 
-}) {
-  const [expandedItems, setExpandedItems] = useState({});
-
-  const toggleExpand = (itemId) => {
-    setExpandedItems(prev => ({ ...prev, [itemId]: !prev[itemId] }));
-  };
-
-  const getTypeIcon = (type) => {
-    const icons = {
-      system: '🔷',
-      subsystem: '🔶',
-      function: '⚡',
-      hardware: '📦',
-      requirement: '📋',
-      testcase: '🧪',
-      parameter: '⚙️',
-      usecase: '🎯',
-      actor: '👤',
-    };
-    return icons[type] || '📄';
-  };
-
-  const getTypeColor = (type) => {
-    const colors = {
-      system: '#1abc9c',
-      subsystem: '#3498db',
-      function: '#00bcd4',
-      hardware: '#795548',
-      requirement: '#e67e22',
-      testcase: '#27ae60',
-      parameter: '#9c27b0',
-      usecase: '#f39c12',
-      actor: '#2ecc71',
-    };
-    return colors[type] || '#95a5a6';
-  };
-
-  // Group items by type
-  const groupedItems = items.reduce((acc, item) => {
-    const type = item.type || 'other';
-    if (!acc[type]) acc[type] = [];
-    acc[type].push(item);
-    return acc;
-  }, {});
-
-  if (!isOpen) return null;
-
-  return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      right: 0,
-      width: '380px',
-      height: '100vh',
-      backgroundColor: '#1a252f',
-      boxShadow: '-4px 0 20px rgba(0,0,0,0.4)',
-      zIndex: 4000,
-      display: 'flex',
-      flexDirection: 'column',
-      overflow: 'hidden',
-    }}>
-      {/* Header */}
-      <div style={{
-        padding: '20px',
-        borderBottom: '1px solid #34495e',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        backgroundColor: '#2c3e50',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '24px' }}>📚</span>
-          <div>
-            <h3 style={{ margin: 0, color: '#fff', fontSize: '16px' }}>
-              Component Library
-            </h3>
-            <span style={{ fontSize: '11px', color: '#7f8c8d' }}>
-              {items.length} items available
-            </span>
-          </div>
-        </div>
-        <button
-          onClick={onClose}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: '#95a5a6',
-            fontSize: '24px',
-            cursor: 'pointer',
-          }}
-        >
-          ×
-        </button>
-      </div>
-
-      {/* Search */}
-      <div style={{ padding: '15px', borderBottom: '1px solid #34495e' }}>
-        <input
-          type="text"
-          placeholder="🔍 Search components..."
-          value={searchTerm}
-          onChange={(e) => onSearchChange(e.target.value)}
-          style={{
-            width: '100%',
-            padding: '10px 15px',
-            backgroundColor: '#34495e',
-            color: '#fff',
-            border: '1px solid #4a5f7f',
-            borderRadius: '6px',
-            fontSize: '14px',
-          }}
-        />
-      </div>
-
-      {/* Content */}
-      <div style={{
-        flex: 1,
-        overflowY: 'auto',
-        padding: '10px',
-      }}>
-        {items.length === 0 ? (
-          <div style={{
-            textAlign: 'center',
-            padding: '40px 20px',
-            color: '#7f8c8d',
-          }}>
-            <div style={{ fontSize: '48px', marginBottom: '15px' }}>📭</div>
-            <div style={{ fontSize: '14px', marginBottom: '10px' }}>No components in library</div>
-            <div style={{ fontSize: '12px' }}>
-              Right-click a node and select<br/>"Save to Library" to add items
-            </div>
-          </div>
-        ) : (
-          Object.entries(groupedItems).map(([type, typeItems]) => (
-            <div key={type} style={{ marginBottom: '15px' }}>
-              {/* Type Header */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 10px',
-                backgroundColor: '#2c3e50',
-                borderRadius: '6px',
-                marginBottom: '8px',
-              }}>
-                <span style={{ fontSize: '14px' }}>{getTypeIcon(type)}</span>
-                <span style={{ 
-                  color: '#fff', 
-                  fontSize: '12px', 
-                  fontWeight: 'bold',
-                  textTransform: 'uppercase',
-                }}>
-                  {type}s ({typeItems.length})
-                </span>
-              </div>
-
-              {/* Items */}
-              {typeItems.map(item => (
-                <div key={item.id} style={{ marginBottom: '6px' }}>
-                  {/* Item Row */}
-                  <div
-                    onClick={() => toggleExpand(item.id)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      padding: '10px 12px',
-                      backgroundColor: expandedItems[item.id] ? '#34495e' : '#253545',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      borderLeft: `3px solid ${getTypeColor(item.type)}`,
-                      transition: 'all 0.2s ease',
-                    }}
-                  >
-                    <div style={{ flex: 1 }}>
-                      <div style={{ 
-                        color: '#fff', 
-                        fontSize: '13px', 
-                        fontWeight: 'bold',
-                        marginBottom: '3px',
-                      }}>
-                        {item.name}
-                      </div>
-                      <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '10px',
-                        fontSize: '11px',
-                        color: '#7f8c8d',
-                      }}>
-                        <span>v{item.currentVersion}</span>
-                        <span>•</span>
-                        <span>{item.versions?.length || 1} version(s)</span>
-                      </div>
-                    </div>
-                    <span style={{ 
-                      color: '#7f8c8d', 
-                      fontSize: '12px',
-                      transform: expandedItems[item.id] ? 'rotate(180deg)' : 'rotate(0deg)',
-                      transition: 'transform 0.2s ease',
-                    }}>
-                      ▼
-                    </span>
-                  </div>
-
-                  {/* Expanded Details */}
-                  {expandedItems[item.id] && (
-                    <div style={{
-                      padding: '12px',
-                      backgroundColor: '#1e2d3a',
-                      borderRadius: '0 0 6px 6px',
-                      marginTop: '-4px',
-                      borderLeft: `3px solid ${getTypeColor(item.type)}`,
-                    }}>
-                      {/* Description */}
-                      {item.description && (
-                        <div style={{ 
-                          fontSize: '12px', 
-                          color: '#bdc3c7',
-                          marginBottom: '12px',
-                          lineHeight: '1.4',
-                        }}>
-                          {item.description}
-                        </div>
-                      )}
-
-                      {/* Version List */}
-                      <div style={{ marginBottom: '12px' }}>
-                        <div style={{ 
-                          fontSize: '10px', 
-                          color: '#7f8c8d',
-                          textTransform: 'uppercase',
-                          fontWeight: 'bold',
-                          marginBottom: '6px',
-                        }}>
-                          Versions
-                        </div>
-                        <div style={{
-                          maxHeight: '120px',
-                          overflowY: 'auto',
-                        }}>
-                          {(item.versions || []).slice().reverse().map((ver, idx) => (
-                            <div
-                              key={ver.id}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                padding: '6px 8px',
-                                backgroundColor: idx === 0 ? 'rgba(39, 174, 96, 0.2)' : 'transparent',
-                                borderRadius: '4px',
-                                marginBottom: '2px',
-                              }}
-                            >
-                              <span style={{
-                                width: '8px',
-                                height: '8px',
-                                borderRadius: '50%',
-                                backgroundColor: idx === 0 ? '#27ae60' : '#7f8c8d',
-                                marginRight: '8px',
-                              }} />
-                              <div style={{ flex: 1 }}>
-                                <div style={{ 
-                                  fontSize: '12px', 
-                                  color: '#fff',
-                                  fontWeight: idx === 0 ? 'bold' : 'normal',
-                                }}>
-                                  v{ver.version} {idx === 0 && '(latest)'}
-                                </div>
-                                <div style={{ fontSize: '10px', color: '#7f8c8d' }}>
-                                  {ver.changelog}
-                                </div>
-                              </div>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onAddToCanvas(item, ver.id);
-                                }}
-                                style={{
-                                  padding: '4px 8px',
-                                  backgroundColor: '#3498db',
-                                  color: '#fff',
-                                  border: 'none',
-                                  borderRadius: '4px',
-                                  fontSize: '10px',
-                                  cursor: 'pointer',
-                                }}
-                                title="Add this version to canvas"
-                              >
-                                + Add
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onAddToCanvas(item, null); // null = use latest
-                          }}
-                          style={{
-                            flex: 1,
-                            padding: '8px',
-                            backgroundColor: '#27ae60',
-                            color: '#fff',
-                            border: 'none',
-                            borderRadius: '4px',
-                            fontSize: '12px',
-                            fontWeight: 'bold',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          ➕ Add Latest (v{item.currentVersion})
-                        </button>
-                      </div>
-
-                      {/* Metadata */}
-                      <div style={{
-                        marginTop: '10px',
-                        paddingTop: '10px',
-                        borderTop: '1px solid #34495e',
-                        fontSize: '10px',
-                        color: '#7f8c8d',
-                      }}>
-                        <div>Owner: {item.owner}</div>
-                        <div>Created: {new Date(item.createdAt).toLocaleDateString()}</div>
-                        {item.tags?.length > 0 && (
-                          <div style={{ marginTop: '4px' }}>
-                            Tags: {item.tags.map(tag => (
-                              <span key={tag} style={{
-                                padding: '2px 6px',
-                                backgroundColor: '#34495e',
-                                borderRadius: '3px',
-                                marginRight: '4px',
-                              }}>
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
-
-// Save to Library Modal
-function SaveToLibraryModal({ node, onClose, onSave }) {
-  const [formData, setFormData] = useState({
-    name: node?.data?.label || '',
-    description: node?.data?.description || '',
-    tags: '',
-    changelog: 'Initial version',
-  });
-
-  const handleSave = () => {
-    if (!formData.name.trim()) {
-      alert('Please enter a name');
-      return;
-    }
-    onSave(node, {
-      ...formData,
-      tags: formData.tags.split(',').map(t => t.trim()).filter(t => t),
-    });
-    onClose();
-  };
-
-  return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.8)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 5000,
-    }}>
-      <div style={{
-        backgroundColor: '#2c3e50',
-        borderRadius: '12px',
-        padding: '25px',
-        width: '450px',
-        boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
-      }}>
-        <h2 style={{ color: '#fff', marginTop: 0, marginBottom: '20px', fontSize: '18px' }}>
-          📚 Save to Component Library
-        </h2>
-
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{
-            display: 'block',
-            color: '#bdc3c7',
-            fontSize: '11px',
-            textTransform: 'uppercase',
-            fontWeight: 'bold',
-            marginBottom: '6px',
-          }}>
-            Component Name *
-          </label>
-          <input
-            type="text"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            style={{
-              width: '100%',
-              padding: '10px',
-              backgroundColor: '#34495e',
-              color: '#fff',
-              border: '1px solid #4a5f7f',
-              borderRadius: '6px',
-              fontSize: '14px',
-            }}
-          />
-        </div>
-
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{
-            display: 'block',
-            color: '#bdc3c7',
-            fontSize: '11px',
-            textTransform: 'uppercase',
-            fontWeight: 'bold',
-            marginBottom: '6px',
-          }}>
-            Description
-          </label>
-          <textarea
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            style={{
-              width: '100%',
-              minHeight: '80px',
-              padding: '10px',
-              backgroundColor: '#34495e',
-              color: '#fff',
-              border: '1px solid #4a5f7f',
-              borderRadius: '6px',
-              fontSize: '14px',
-              resize: 'vertical',
-            }}
-          />
-        </div>
-
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{
-            display: 'block',
-            color: '#bdc3c7',
-            fontSize: '11px',
-            textTransform: 'uppercase',
-            fontWeight: 'bold',
-            marginBottom: '6px',
-          }}>
-            Tags (comma separated)
-          </label>
-          <input
-            type="text"
-            value={formData.tags}
-            onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-            placeholder="e.g., propulsion, control, safety"
-            style={{
-              width: '100%',
-              padding: '10px',
-              backgroundColor: '#34495e',
-              color: '#fff',
-              border: '1px solid #4a5f7f',
-              borderRadius: '6px',
-              fontSize: '14px',
-            }}
-          />
-        </div>
-
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{
-            display: 'block',
-            color: '#bdc3c7',
-            fontSize: '11px',
-            textTransform: 'uppercase',
-            fontWeight: 'bold',
-            marginBottom: '6px',
-          }}>
-            Version Notes
-          </label>
-          <input
-            type="text"
-            value={formData.changelog}
-            onChange={(e) => setFormData({ ...formData, changelog: e.target.value })}
-            style={{
-              width: '100%',
-              padding: '10px',
-              backgroundColor: '#34495e',
-              color: '#fff',
-              border: '1px solid #4a5f7f',
-              borderRadius: '6px',
-              fontSize: '14px',
-            }}
-          />
-        </div>
-
-        {/* Info */}
-        <div style={{
-          padding: '10px',
-          backgroundColor: '#1a252f',
-          borderRadius: '6px',
-          marginBottom: '20px',
-          fontSize: '12px',
-          color: '#7f8c8d',
-        }}>
-          <div><strong>Type:</strong> {node?.data?.itemType || node?.data?.type}</div>
-          <div><strong>ID:</strong> {node?.data?.reqId || node?.id}</div>
-          <div style={{ marginTop: '8px', color: '#3498db' }}>
-            ℹ️ This will create version 1.0 of this component in the library
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-          <button
-            onClick={onClose}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: '#7f8c8d',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: '#27ae60',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontWeight: 'bold',
-            }}
-          >
-            📚 Save to Library
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TextAnnotationToolbar({ node, onUpdate }) {
-  const data = node.data;
-  const isLightBackground = data.isWhiteboardMode;
-
-  const updateData = (updates) => {
-    onUpdate(node.id, { ...data, ...updates });
-  };
-
-  const fontSizes = [12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 64];
-  
-  // Colors - include both dark and light options
-  const colors = [
-    '#2c3e50',  // Dark blue-gray (good for light bg)
-    '#1a1a2e',  // Very dark (good for light bg)
-    '#ffffff',  // White (good for dark bg)
-    '#e74c3c',  // Red
-    '#e67e22',  // Orange
-    '#f1c40f',  // Yellow
-    '#27ae60',  // Green
-    '#3498db',  // Blue
-    '#9b59b6',  // Purple
-  ];
-  
-  // Background colors - include options for both modes
-  const bgColors = [
-    'transparent',
-    'rgba(255,255,255,0.9)',  // White bg (for dark mode)
-    'rgba(255,255,255,0.5)',  // Semi-white
-    'rgba(0,0,0,0.3)',        // Dark bg (for light mode)
-    'rgba(0,0,0,0.6)',        // Darker bg
-    'rgba(52,152,219,0.3)',   // Blue tint
-    'rgba(46,204,113,0.3)',   // Green tint
-    'rgba(241,196,15,0.3)',   // Yellow tint
-  ];
-
-  return (
-    <div style={{
-      position: 'fixed',
-      bottom: '20px',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      backgroundColor: '#2c3e50',
-      borderRadius: '12px',
-      padding: '12px 20px',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '15px',
-      boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
-      zIndex: 3000,
-    }}>
-      {/* Font Size */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <span style={{ color: '#7f8c8d', fontSize: '11px' }}>Size:</span>
-        <select
-          value={data.fontSize || 14}
-          onChange={(e) => updateData({ fontSize: parseInt(e.target.value) })}
-          style={{
-            padding: '6px 10px',
-            backgroundColor: '#34495e',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '4px',
-          }}
-        >
-          {fontSizes.map(size => (
-            <option key={size} value={size}>{size}px</option>
-          ))}
-        </select>
-      </div>
-
-      <div style={{ width: '1px', height: '24px', backgroundColor: '#4a5f7f' }} />
-
-      {/* Text Color */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-        <span style={{ color: '#7f8c8d', fontSize: '11px' }}>Color:</span>
-        {colors.map(color => (
-          <button
-            key={color}
-            onClick={() => updateData({ color })}
-            style={{
-              width: '20px',
-              height: '20px',
-              borderRadius: '4px',
-              backgroundColor: color,
-              border: data.color === color ? '2px solid #3498db' : '1px solid #4a5f7f',
-              cursor: 'pointer',
-            }}
-          />
-        ))}
-      </div>
-
-      <div style={{ width: '1px', height: '24px', backgroundColor: '#4a5f7f' }} />
-
-      {/* Background Color */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-        <span style={{ color: '#7f8c8d', fontSize: '11px' }}>Bg:</span>
-        {bgColors.map((color, i) => (
-          <button
-            key={i}
-            onClick={() => updateData({ backgroundColor: color })}
-            style={{
-              width: '20px',
-              height: '20px',
-              borderRadius: '4px',
-              backgroundColor: color === 'transparent' ? '#34495e' : color,
-              border: data.backgroundColor === color ? '2px solid #3498db' : '1px solid #4a5f7f',
-              cursor: 'pointer',
-              position: 'relative',
-            }}
-          >
-            {color === 'transparent' && (
-              <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '10px', color: '#fff' }}>∅</span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      <div style={{ width: '1px', height: '24px', backgroundColor: '#4a5f7f' }} />
-
-      {/* Text Style */}
-      <div style={{ display: 'flex', gap: '4px' }}>
-        <button
-          onClick={() => updateData({ fontWeight: data.fontWeight === 'bold' ? 'normal' : 'bold' })}
-          style={{
-            padding: '6px 10px',
-            backgroundColor: data.fontWeight === 'bold' ? '#3498db' : '#34495e',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-          }}
-        >
-          B
-        </button>
-        <button
-          onClick={() => updateData({ fontStyle: data.fontStyle === 'italic' ? 'normal' : 'italic' })}
-          style={{
-            padding: '6px 10px',
-            backgroundColor: data.fontStyle === 'italic' ? '#3498db' : '#34495e',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontStyle: 'italic',
-          }}
-        >
-          I
-        </button>
-      </div>
-
-      <div style={{ width: '1px', height: '24px', backgroundColor: '#4a5f7f' }} />
-
-      {/* Text Align */}
-      <div style={{ display: 'flex', gap: '4px' }}>
-        {['left', 'center', 'right'].map(align => (
-          <button
-            key={align}
-            onClick={() => updateData({ textAlign: align })}
-            style={{
-              padding: '6px 10px',
-              backgroundColor: data.textAlign === align ? '#3498db' : '#34495e',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '11px',
-            }}
-          >
-            {align === 'left' ? '⬅' : align === 'center' ? '⬌' : '➡'}
-          </button>
-        ))}
       </div>
     </div>
   );
@@ -7128,8 +4726,6 @@ function LeftIconStrip({
   onAddHardware,
   onAddUseCase,
   onAddActor,
-  onAddTextNote,
-  onOpenLibrary,
   onVoice,
   isListening,
   voiceStatus
@@ -7309,30 +4905,6 @@ function LeftIconStrip({
         style={{ ...iconButtonStyle, background: '#9b59b6' }}
       >
         🟣
-      </button>
-      
-      {/* Separator */}
-      <div style={{ height: '1px', background: '#4a5f7f', margin: '4px 0' }} />
-      
-      {/* Text Note */}
-      <button 
-        onClick={handleClick(onAddTextNote)} 
-        title="Add Text Note"
-        style={{ ...iconButtonStyle, background: '#34495e', border: '2px dashed #7f8c8d' }}
-      >
-        📝
-      </button>
-      
-      {/* Separator */}
-      <div style={{ height: '1px', background: '#4a5f7f', margin: '4px 0' }} />
-      
-      {/* Component Library */}
-      <button 
-        onClick={handleClick(onOpenLibrary)} 
-        title="Component Library"
-        style={{ ...iconButtonStyle, background: '#8e44ad' }}
-      >
-        📚
       </button>
       
       {/* Separator */}
@@ -7581,11 +5153,11 @@ function DocumentView({ nodes, edges, onNodeClick }) {
   const buildHierarchy = () => {
     // Find root nodes (nodes with no incoming "contains" edges)
     const containsEdges = edges.filter(e => 
-      e && (e.data?.relationType === 'contains' || 
-            e.data?.relationType === 'provides')
+      e.data?.relationType === 'contains' || 
+      e.data?.relationType === 'provides'
     );
     
-    const childIds = new Set(containsEdges.filter(e => e && e.target).map(e => e.target));
+    const childIds = new Set(containsEdges.map(e => e.target));
     const rootNodes = nodes.filter(n => !childIds.has(n.id));
     
     // Sort by position (left to right, top to bottom)
@@ -7625,7 +5197,6 @@ function DocumentView({ nodes, edges, onNodeClick }) {
   // Get related requirements for a node
   const getRelatedRequirements = (nodeId) => {
     const relatedEdges = edges.filter(e => 
-      e && e.source && e.target &&
       (e.source === nodeId || e.target === nodeId) &&
       (e.data?.relationType === 'realizes' || 
        e.data?.relationType === 'satisfies' ||
@@ -8988,78 +6559,8 @@ export default function App() {
     return () => window.removeEventListener('error', resizeObserverErr);
   }, []);
 
-  const [nodes, setNodes, onNodesChangeInternal] = useNodesState(initialNodes);
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-  
-  // Custom onNodesChange that also cleans up orphan edges when nodes are deleted
-  const onNodesChange = useCallback((changes) => {
-    // Check if any nodes are being removed
-    const removedNodeIds = changes
-      .filter(change => change.type === 'remove')
-      .map(change => change.id);
-    
-    // Apply the node changes
-    onNodesChangeInternal(changes);
-    
-    // If nodes were removed, clean up edges in the next tick
-    // This ensures nodes state is updated first
-    if (removedNodeIds.length > 0) {
-      console.log('Nodes removed:', removedNodeIds, '- cleaning up edges');
-      setTimeout(() => {
-        setEdges(eds => {
-          const cleaned = eds.filter(e => 
-            e && e.source && e.target &&
-            !removedNodeIds.includes(e.source) && 
-            !removedNodeIds.includes(e.target)
-          );
-          if (cleaned.length !== eds.length) {
-            console.log(`Removed ${eds.length - cleaned.length} orphan edges`);
-          }
-          return cleaned;
-        });
-      }, 0);
-    }
-  }, [onNodesChangeInternal, setEdges]);
-  
-  // Memoized valid edges - only includes edges where both source and target nodes exist
-  const validEdges = useMemo(() => {
-    const nodeIds = new Set(nodes.map(n => n.id));
-    const valid = edges.filter(e => 
-      e && e.id && e.source && e.target && 
-      nodeIds.has(e.source) && nodeIds.has(e.target)
-    );
-    
-    // Log if there are orphan edges (for debugging)
-    if (valid.length < edges.length) {
-      console.log(`Note: ${edges.length - valid.length} orphan edges filtered from display`);
-    }
-    
-    return valid;
-  }, [nodes, edges]);
-  
-  // Periodic cleanup of orphan edges from state (runs once after mount and when orphans detected)
-  const orphanCleanupDone = useRef(false);
-  useEffect(() => {
-    // Only run cleanup once per session, after initial load
-    if (orphanCleanupDone.current) return;
-    if (nodes.length === 0) return; // Wait for project to load
-    
-    const nodeIds = new Set(nodes.map(n => n.id));
-    const orphanCount = edges.filter(e => 
-      !e || !e.id || !e.source || !e.target ||
-      !nodeIds.has(e.source) || !nodeIds.has(e.target)
-    ).length;
-    
-    if (orphanCount > 0) {
-      console.log(`Cleaning ${orphanCount} orphan edges from state`);
-      orphanCleanupDone.current = true;
-      setEdges(eds => eds.filter(e => 
-        e && e.id && e.source && e.target && 
-        nodeIds.has(e.source) && nodeIds.has(e.target)
-      ));
-    }
-  }, [nodes.length]); // Only trigger on node count changes
-  
   const [nodeId, setNodeId] = useState(11);
   const [selectedNode, setSelectedNode] = useState(null);
   const [selectedEdge, setSelectedEdge] = useState(null);
@@ -9149,301 +6650,13 @@ export default function App() {
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showSaveToast, setShowSaveToast] = useState(false);
 
-  // Issue Management State
-  const [issues, setIssues] = useState({});  // { nodeId: [issue1, issue2, ...] }
-  const [showIssueDetailPanel, setShowIssueDetailPanel] = useState(false);
-  const [selectedIssue, setSelectedIssue] = useState(null);
-  const [showIssueManager, setShowIssueManager] = useState(false);
-  const [showCreateIssueModal, setShowCreateIssueModal] = useState(false);
-  const [createIssueForNode, setCreateIssueForNode] = useState(null);
-
-  // Component Library State
-  const [showLibrary, setShowLibrary] = useState(false);
-  const [libraryItems, setLibraryItems] = useState([]);  // All library items
-  const [librarySearchTerm, setLibrarySearchTerm] = useState('');
-  const [selectedLibraryItem, setSelectedLibraryItem] = useState(null);
-  const [showSaveToLibraryModal, setShowSaveToLibraryModal] = useState(false);
-  const [nodeToSaveToLibrary, setNodeToSaveToLibrary] = useState(null);
-
 
    // Handle login
   const handleLogin = (userData) => {
     setUser(userData);
     realtime.connect();
     fetchHardwareTypes();  // Load hardware types from database
-    fetchLibraryItems();   // Load library items from database
   };
-
-  // ============== ISSUE MANAGEMENT FUNCTIONS ==============
-  
-  // Get all issues as flat array
-  const getAllIssues = useCallback(() => {
-    return Object.values(issues).flat();
-  }, [issues]);
-
-  // Get issues for a specific node
-  const getNodeIssues = useCallback((nodeId) => {
-    return issues[nodeId] || [];
-  }, [issues]);
-
-  // Add issue to a node
-  const addIssue = useCallback((issue) => {
-    setIssues(prev => ({
-      ...prev,
-      [issue.nodeId]: [...(prev[issue.nodeId] || []), issue],
-    }));
-  }, []);
-
-  // Update an issue
-  const updateIssue = useCallback((updatedIssue) => {
-    setIssues(prev => ({
-      ...prev,
-      [updatedIssue.nodeId]: (prev[updatedIssue.nodeId] || []).map(i => 
-        i.id === updatedIssue.id ? { ...updatedIssue, updatedAt: new Date().toISOString() } : i
-      ),
-    }));
-  }, []);
-
-  // Delete an issue
-  const deleteIssue = useCallback((issueId) => {
-    setIssues(prev => {
-      const newIssues = {};
-      for (const [nodeId, nodeIssues] of Object.entries(prev)) {
-        const filtered = nodeIssues.filter(i => i.id !== issueId);
-        if (filtered.length > 0) {
-          newIssues[nodeId] = filtered;
-        }
-      }
-      return newIssues;
-    });
-    setShowIssueDetailPanel(false);
-    setSelectedIssue(null);
-  }, []);
-
-  // Handle issue indicator double-click
-  const handleIssueIndicatorClick = useCallback((nodeId) => {
-    const nodeIssues = getNodeIssues(nodeId);
-    if (nodeIssues.length === 1) {
-      setSelectedIssue(nodeIssues[0]);
-      setShowIssueDetailPanel(true);
-    } else if (nodeIssues.length > 1) {
-      setShowIssueManager(true);
-    }
-  }, [getNodeIssues]);
-
-  // Open create issue modal for a node
-  const openCreateIssueModal = useCallback((node) => {
-    setCreateIssueForNode(node);
-    setShowCreateIssueModal(true);
-  }, []);
-
-  // ============== COMPONENT LIBRARY FUNCTIONS ==============
-
-  // Fetch library items from database
-  const fetchLibraryItems = useCallback(async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/library`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('plm_token')}`
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setLibraryItems(data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch library items:', error);
-    }
-  }, []);
-
-  // Save a node to the library
-  const saveNodeToLibrary = useCallback(async (node, libraryData) => {
-    // Data format for local storage (fallback)
-    const localLibraryItem = {
-      id: `lib-${Date.now()}`,
-      name: libraryData.name || node.data.label,
-      description: libraryData.description || node.data.description || '',
-      type: node.data.itemType || node.data.type,
-      tags: libraryData.tags || [],
-      owner: user?.username || 'Unknown',
-      createdAt: new Date().toISOString(),
-      currentVersion: '1.0',
-      versions: [{
-        id: `ver-${Date.now()}`,
-        version: '1.0',
-        branch: 'main',
-        parentVersion: null,
-        data: { ...node.data },
-        changelog: libraryData.changelog || 'Initial version',
-        createdBy: user?.username || 'Unknown',
-        createdAt: new Date().toISOString(),
-        state: 'released',
-      }],
-    };
-
-    // Try to save to backend
-    try {
-      // Backend expects this format
-      const backendPayload = {
-        name: libraryData.name || node.data.label,
-        description: libraryData.description || node.data.description || '',
-        type: node.data.itemType || node.data.type,
-        tags: libraryData.tags || [],
-        owner: user?.username || 'Unknown',
-        nodeData: { ...node.data },
-        changelog: libraryData.changelog || 'Initial version',
-      };
-
-      const response = await fetch(`${API_BASE_URL}/api/library`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('plm_token')}`
-        },
-        body: JSON.stringify(backendPayload),
-      });
-      
-      if (response.ok) {
-        const savedItem = await response.json();
-        setLibraryItems(prev => [...prev, savedItem]);
-        console.log('✅ Saved to library backend:', savedItem.name);
-        return savedItem;
-      }
-    } catch (error) {
-      console.error('Failed to save to backend, storing locally:', error);
-    }
-
-    // Fallback to local storage
-    console.log('📦 Saved to local library:', localLibraryItem.name);
-    setLibraryItems(prev => [...prev, localLibraryItem]);
-    return localLibraryItem;
-  }, [user]);
-
-  // Create a new version of a library item
-  const createLibraryVersion = useCallback(async (libraryItemId, node, changelog) => {
-    setLibraryItems(prev => prev.map(item => {
-      if (item.id !== libraryItemId) return item;
-      
-      const versionNumbers = item.versions.map(v => parseFloat(v.version));
-      const nextVersion = (Math.max(...versionNumbers) + 0.1).toFixed(1);
-      
-      const newVersion = {
-        id: `ver-${Date.now()}`,
-        version: nextVersion,
-        branch: 'main',
-        parentVersion: item.currentVersion,
-        data: { ...node.data },
-        changelog: changelog || `Updated to v${nextVersion}`,
-        createdBy: user?.username || 'Unknown',
-        createdAt: new Date().toISOString(),
-        state: 'released',
-      };
-
-      return {
-        ...item,
-        currentVersion: nextVersion,
-        versions: [...item.versions, newVersion],
-      };
-    }));
-  }, [user]);
-
-  // Add a library item to canvas as a reference
-  const addLibraryItemToCanvas = useCallback((libraryItem, versionId = null) => {
-    // Find the version to use
-    const version = versionId 
-      ? libraryItem.versions.find(v => v.id === versionId)
-      : libraryItem.versions.find(v => v.version === libraryItem.currentVersion);
-
-    if (!version) return;
-
-    // Get position in center of viewport
-    let position = { x: 200, y: 200 };
-    if (reactFlowInstance) {
-      const viewport = reactFlowInstance.getViewport();
-      const centerX = (-viewport.x + window.innerWidth / 2) / viewport.zoom;
-      const centerY = (-viewport.y + window.innerHeight / 2) / viewport.zoom;
-      position = { 
-        x: centerX + (Math.random() * 50 - 25), 
-        y: centerY + (Math.random() * 50 - 25) 
-      };
-    }
-
-    const newNode = {
-      id: `ref-${Date.now()}`,
-      type: 'custom',
-      position: position,
-      data: {
-        ...version.data,
-        // Library reference metadata
-        isLibraryReference: true,
-        libraryItemId: libraryItem.id,
-        libraryItemName: libraryItem.name,
-        versionId: version.id,
-        version: version.version,
-        useLatest: versionId === null,
-        latestVersion: libraryItem.currentVersion,
-        // Note: onChange will be added by processedNodes
-      },
-    };
-
-    setNodes(nds => [...nds, newNode]);
-    setShowLibrary(false);
-  }, [reactFlowInstance, setNodes]);
-
-  // Filter library items based on search
-  const filteredLibraryItems = useMemo(() => {
-    if (!librarySearchTerm) return libraryItems;
-    const search = librarySearchTerm.toLowerCase();
-    return libraryItems.filter(item => 
-      item.name.toLowerCase().includes(search) ||
-      item.description?.toLowerCase().includes(search) ||
-      item.type?.toLowerCase().includes(search) ||
-      item.tags?.some(tag => tag.toLowerCase().includes(search))
-    );
-  }, [libraryItems, librarySearchTerm]);
-
-  // Open save to library modal
-  const openSaveToLibraryModal = useCallback((node) => {
-    setNodeToSaveToLibrary(node);
-    setShowSaveToLibraryModal(true);
-  }, []);
-
-  // Add text annotation to canvas
-  const addTextAnnotation = useCallback(() => {
-    // Get current viewport center for proper positioning
-    let position = { x: 200, y: 200 };
-    
-    if (reactFlowInstance) {
-      const viewport = reactFlowInstance.getViewport();
-      const centerX = (-viewport.x + window.innerWidth / 2) / viewport.zoom;
-      const centerY = (-viewport.y + window.innerHeight / 2) / viewport.zoom;
-      position = { 
-        x: centerX + (Math.random() * 50 - 25), 
-        y: centerY + (Math.random() * 50 - 25) 
-      };
-    }
-
-    const newNode = {
-      id: `text-${Date.now()}`,
-      type: 'textAnnotation',
-      position: position,
-      data: {
-        text: 'Double-click to edit',
-        fontSize: 16,
-        color: null,  // Let component decide based on background mode
-        fontWeight: 'normal',
-        fontStyle: 'normal',
-        textAlign: 'left',
-        backgroundColor: null,  // Let component decide based on background mode
-        onTextChange: (id, newText) => {
-          setNodes(nds => nds.map(n => 
-            n.id === id ? { ...n, data: { ...n.data, text: newText } } : n
-          ));
-        },
-      },
-    };
-    setNodes(nds => [...nds, newNode]);
-  }, [setNodes, reactFlowInstance]);
 
   // Fetch hardware types from database
   const fetchHardwareTypes = async () => {
@@ -9676,17 +6889,8 @@ export default function App() {
       console.log('Updated counters - nodeId:', maxId + 1, 'SYS:', maxSys + 1, 'HW:', maxHw + 1);
       
       // Process edges - validate handles exist on nodes
-      // Also filter out edges without valid source/target or pointing to non-existent nodes
       if (projectData.edges) {
-        const nodeIdSet = new Set(loadedNodes.map(n => n.id));
-        const validEdges = projectData.edges.filter(edge =>
-          edge && edge.id && edge.source && edge.target &&
-          nodeIdSet.has(edge.source) && nodeIdSet.has(edge.target)
-        );
-        
-        console.log(`Loading ${validEdges.length} valid edges (filtered from ${projectData.edges.length})`);
-        
-        const edgesWithArrows = validEdges.map(edge => {
+        const edgesWithArrows = projectData.edges.map(edge => {
           const sourceNode = loadedNodes.find(n => n.id === edge.source);
           const targetNode = loadedNodes.find(n => n.id === edge.target);
           
@@ -10016,12 +7220,6 @@ export default function App() {
   }, []);
 
   const onEdgeUpdate = useCallback((oldEdge, newConnection) => {
-    // Safety check - oldEdge and newConnection might be undefined in some edge cases
-    if (!oldEdge || !newConnection || !newConnection.source || !newConnection.target) {
-      console.log('Invalid edge update params:', { oldEdge, newConnection });
-      return;
-    }
-    
     edgeUpdateSuccessful.current = true;
     
     // Check if we're reconnecting FROM a floating connector
@@ -10072,12 +7270,6 @@ export default function App() {
   }, [nodes, setEdges, setNodes]);
 
   const onEdgeUpdateEnd = useCallback((event, edge) => {
-    // Safety check - edge might be undefined in some edge cases
-    if (!edge) {
-      edgeUpdateSuccessful.current = true;
-      return;
-    }
-    
     if (!edgeUpdateSuccessful.current) {
       // Only create floating connector if this is a real user drag event
       // Check if event has valid coordinates (not triggered by loading)
@@ -10161,10 +7353,10 @@ export default function App() {
       if (isNearNode) {
         // Find the edge connected to this connector
         const connectedEdge = edges.find(e => 
-          e && (e.target === node.id || e.source === node.id)
+          e.target === node.id || e.source === node.id
         );
         
-        if (connectedEdge && connectedEdge.id) {
+        if (connectedEdge) {
           // Determine which port to connect to (find nearest)
           const ports = otherNode.data?.ports || [];
           let targetHandle = null;
@@ -10211,12 +7403,6 @@ export default function App() {
   }, [nodes, edges, setNodes, setEdges]);
 
   const onConnect = useCallback((params) => {
-    // Safety check - params might be incomplete
-    if (!params || !params.source || !params.target) {
-      console.log('Invalid connection params:', params);
-      return;
-    }
-    
     const sourceNode = nodes.find(n => n.id === params.source);
     const targetNode = nodes.find(n => n.id === params.target);
     const relationType = inferRelationshipType(sourceNode, targetNode);
@@ -10299,33 +7485,6 @@ export default function App() {
   }
 }, [setNodes]);
 
-  // Utility function to clean up orphan edges (edges pointing to non-existent nodes)
-  const cleanupOrphanEdges = useCallback(() => {
-    const nodeIds = new Set(nodes.map(n => n.id));
-    setEdges(eds => {
-      const cleaned = eds.filter(e => 
-        e && e.id && e.source && e.target &&
-        nodeIds.has(e.source) && nodeIds.has(e.target)
-      );
-      const removedCount = eds.length - cleaned.length;
-      if (removedCount > 0) {
-        console.log(`Cleaned up ${removedCount} orphan edges`);
-      }
-      return cleaned;
-    });
-  }, [nodes, setEdges]);
-
-  // Handle node resize - stores new dimensions in node data
-  const handleNodeResize = useCallback((nodeId, width, height) => {
-    setNodes((nds) =>
-      nds.map((node) =>
-        node.id === nodeId
-          ? { ...node, data: { ...node.data, nodeWidth: width, nodeHeight: height } }
-          : node
-      )
-    );
-  }, [setNodes]);
-
   // Copy selected nodes to clipboard
   const copySelectedNodes = useCallback(() => {
     const selectedNodes = nodes.filter(n => n.selected);
@@ -10339,7 +7498,6 @@ export default function App() {
     
     // Find edges between selected nodes
     const relatedEdges = edges.filter(e => 
-      e && e.source && e.target &&
       selectedNodeIds.includes(e.source) && selectedNodeIds.includes(e.target)
     );
     
@@ -10526,7 +7684,6 @@ export default function App() {
     // Duplicate edges between selected nodes
     const selectedIds = selectedNodes.map(n => n.id);
     const relatedEdges = edges.filter(e => 
-      e && e.source && e.target &&
       selectedIds.includes(e.source) && selectedIds.includes(e.target)
     );
     const newEdges = relatedEdges.map(edge => ({
@@ -10649,7 +7806,6 @@ export default function App() {
     
     const selectedIds = selectedNodes.map(n => n.id);
     const relatedEdges = edges.filter(e => 
-      e && e.source && e.target &&
       selectedIds.includes(e.source) && selectedIds.includes(e.target)
     );
     
@@ -10914,19 +8070,10 @@ export default function App() {
 
       return {
         ...node,
-        data: { 
-          ...node.data, 
-          isFiltered, 
-          isHighlighted, 
-          isWhiteboardMode: viewMode === 'whiteboard', 
-          onChange: handleNodeLabelChange,
-          onResize: handleNodeResize,
-          issues: issues[node.id] || [],
-          onIssueClick: handleIssueIndicatorClick,
-        },
+        data: { ...node.data, isFiltered, isHighlighted, isWhiteboardMode: viewMode === 'whiteboard', onChange: handleNodeLabelChange },
       };
     });
-  }, [nodes, searchText, typeFilter, statusFilter, priorityFilter, stateFilter, reqTypeFilter, classificationFilter, handleNodeLabelChange, handleNodeResize, viewMode, issues, handleIssueIndicatorClick]);
+  }, [nodes, searchText, typeFilter, statusFilter, priorityFilter, stateFilter, reqTypeFilter, classificationFilter, handleNodeLabelChange,viewMode ]);
 
   const filteredCount = processedNodes.filter(n => n.data.isFiltered).length;
 
@@ -12226,17 +9373,7 @@ const createNewObject = (name, version, description) => {
           setNodes(updatedNodes);
           
           // Process edges - validate handles and add arrows
-          // Filter out edges without valid source/target first
-          // Also filter out edges where source or target nodes don't exist
-          const nodeIdSet = new Set(updatedNodes.map(n => n.id));
-          const validEdges = (project.edges || []).filter(edge => 
-            edge && edge.id && edge.source && edge.target &&
-            nodeIdSet.has(edge.source) && nodeIdSet.has(edge.target)
-          );
-          
-          console.log(`Loaded ${validEdges.length} valid edges (filtered from ${(project.edges || []).length})`);
-          
-          const edgesWithArrows = validEdges.map(edge => {
+          const edgesWithArrows = (project.edges || []).map(edge => {
             const sourceNode = updatedNodes.find(n => n.id === edge.source);
             const targetNode = updatedNodes.find(n => n.id === edge.target);
             
@@ -12444,8 +9581,6 @@ const createNewObject = (name, version, description) => {
         onAddHardware={addHardwareNode}
         onAddUseCase={addUseCaseNode}
         onAddActor={addActorNode}
-        onAddTextNote={addTextAnnotation}
-        onOpenLibrary={() => setShowLibrary(true)}
         onVoice={startVoiceRecognition}
         isListening={isListening}
         voiceStatus={voiceStatus}
@@ -12579,45 +9714,6 @@ const createNewObject = (name, version, description) => {
           </div>
         </SidebarSection>
         
-        <SidebarSection title="🐛 Issues & Notes">
-          <SidebarButton 
-            icon="📋" 
-            label="Issue Manager" 
-            onClick={() => { 
-              setShowIssueManager(true); 
-              setSidebarOpen(false); 
-            }} 
-          />
-          <SidebarButton 
-            icon="📝" 
-            label="Add Text Note" 
-            onClick={() => { 
-              addTextAnnotation(); 
-              setSidebarOpen(false); 
-            }} 
-          />
-          <div style={{ 
-            padding: '10px', 
-            background: '#2c3e50', 
-            borderRadius: '6px',
-            fontSize: '12px',
-            marginTop: '8px'
-          }}>
-            <div style={{ marginBottom: '6px' }}>
-              <span style={{ color: '#7f8c8d' }}>Open Issues:</span>
-              <span style={{ float: 'right', fontWeight: 'bold', color: '#e74c3c' }}>
-                {getAllIssues().filter(i => i.status === 'open').length}
-              </span>
-            </div>
-            <div>
-              <span style={{ color: '#7f8c8d' }}>Total Issues:</span>
-              <span style={{ float: 'right', fontWeight: 'bold' }}>
-                {getAllIssues().length}
-              </span>
-            </div>
-          </div>
-        </SidebarSection>
-        
         <SidebarSection title="↩️ History">
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
@@ -12688,7 +9784,7 @@ const createNewObject = (name, version, description) => {
       
       <ReactFlow
         nodes={processedNodes}
-        edges={validEdges.map(e => ({
+        edges={edges.map(e => ({
           ...e,
           data: { 
             ...e.data, 
@@ -12696,13 +9792,13 @@ const createNewObject = (name, version, description) => {
             isWhiteboardMode: viewMode === 'whiteboard',
             onLabelChange: (edgeId, newLabel) => {
               setEdges(eds => eds.map(edge => 
-                edge && edge.id === edgeId 
+                edge.id === edgeId 
                   ? { ...edge, data: { ...edge.data, customLabel: newLabel } }
                   : edge
-              ).filter(e => e && e.id));
+              ));
             },
             onEdgeDoubleClick: (edgeId, event) => {
-              const edge = edges.find(ed => ed && ed.id === edgeId);
+              const edge = edges.find(ed => ed.id === edgeId);
               if (edge) {
                 setSelectedEdge(edge);
                 setEdgePanelPosition({ x: event.clientX, y: event.clientY });
@@ -12945,8 +10041,6 @@ const createNewObject = (name, version, description) => {
           initialPosition={floatingPanelPosition}
           hardwareTypes={hardwareTypes.length > 0 ? hardwareTypes : defaultHardwareTypes}
           onManageTypes={() => setShowHardwareTypesModal(true)}
-          onCreateIssue={openCreateIssueModal}
-          onSaveToLibrary={openSaveToLibraryModal}
         />
       )}
 
@@ -13007,82 +10101,6 @@ const createNewObject = (name, version, description) => {
         <NewObjectModal
           onClose={() => setShowNewObjectModal(false)}
           onCreate={createNewObject}
-        />
-      )}
-
-      {/* Issue Management Modals */}
-      {showCreateIssueModal && createIssueForNode && (
-        <CreateIssueModal
-          nodeId={createIssueForNode.id}
-          nodeName={createIssueForNode.data?.label || createIssueForNode.data?.reqId || createIssueForNode.id}
-          onClose={() => {
-            setShowCreateIssueModal(false);
-            setCreateIssueForNode(null);
-          }}
-          onCreate={addIssue}
-        />
-      )}
-
-      {showIssueManager && (
-        <IssueManagerModal
-          issues={getAllIssues()}
-          nodes={nodes}
-          onClose={() => setShowIssueManager(false)}
-          onIssueClick={(issue) => {
-            setSelectedIssue(issue);
-            setShowIssueDetailPanel(true);
-            setShowIssueManager(false);
-          }}
-          onUpdateIssue={updateIssue}
-          onDeleteIssue={deleteIssue}
-        />
-      )}
-
-      {showIssueDetailPanel && selectedIssue && (
-        <IssueDetailPanel
-          issue={selectedIssue}
-          onClose={() => {
-            setShowIssueDetailPanel(false);
-            setSelectedIssue(null);
-          }}
-          onUpdate={updateIssue}
-          onDelete={deleteIssue}
-        />
-      )}
-
-      {/* Component Library Panel */}
-      <ComponentLibraryPanel
-        isOpen={showLibrary}
-        onClose={() => setShowLibrary(false)}
-        items={filteredLibraryItems}
-        searchTerm={librarySearchTerm}
-        onSearchChange={setLibrarySearchTerm}
-        selectedItem={selectedLibraryItem}
-        onSelectItem={setSelectedLibraryItem}
-        onAddToCanvas={addLibraryItemToCanvas}
-      />
-
-      {/* Save to Library Modal */}
-      {showSaveToLibraryModal && nodeToSaveToLibrary && (
-        <SaveToLibraryModal
-          node={nodeToSaveToLibrary}
-          onClose={() => {
-            setShowSaveToLibraryModal(false);
-            setNodeToSaveToLibrary(null);
-          }}
-          onSave={saveNodeToLibrary}
-        />
-      )}
-
-      {/* Text Annotation Toolbar */}
-      {selectedNode?.type === 'textAnnotation' && (
-        <TextAnnotationToolbar
-          node={selectedNode}
-          onUpdate={(id, data) => {
-            setNodes(nds => nds.map(n => 
-              n.id === id ? { ...n, data } : n
-            ));
-          }}
         />
       )}
 
