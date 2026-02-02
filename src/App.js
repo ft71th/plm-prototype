@@ -21,8 +21,11 @@ import ReactFlow, {
   useReactFlow,
   SelectionMode,
 } from 'reactflow';
+import { NodeResizer } from '@reactflow/node-resizer';
+import '@reactflow/node-resizer/dist/style.css';
 import 'reactflow/dist/style.css';
 import * as XLSX from 'xlsx';
+import Whiteboard from './components/Whiteboard/Whiteboard';
 
 // API Base URL - same as api.js
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -51,6 +54,35 @@ const RELATIONSHIP_TYPES = {
   related: { label: 'Related to', color: '#95a5a6', style: 'dotted' },
   flowsDown: { label: 'Flows down', color: '#00bcd4', style: 'solid' },
   reuses: { label: 'Reuses', color: '#16a085', style: 'solid' },
+};
+
+// Issue Categories
+const ISSUE_CATEGORIES = {
+  bug: { icon: '🐛', label: 'Bug', color: '#e74c3c' },
+  requirement: { icon: '📋', label: 'Requirement Issue', color: '#3498db' },
+  design: { icon: '✏️', label: 'Design Issue', color: '#9b59b6' },
+  safety: { icon: '⚠️', label: 'Safety Concern', color: '#e67e22' },
+  performance: { icon: '⚡', label: 'Performance', color: '#f1c40f' },
+  documentation: { icon: '📄', label: 'Documentation', color: '#1abc9c' },
+  question: { icon: '❓', label: 'Question', color: '#95a5a6' },
+  enhancement: { icon: '✨', label: 'Enhancement', color: '#27ae60' },
+};
+
+// Issue Priorities
+const ISSUE_PRIORITIES = {
+  critical: { icon: '🔴', label: 'Critical', color: '#9b59b6' },
+  high: { icon: '🟠', label: 'High', color: '#e74c3c' },
+  medium: { icon: '🟡', label: 'Medium', color: '#f39c12' },
+  low: { icon: '🟢', label: 'Low', color: '#27ae60' },
+};
+
+// Issue Statuses
+const ISSUE_STATUSES = {
+  open: { icon: '📬', label: 'Open', color: '#e74c3c' },
+  investigating: { icon: '🔍', label: 'Investigating', color: '#f39c12' },
+  inProgress: { icon: '🔄', label: 'In Progress', color: '#3498db' },
+  resolved: { icon: '✅', label: 'Resolved', color: '#27ae60' },
+  closed: { icon: '📪', label: 'Closed', color: '#95a5a6' },
 };
 
 // Auto-inference engine
@@ -1074,19 +1106,33 @@ function CustomNode({ data, id, selected }) {
     );
 
     return (
-      <div 
-        style={{
-          width: `${nodeWidth}px`,
-          minHeight: `${nodeHeight}px`,
-          backgroundColor: getWhiteboardColor(),
-          borderRadius: getNodeShape().borderRadius || '8px',
-          borderStyle: getNodeShape().borderStyle || 'solid',
-          border: selected ? '3px solid #3498db' : '2px solid rgba(255,255,255,0.3)',
-          boxShadow: selected ? '0 0 20px rgba(52, 152, 219, 0.5)' : '0 4px 12px rgba(0,0,0,0.2)',
-          position: 'relative',
-          cursor: 'pointer',
-          transition: 'all 0.2s ease',
-        }}>
+      <>
+        {/* NodeResizer for whiteboard mode */}
+        <NodeResizer
+          color="#3498db"
+          isVisible={selected}
+          minWidth={120}
+          minHeight={60}
+          handleStyle={{
+            width: '10px',
+            height: '10px',
+            borderRadius: '2px',
+          }}
+        />
+        <div 
+          style={{
+            width: data.width || `${nodeWidth}px`,
+            minHeight: data.height || `${nodeHeight}px`,
+            backgroundColor: getWhiteboardColor(),
+            borderRadius: getNodeShape().borderRadius || '8px',
+            borderStyle: getNodeShape().borderStyle || 'solid',
+            border: selected ? '3px solid #3498db' : '2px solid rgba(255,255,255,0.3)',
+            boxShadow: selected ? '0 0 20px rgba(52, 152, 219, 0.5)' : '0 4px 12px rgba(0,0,0,0.2)',
+            position: 'relative',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            boxSizing: 'border-box',
+          }}>
 
         {/* TYPE BADGE - Special handling for Hardware with larger icons */}
         {(data.itemType === 'hardware' || data.type === 'hardware') ? (
@@ -1312,6 +1358,7 @@ function CustomNode({ data, id, selected }) {
           )}
         </div>
       </div>
+      </>
     );
   }
 
@@ -1687,6 +1734,42 @@ function CustomNode({ data, id, selected }) {
         </div>
       )}
 
+      {/* Issue Indicator */}
+      {(() => {
+        const issues = data.issues || [];
+        const openIssues = issues.filter(i => i.status !== 'closed' && i.status !== 'resolved');
+        const criticalHighCount = openIssues.filter(i => i.priority === 'critical' || i.priority === 'high').length;
+        const issueCount = openIssues.length;
+        
+        if (issueCount === 0) return null;
+        
+        return (
+          <div 
+            style={{
+              position: 'absolute',
+              top: '4px',
+              right: data.locked ? '32px' : '4px',
+              background: criticalHighCount > 0 ? '#e74c3c' : '#f39c12',
+              color: 'white',
+              borderRadius: '50%',
+              width: '22px',
+              height: '22px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+              cursor: 'pointer',
+              zIndex: 10
+            }}
+            title={`${issueCount} open issue${issueCount > 1 ? 's' : ''}${criticalHighCount > 0 ? ` (${criticalHighCount} critical/high)` : ''}`}
+          >
+            {issueCount > 9 ? '9+' : issueCount}
+          </div>
+        );
+      })()}
+
       {data.attachment && (
         <div style={{
           position: 'absolute',
@@ -1701,6 +1784,936 @@ function CustomNode({ data, id, selected }) {
   );
 }
 
+// Text Annotation Node - Free text for comments and notes
+function TextAnnotationNode({ data, id, selected }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [text, setText] = useState(data.text || 'Double-click to edit');
+  const textareaRef = useRef(null);
+
+  const fontSize = data.fontSize || 14;
+  const textColor = data.textColor || '#333333';
+  const bgColor = data.bgColor || 'transparent';
+  const fontWeight = data.fontWeight || 'normal';
+  const fontStyle = data.fontStyle || 'normal';
+
+  useEffect(() => {
+    if (isEditing && textareaRef.current) {
+      textareaRef.current.focus();
+      textareaRef.current.select();
+    }
+  }, [isEditing]);
+
+  const handleDoubleClick = (e) => {
+    e.stopPropagation();
+    setIsEditing(true);
+  };
+
+  const handleBlur = () => {
+    setIsEditing(false);
+    if (data.onChange) {
+      data.onChange(id, 'text', text);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      setIsEditing(false);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        minWidth: data.nodeWidth || 150,
+        minHeight: data.nodeHeight || 40,
+        width: data.nodeWidth || 'auto',
+        height: data.nodeHeight || 'auto',
+        padding: '8px 12px',
+        background: bgColor,
+        borderRadius: '4px',
+        border: selected ? '2px dashed #3498db' : '1px dashed transparent',
+        cursor: 'text',
+        position: 'relative'
+      }}
+      onDoubleClick={handleDoubleClick}
+    >
+      {/* Resize Handle */}
+      {selected && (
+        <NodeResizer
+          color="#3498db"
+          isVisible={selected}
+          minWidth={80}
+          minHeight={30}
+          onResize={(event, { width, height }) => {
+            if (data.onResize) {
+              data.onResize(id, width, height);
+            }
+          }}
+          handleStyle={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '2px',
+          }}
+        />
+      )}
+
+      {isEditing ? (
+        <textarea
+          ref={textareaRef}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+          style={{
+            width: '100%',
+            height: '100%',
+            minHeight: '40px',
+            background: 'transparent',
+            border: 'none',
+            outline: 'none',
+            resize: 'none',
+            fontSize: `${fontSize}px`,
+            color: textColor,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            fontFamily: 'inherit',
+            lineHeight: '1.4'
+          }}
+        />
+      ) : (
+        <div
+          style={{
+            fontSize: `${fontSize}px`,
+            color: textColor,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            lineHeight: '1.4',
+            minHeight: '20px'
+          }}
+        >
+          {text || 'Double-click to edit'}
+        </div>
+      )}
+
+      {/* Style indicator when selected */}
+      {selected && !isEditing && (
+        <div style={{
+          position: 'absolute',
+          top: '-24px',
+          left: '0',
+          display: 'flex',
+          gap: '4px',
+          background: '#2c3e50',
+          padding: '2px 6px',
+          borderRadius: '4px',
+          fontSize: '10px',
+          color: 'white'
+        }}>
+          📝 Text
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Text Annotation Formatting Toolbar
+function TextAnnotationToolbar({ node, onUpdate }) {
+  const data = node.data;
+
+  const updateData = (key, value) => {
+    onUpdate(node.id, key, value);
+  };
+
+  const fontSizes = [12, 14, 16, 18, 20, 24, 28, 32, 40, 48];
+  const colors = ['#333333', '#e74c3c', '#e67e22', '#f1c40f', '#27ae60', '#3498db', '#9b59b6', '#ffffff'];
+  const bgColors = [
+    'transparent', 
+    'rgba(255,255,200,0.9)', 
+    'rgba(200,255,200,0.9)', 
+    'rgba(200,220,255,0.9)',
+    'rgba(255,200,200,0.9)',
+    'rgba(220,200,255,0.9)',
+    '#ffffff'
+  ];
+
+  return (
+    <div style={{
+      position: 'fixed',
+      bottom: '20px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      backgroundColor: '#2c3e50',
+      borderRadius: '12px',
+      padding: '12px 20px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '15px',
+      boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+      zIndex: 3000,
+    }}>
+      {/* Font Size */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span style={{ color: '#7f8c8d', fontSize: '11px' }}>Size:</span>
+        <select
+          value={data.fontSize || 14}
+          onChange={(e) => updateData('fontSize', parseInt(e.target.value))}
+          style={{
+            padding: '6px 10px',
+            backgroundColor: '#34495e',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+          }}
+        >
+          {fontSizes.map(size => (
+            <option key={size} value={size}>{size}px</option>
+          ))}
+        </select>
+      </div>
+
+      <div style={{ width: '1px', height: '24px', backgroundColor: '#4a5f7f' }} />
+
+      {/* Text Color */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <span style={{ color: '#7f8c8d', fontSize: '11px' }}>Color:</span>
+        {colors.map(color => (
+          <button
+            key={color}
+            onClick={() => updateData('textColor', color)}
+            style={{
+              width: '20px',
+              height: '20px',
+              borderRadius: '4px',
+              backgroundColor: color,
+              border: data.textColor === color ? '2px solid #3498db' : '1px solid #4a5f7f',
+              cursor: 'pointer',
+            }}
+          />
+        ))}
+      </div>
+
+      <div style={{ width: '1px', height: '24px', backgroundColor: '#4a5f7f' }} />
+
+      {/* Background Color */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <span style={{ color: '#7f8c8d', fontSize: '11px' }}>Bg:</span>
+        {bgColors.map((color, i) => (
+          <button
+            key={i}
+            onClick={() => updateData('bgColor', color)}
+            style={{
+              width: '20px',
+              height: '20px',
+              borderRadius: '4px',
+              backgroundColor: color === 'transparent' ? '#34495e' : color,
+              border: data.bgColor === color ? '2px solid #3498db' : '1px solid #4a5f7f',
+              cursor: 'pointer',
+            }}
+          >
+            {color === 'transparent' && <span style={{ fontSize: '10px' }}>∅</span>}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ width: '1px', height: '24px', backgroundColor: '#4a5f7f' }} />
+
+      {/* Bold/Italic */}
+      <div style={{ display: 'flex', gap: '4px' }}>
+        <button
+          onClick={() => updateData('fontWeight', data.fontWeight === 'bold' ? 'normal' : 'bold')}
+          style={{
+            padding: '6px 10px',
+            backgroundColor: data.fontWeight === 'bold' ? '#3498db' : '#34495e',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+          }}
+        >
+          B
+        </button>
+        <button
+          onClick={() => updateData('fontStyle', data.fontStyle === 'italic' ? 'normal' : 'italic')}
+          style={{
+            padding: '6px 10px',
+            backgroundColor: data.fontStyle === 'italic' ? '#3498db' : '#34495e',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontStyle: 'italic',
+          }}
+        >
+          I
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Create Issue Modal
+function CreateIssueModal({ nodeId, nodeName, onClose, onCreate }) {
+  const [issue, setIssue] = useState({
+    title: '',
+    description: '',
+    category: 'bug',
+    priority: 'medium',
+    status: 'open',
+    rootCause: '',
+    solution: '',
+    impact: '',
+    assignee: '',
+    dueDate: '',
+  });
+
+  const handleCreate = () => {
+    if (!issue.title.trim()) {
+      alert('Please enter an issue title');
+      return;
+    }
+    onCreate({
+      ...issue,
+      id: `ISS-${Date.now().toString(36).toUpperCase()}`,
+      nodeId: nodeId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    onClose();
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0,0,0,0.8)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 5000,
+    }}>
+      <div style={{
+        backgroundColor: '#2c3e50',
+        borderRadius: '12px',
+        padding: '30px',
+        width: '550px',
+        maxHeight: '85vh',
+        overflow: 'auto',
+        boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+      }}>
+        <h2 style={{ color: '#fff', marginTop: 0, marginBottom: '10px', fontSize: '20px' }}>
+          🐛 Create New Issue
+        </h2>
+        <p style={{ color: '#7f8c8d', marginBottom: '20px', fontSize: '13px' }}>
+          Creating issue for: <strong style={{ color: '#3498db' }}>{nodeName}</strong>
+        </p>
+
+        {/* Title */}
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', color: '#bdc3c7', fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '6px' }}>
+            Issue Title *
+          </label>
+          <input
+            type="text"
+            value={issue.title}
+            onChange={(e) => setIssue({ ...issue, title: e.target.value })}
+            placeholder="Brief description of the issue"
+            autoFocus
+            style={{
+              width: '100%',
+              padding: '12px',
+              backgroundColor: '#34495e',
+              color: '#fff',
+              border: '1px solid #4a5f7f',
+              borderRadius: '6px',
+              fontSize: '14px',
+              boxSizing: 'border-box'
+            }}
+          />
+        </div>
+
+        {/* Category & Priority */}
+        <div style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ display: 'block', color: '#bdc3c7', fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '6px' }}>
+              Category
+            </label>
+            <select
+              value={issue.category}
+              onChange={(e) => setIssue({ ...issue, category: e.target.value })}
+              style={{ width: '100%', padding: '12px', backgroundColor: '#34495e', color: '#fff', border: '1px solid #4a5f7f', borderRadius: '6px' }}
+            >
+              {Object.entries(ISSUE_CATEGORIES).map(([key, val]) => (
+                <option key={key} value={key}>{val.icon} {val.label}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ display: 'block', color: '#bdc3c7', fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '6px' }}>
+              Priority
+            </label>
+            <select
+              value={issue.priority}
+              onChange={(e) => setIssue({ ...issue, priority: e.target.value })}
+              style={{ width: '100%', padding: '12px', backgroundColor: '#34495e', color: '#fff', border: '1px solid #4a5f7f', borderRadius: '6px' }}
+            >
+              {Object.entries(ISSUE_PRIORITIES).map(([key, val]) => (
+                <option key={key} value={key}>{val.icon} {val.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Description */}
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', color: '#bdc3c7', fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '6px' }}>
+            Description
+          </label>
+          <textarea
+            value={issue.description}
+            onChange={(e) => setIssue({ ...issue, description: e.target.value })}
+            placeholder="Detailed description of the issue..."
+            style={{
+              width: '100%',
+              minHeight: '80px',
+              padding: '12px',
+              backgroundColor: '#34495e',
+              color: '#fff',
+              border: '1px solid #4a5f7f',
+              borderRadius: '6px',
+              resize: 'vertical',
+              boxSizing: 'border-box'
+            }}
+          />
+        </div>
+
+        {/* Impact */}
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', color: '#bdc3c7', fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '6px' }}>
+            ⚠️ Impact Assessment
+          </label>
+          <textarea
+            value={issue.impact}
+            onChange={(e) => setIssue({ ...issue, impact: e.target.value })}
+            placeholder="What is affected by this issue?"
+            style={{
+              width: '100%',
+              minHeight: '60px',
+              padding: '12px',
+              backgroundColor: '#34495e',
+              color: '#fff',
+              border: '1px solid #4a5f7f',
+              borderRadius: '6px',
+              resize: 'vertical',
+              boxSizing: 'border-box'
+            }}
+          />
+        </div>
+
+        {/* Assignee & Due Date */}
+        <div style={{ display: 'flex', gap: '15px', marginBottom: '25px' }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ display: 'block', color: '#bdc3c7', fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '6px' }}>
+              Assignee
+            </label>
+            <input
+              type="text"
+              value={issue.assignee}
+              onChange={(e) => setIssue({ ...issue, assignee: e.target.value })}
+              placeholder="Who should fix this?"
+              style={{ width: '100%', padding: '12px', backgroundColor: '#34495e', color: '#fff', border: '1px solid #4a5f7f', borderRadius: '6px', boxSizing: 'border-box' }}
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ display: 'block', color: '#bdc3c7', fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '6px' }}>
+              Due Date
+            </label>
+            <input
+              type="date"
+              value={issue.dueDate}
+              onChange={(e) => setIssue({ ...issue, dueDate: e.target.value })}
+              style={{ width: '100%', padding: '12px', backgroundColor: '#34495e', color: '#fff', border: '1px solid #4a5f7f', borderRadius: '6px', boxSizing: 'border-box' }}
+            />
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '12px 24px', backgroundColor: '#7f8c8d', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+            Cancel
+          </button>
+          <button
+            onClick={handleCreate}
+            disabled={!issue.title.trim()}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: issue.title.trim() ? '#e74c3c' : '#7f8c8d',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: issue.title.trim() ? 'pointer' : 'not-allowed',
+              fontWeight: 'bold',
+            }}
+          >
+            🐛 Create Issue
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Issue Manager Modal - View all issues
+function IssueManagerModal({ issues, nodes, onClose, onIssueClick, onUpdateIssue, onDeleteIssue }) {
+  const [filter, setFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('priority');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const getNodeName = (nodeId) => {
+    const node = nodes.find(n => n.id === nodeId);
+    return node?.data?.label || node?.data?.reqId || nodeId;
+  };
+
+  // Flatten issues from all nodes
+  const allIssues = Object.entries(issues).flatMap(([nodeId, nodeIssues]) => 
+    (nodeIssues || []).map(issue => ({ ...issue, nodeId }))
+  );
+
+  const filteredIssues = allIssues
+    .filter(issue => {
+      if (filter === 'all') return true;
+      if (filter === 'open') return !['resolved', 'closed'].includes(issue.status);
+      if (filter === 'resolved') return issue.status === 'resolved';
+      if (filter === 'closed') return issue.status === 'closed';
+      return issue.priority === filter || issue.category === filter;
+    })
+    .filter(issue => {
+      if (!searchTerm) return true;
+      const search = searchTerm.toLowerCase();
+      return (
+        issue.title?.toLowerCase().includes(search) ||
+        issue.description?.toLowerCase().includes(search) ||
+        issue.id?.toLowerCase().includes(search) ||
+        getNodeName(issue.nodeId).toLowerCase().includes(search)
+      );
+    })
+    .sort((a, b) => {
+      if (sortBy === 'priority') {
+        const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+        return (priorityOrder[a.priority] || 2) - (priorityOrder[b.priority] || 2);
+      }
+      if (sortBy === 'date') return new Date(b.createdAt) - new Date(a.createdAt);
+      if (sortBy === 'status') {
+        const statusOrder = { open: 0, investigating: 1, inProgress: 2, resolved: 3, closed: 4 };
+        return (statusOrder[a.status] || 0) - (statusOrder[b.status] || 0);
+      }
+      return 0;
+    });
+
+  const stats = {
+    total: allIssues.length,
+    open: allIssues.filter(i => i.status === 'open').length,
+    inProgress: allIssues.filter(i => i.status === 'investigating' || i.status === 'inProgress').length,
+    resolved: allIssues.filter(i => i.status === 'resolved').length,
+    critical: allIssues.filter(i => i.priority === 'critical' && i.status !== 'closed').length,
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0, left: 0, right: 0, bottom: 0,
+      backgroundColor: 'rgba(0,0,0,0.85)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 5000,
+    }}>
+      <div style={{
+        backgroundColor: '#1a252f',
+        borderRadius: '12px',
+        width: '90%',
+        maxWidth: '1200px',
+        height: '85vh',
+        display: 'flex',
+        flexDirection: 'column',
+        boxShadow: '0 10px 50px rgba(0,0,0,0.5)',
+      }}>
+        {/* Header */}
+        <div style={{ padding: '20px 25px', borderBottom: '1px solid #34495e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h2 style={{ margin: 0, color: '#fff', fontSize: '22px' }}>🐛 Issue Manager</h2>
+            <p style={{ margin: '5px 0 0', color: '#7f8c8d', fontSize: '13px' }}>Track and manage all issues across your project</p>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#95a5a6', fontSize: '28px', cursor: 'pointer' }}>×</button>
+        </div>
+
+        {/* Stats Bar */}
+        <div style={{ display: 'flex', gap: '15px', padding: '15px 25px', backgroundColor: '#2c3e50', borderBottom: '1px solid #34495e' }}>
+          {[
+            { label: 'Total', value: stats.total, color: '#fff' },
+            { label: 'Open', value: stats.open, color: '#e74c3c' },
+            { label: 'In Progress', value: stats.inProgress, color: '#3498db' },
+            { label: 'Resolved', value: stats.resolved, color: '#27ae60' },
+          ].map(stat => (
+            <div key={stat.label} style={{ padding: '10px 20px', backgroundColor: '#34495e', borderRadius: '8px', textAlign: 'center' }}>
+              <div style={{ fontSize: '24px', fontWeight: 'bold', color: stat.color }}>{stat.value}</div>
+              <div style={{ fontSize: '11px', color: '#7f8c8d' }}>{stat.label}</div>
+            </div>
+          ))}
+          {stats.critical > 0 && (
+            <div style={{ padding: '10px 20px', backgroundColor: '#e74c3c', borderRadius: '8px', textAlign: 'center' }}>
+              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff' }}>{stats.critical}</div>
+              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.8)' }}>Critical!</div>
+            </div>
+          )}
+        </div>
+
+        {/* Filters */}
+        <div style={{ display: 'flex', gap: '15px', padding: '15px 25px', backgroundColor: '#2c3e50', alignItems: 'center' }}>
+          <input
+            type="text"
+            placeholder="🔍 Search issues..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ flex: 1, padding: '10px 15px', backgroundColor: '#34495e', color: '#fff', border: '1px solid #4a5f7f', borderRadius: '6px' }}
+          />
+          <select value={filter} onChange={(e) => setFilter(e.target.value)} style={{ padding: '10px 15px', backgroundColor: '#34495e', color: '#fff', border: '1px solid #4a5f7f', borderRadius: '6px' }}>
+            <option value="all">All Issues</option>
+            <option value="open">Open Only</option>
+            <option value="resolved">Resolved</option>
+            <option value="closed">Closed</option>
+            <option value="critical">🔴 Critical</option>
+            <option value="high">🟠 High Priority</option>
+          </select>
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ padding: '10px 15px', backgroundColor: '#34495e', color: '#fff', border: '1px solid #4a5f7f', borderRadius: '6px' }}>
+            <option value="priority">Sort by Priority</option>
+            <option value="date">Sort by Date</option>
+            <option value="status">Sort by Status</option>
+          </select>
+        </div>
+
+        {/* Issue List */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 25px' }}>
+          {filteredIssues.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '60px', color: '#7f8c8d' }}>
+              <div style={{ fontSize: '48px', marginBottom: '20px' }}>🎉</div>
+              <div style={{ fontSize: '18px' }}>No issues found</div>
+              <div style={{ fontSize: '13px', marginTop: '10px' }}>
+                {allIssues.length === 0 ? 'Create issues from the node panel' : 'Try adjusting your filters'}
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {filteredIssues.map(issue => (
+                <div
+                  key={issue.id}
+                  onClick={() => onIssueClick && onIssueClick(issue)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '15px 20px',
+                    backgroundColor: '#2c3e50',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    borderLeft: `4px solid ${ISSUE_PRIORITIES[issue.priority]?.color || '#95a5a6'}`,
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <div style={{
+                    width: '40px', height: '40px', borderRadius: '8px',
+                    backgroundColor: ISSUE_PRIORITIES[issue.priority]?.color || '#95a5a6',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    marginRight: '15px', fontSize: '20px',
+                  }}>
+                    {ISSUE_CATEGORIES[issue.category]?.icon || '📌'}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                      <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '14px' }}>{issue.title}</span>
+                      <span style={{
+                        fontSize: '10px', padding: '2px 8px', borderRadius: '10px',
+                        backgroundColor: ISSUE_STATUSES[issue.status]?.color || '#95a5a6', color: '#fff',
+                      }}>
+                        {ISSUE_STATUSES[issue.status]?.label || issue.status}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px', fontSize: '12px', color: '#7f8c8d' }}>
+                      <span>📍 {getNodeName(issue.nodeId)}</span>
+                      <span>#{issue.id}</span>
+                      {issue.assignee && <span>👤 {issue.assignee}</span>}
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const newStatus = issue.status === 'open' ? 'inProgress' : 
+                                       issue.status === 'inProgress' ? 'resolved' : issue.status;
+                      onUpdateIssue && onUpdateIssue({ ...issue, status: newStatus, updatedAt: new Date().toISOString() });
+                    }}
+                    style={{ padding: '6px 12px', backgroundColor: '#3498db', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}
+                    title="Advance status"
+                  >
+                    →
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Component Library Panel
+function ComponentLibraryPanel({ isOpen, onClose, nodes, onAddFromLibrary, libraryItems, onSaveToLibrary, onRefresh }) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [selectedItem, setSelectedItem] = useState(null);
+
+  if (!isOpen) return null;
+
+  // Group items by type
+  const groupedItems = (libraryItems || []).reduce((acc, item) => {
+    const type = item.itemType || item.type || 'other';
+    if (!acc[type]) acc[type] = [];
+    acc[type].push(item);
+    return acc;
+  }, {});
+
+  const filteredItems = (libraryItems || []).filter(item => {
+    const matchesSearch = !searchTerm || 
+      item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = typeFilter === 'all' || item.itemType === typeFilter || item.type === typeFilter;
+    return matchesSearch && matchesType;
+  });
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      right: 0,
+      width: '380px',
+      height: '100vh',
+      backgroundColor: '#1a252f',
+      boxShadow: '-4px 0 20px rgba(0,0,0,0.3)',
+      zIndex: 3500,
+      display: 'flex',
+      flexDirection: 'column',
+    }}>
+      {/* Header */}
+      <div style={{ padding: '20px', borderBottom: '1px solid #34495e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h3 style={{ margin: 0, color: '#fff', fontSize: '18px' }}>📚 Component Library</h3>
+          <p style={{ margin: '5px 0 0', color: '#7f8c8d', fontSize: '12px' }}>Reusable components with version control</p>
+        </div>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#95a5a6', fontSize: '24px', cursor: 'pointer' }}>×</button>
+      </div>
+
+      {/* Search & Filter */}
+      <div style={{ padding: '15px', borderBottom: '1px solid #34495e' }}>
+        <input
+          type="text"
+          placeholder="🔍 Search components..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={{ width: '100%', padding: '10px', backgroundColor: '#34495e', color: '#fff', border: '1px solid #4a5f7f', borderRadius: '6px', marginBottom: '10px', boxSizing: 'border-box' }}
+        />
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value)}
+          style={{ width: '100%', padding: '10px', backgroundColor: '#34495e', color: '#fff', border: '1px solid #4a5f7f', borderRadius: '6px' }}
+        >
+          <option value="all">All Types</option>
+          <option value="system">🔷 Systems</option>
+          <option value="subsystem">🔶 Sub-Systems</option>
+          <option value="function">⚡ Functions</option>
+          <option value="hardware">📦 Hardware</option>
+          <option value="requirement">📋 Requirements</option>
+        </select>
+      </div>
+
+      {/* Library Items */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '15px' }}>
+        {filteredItems.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 20px', color: '#7f8c8d' }}>
+            <div style={{ fontSize: '40px', marginBottom: '15px' }}>📚</div>
+            <div style={{ fontSize: '14px' }}>No components in library</div>
+            <div style={{ fontSize: '12px', marginTop: '10px' }}>Save components from the canvas to build your library</div>
+          </div>
+        ) : (
+          filteredItems.map(item => (
+            <div
+              key={item.id}
+              onClick={() => setSelectedItem(selectedItem?.id === item.id ? null : item)}
+              style={{
+                padding: '12px',
+                backgroundColor: selectedItem?.id === item.id ? '#34495e' : '#2c3e50',
+                borderRadius: '8px',
+                marginBottom: '10px',
+                cursor: 'pointer',
+                borderLeft: `3px solid ${item.itemType === 'system' ? '#1abc9c' : item.itemType === 'function' ? '#00bcd4' : '#3498db'}`,
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '13px' }}>{item.name}</span>
+                <span style={{ fontSize: '10px', padding: '2px 6px', backgroundColor: '#27ae60', borderRadius: '4px', color: '#fff' }}>
+                  v{item.version || '1.0'}
+                </span>
+              </div>
+              <div style={{ color: '#7f8c8d', fontSize: '11px', marginBottom: '6px' }}>{item.description || 'No description'}</div>
+              {selectedItem?.id === item.id && (
+                <div style={{ marginTop: '10px', display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onAddFromLibrary && onAddFromLibrary(item); }}
+                    style={{ flex: 1, padding: '8px', backgroundColor: '#3498db', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}
+                  >
+                    ➕ Add to Canvas
+                  </button>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Footer */}
+      <div style={{ padding: '15px', borderTop: '1px solid #34495e' }}>
+        <button
+          onClick={onRefresh}
+          style={{ width: '100%', padding: '10px', backgroundColor: '#34495e', color: '#fff', border: '1px solid #4a5f7f', borderRadius: '6px', cursor: 'pointer' }}
+        >
+          🔄 Refresh Library
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Save to Library Modal
+function SaveToLibraryModal({ node, onClose, onSave }) {
+  const [name, setName] = useState(node?.data?.label || '');
+  const [description, setDescription] = useState(node?.data?.description || '');
+  const [version, setVersion] = useState('1.0');
+
+  const handleSave = () => {
+    if (!name.trim()) {
+      alert('Please enter a name');
+      return;
+    }
+    onSave({
+      name: name.trim(),
+      description: description.trim(),
+      version,
+      itemType: node?.data?.itemType || node?.data?.type,
+      nodeData: node?.data,
+    });
+    onClose();
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0, left: 0, right: 0, bottom: 0,
+      backgroundColor: 'rgba(0,0,0,0.8)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 5000,
+    }}>
+      <div style={{
+        backgroundColor: '#2c3e50',
+        borderRadius: '12px',
+        padding: '30px',
+        width: '450px',
+        boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+      }}>
+        <h2 style={{ color: '#fff', marginTop: 0, marginBottom: '20px', fontSize: '20px' }}>
+          📚 Save to Library
+        </h2>
+
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', color: '#bdc3c7', fontSize: '11px', textTransform: 'uppercase', marginBottom: '6px' }}>
+            Component Name *
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '12px',
+              backgroundColor: '#34495e',
+              color: '#fff',
+              border: '1px solid #4a5f7f',
+              borderRadius: '6px',
+              boxSizing: 'border-box'
+            }}
+          />
+        </div>
+
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', color: '#bdc3c7', fontSize: '11px', textTransform: 'uppercase', marginBottom: '6px' }}>
+            Description
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            style={{
+              width: '100%',
+              minHeight: '80px',
+              padding: '12px',
+              backgroundColor: '#34495e',
+              color: '#fff',
+              border: '1px solid #4a5f7f',
+              borderRadius: '6px',
+              resize: 'vertical',
+              boxSizing: 'border-box'
+            }}
+          />
+        </div>
+
+        <div style={{ marginBottom: '25px' }}>
+          <label style={{ display: 'block', color: '#bdc3c7', fontSize: '11px', textTransform: 'uppercase', marginBottom: '6px' }}>
+            Version
+          </label>
+          <input
+            type="text"
+            value={version}
+            onChange={(e) => setVersion(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '12px',
+              backgroundColor: '#34495e',
+              color: '#fff',
+              border: '1px solid #4a5f7f',
+              borderRadius: '6px',
+              boxSizing: 'border-box'
+            }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '12px 24px', backgroundColor: '#7f8c8d', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            style={{ padding: '12px 24px', backgroundColor: '#27ae60', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+          >
+            📚 Save to Library
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 
 // Voice-enabled text input helper
@@ -2807,6 +3820,67 @@ return (
           />
         )}
 
+        {/* Issues Section */}
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{
+            display: 'block',
+            marginBottom: '6px',
+            fontSize: '11px',
+            color: '#bdc3c7',
+            textTransform: 'uppercase',
+            fontWeight: 'bold'
+          }}>
+            Issues 🐛
+          </label>
+          <button
+            onClick={() => {
+              if (node.data.onShowIssues) {
+                node.data.onShowIssues(node);
+              }
+            }}
+            style={{
+              width: '100%',
+              padding: '10px',
+              background: node.data.issueCount > 0 
+                ? (node.data.criticalIssueCount > 0 ? '#c0392b' : '#e67e22')
+                : '#34495e',
+              border: '1px solid #4a5f7f',
+              borderRadius: '6px',
+              color: 'white',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              fontSize: '13px'
+            }}
+          >
+            {node.data.issueCount > 0 ? (
+              <>
+                <span>🐛</span>
+                <span>{node.data.issueCount} Open Issue{node.data.issueCount !== 1 ? 's' : ''}</span>
+                {node.data.criticalIssueCount > 0 && (
+                  <span style={{
+                    background: '#fff',
+                    color: '#c0392b',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    fontSize: '10px',
+                    fontWeight: 'bold'
+                  }}>
+                    {node.data.criticalIssueCount} Critical
+                  </span>
+                )}
+              </>
+            ) : (
+              <>
+                <span>➕</span>
+                <span>Add Issue</span>
+              </>
+            )}
+          </button>
+        </div>
+
         <div style={{ marginBottom: '15px' }}>
           <label style={{
             display: 'block',
@@ -2874,6 +3948,204 @@ return (
                 />
               )}
             </label>
+          )}
+        </div>
+
+        {/* Issues Section */}
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '8px',
+            fontSize: '11px',
+            color: '#e74c3c',
+            textTransform: 'uppercase',
+            fontWeight: 'bold'
+          }}>
+            <span>🐛 Issues ({(node.data.issues || []).length})</span>
+            {isEditable && (
+              <button
+                onClick={() => {
+                  const issues = node.data.issues || [];
+                  const newIssue = {
+                    id: `issue-${Date.now()}`,
+                    title: 'New Issue',
+                    description: '',
+                    priority: 'medium',
+                    status: 'open',
+                    createdAt: new Date().toISOString(),
+                    createdBy: 'Current User'
+                  };
+                  onUpdate(node.id, 'issues', [...issues, newIssue]);
+                }}
+                style={{
+                  background: '#e74c3c',
+                  border: 'none',
+                  color: 'white',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  fontSize: '10px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                + Add Issue
+              </button>
+            )}
+          </label>
+
+          {(node.data.issues || []).length === 0 ? (
+            <div style={{
+              padding: '12px',
+              background: '#1a2a1a',
+              borderRadius: '4px',
+              textAlign: 'center',
+              color: '#7f8c8d',
+              fontSize: '12px'
+            }}>
+              ✓ No issues
+            </div>
+          ) : (
+            <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+              {(node.data.issues || []).map((issue, index) => (
+                <div 
+                  key={issue.id} 
+                  style={{
+                    background: '#34495e',
+                    borderRadius: '4px',
+                    padding: '10px',
+                    marginBottom: '6px',
+                    borderLeft: `3px solid ${
+                      issue.priority === 'critical' ? '#9b59b6' :
+                      issue.priority === 'high' ? '#e74c3c' :
+                      issue.priority === 'medium' ? '#f39c12' : '#27ae60'
+                    }`
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                    <input
+                      type="text"
+                      value={issue.title}
+                      onChange={(e) => {
+                        const issues = [...(node.data.issues || [])];
+                        issues[index] = { ...issues[index], title: e.target.value };
+                        onUpdate(node.id, 'issues', issues);
+                      }}
+                      disabled={!isEditable}
+                      style={{
+                        flex: 1,
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'white',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        outline: 'none'
+                      }}
+                    />
+                    {isEditable && (
+                      <button
+                        onClick={() => {
+                          const issues = (node.data.issues || []).filter((_, i) => i !== index);
+                          onUpdate(node.id, 'issues', issues);
+                        }}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#e74c3c',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          padding: '0 4px'
+                        }}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                  
+                  <textarea
+                    value={issue.description || ''}
+                    onChange={(e) => {
+                      const issues = [...(node.data.issues || [])];
+                      issues[index] = { ...issues[index], description: e.target.value };
+                      onUpdate(node.id, 'issues', issues);
+                    }}
+                    disabled={!isEditable}
+                    placeholder="Issue description..."
+                    style={{
+                      width: '100%',
+                      background: '#2c3e50',
+                      border: '1px solid #4a5f7f',
+                      borderRadius: '3px',
+                      color: 'white',
+                      fontSize: '11px',
+                      padding: '6px',
+                      resize: 'vertical',
+                      minHeight: '40px',
+                      marginBottom: '6px'
+                    }}
+                  />
+                  
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <select
+                      value={issue.priority}
+                      onChange={(e) => {
+                        const issues = [...(node.data.issues || [])];
+                        issues[index] = { ...issues[index], priority: e.target.value };
+                        onUpdate(node.id, 'issues', issues);
+                      }}
+                      disabled={!isEditable}
+                      style={{
+                        flex: 1,
+                        padding: '4px',
+                        background: '#2c3e50',
+                        color: 'white',
+                        border: '1px solid #4a5f7f',
+                        borderRadius: '3px',
+                        fontSize: '10px'
+                      }}
+                    >
+                      <option value="low">🟢 Low</option>
+                      <option value="medium">🟡 Medium</option>
+                      <option value="high">🔴 High</option>
+                      <option value="critical">🟣 Critical</option>
+                    </select>
+                    
+                    <select
+                      value={issue.status}
+                      onChange={(e) => {
+                        const issues = [...(node.data.issues || [])];
+                        issues[index] = { ...issues[index], status: e.target.value };
+                        onUpdate(node.id, 'issues', issues);
+                      }}
+                      disabled={!isEditable}
+                      style={{
+                        flex: 1,
+                        padding: '4px',
+                        background: '#2c3e50',
+                        color: 'white',
+                        border: '1px solid #4a5f7f',
+                        borderRadius: '3px',
+                        fontSize: '10px'
+                      }}
+                    >
+                      <option value="open">📬 Open</option>
+                      <option value="in-progress">🔄 In Progress</option>
+                      <option value="resolved">✅ Resolved</option>
+                      <option value="closed">📪 Closed</option>
+                    </select>
+                  </div>
+                  
+                  <div style={{ 
+                    marginTop: '6px', 
+                    fontSize: '9px', 
+                    color: '#7f8c8d' 
+                  }}>
+                    Created: {new Date(issue.createdAt).toLocaleDateString()}
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </div>
 
@@ -3930,6 +5202,7 @@ return (
 
 const nodeTypes = {
   custom: CustomNode,
+  textAnnotation: TextAnnotationNode,
 };
 
 const initialNodes = [
@@ -3951,7 +5224,8 @@ const initialNodes = [
       status: 'in-progress',
       state: 'open',
       owner: 'Systems Engineering',
-      attachment: null
+      attachment: null,
+      issues: []
     }
   },
   
@@ -3973,7 +5247,8 @@ const initialNodes = [
       status: 'in-progress',
       state: 'open',
       owner: 'Control Systems Team',
-      attachment: null
+      attachment: null,
+      issues: []
     }
   },
   { 
@@ -3993,7 +5268,8 @@ const initialNodes = [
       status: 'new',
       state: 'frozen',
       owner: 'Safety Team',
-      attachment: null
+      attachment: null,
+      issues: []
     }
   },
   
@@ -4015,7 +5291,8 @@ const initialNodes = [
       status: 'in-progress',
       state: 'open',
       owner: 'Software Team',
-      attachment: null
+      attachment: null,
+      issues: []
     }
   },
   { 
@@ -4035,7 +5312,8 @@ const initialNodes = [
       status: 'new',
       state: 'open',
       owner: 'Software Team',
-      attachment: null
+      attachment: null,
+      issues: []
     }
   },
   { 
@@ -4055,7 +5333,8 @@ const initialNodes = [
       status: 'in-progress',
       state: 'frozen',
       owner: 'Safety Team',
-      attachment: null
+      attachment: null,
+      issues: []
     }
   },
   
@@ -4077,7 +5356,8 @@ const initialNodes = [
       status: 'new',
       state: 'open',
       owner: 'Fredrik',
-      attachment: null
+      attachment: null,
+      issues: []
     }
   },
   { 
@@ -4097,7 +5377,8 @@ const initialNodes = [
       status: 'new',
       state: 'open',
       owner: 'Fredrik',
-      attachment: null
+      attachment: null,
+      issues: []
     }
   },
   { 
@@ -4117,7 +5398,8 @@ const initialNodes = [
       status: 'in-progress',
       state: 'open',
       owner: 'Embedded Team',
-      attachment: null
+      attachment: null,
+      issues: []
     }
   },
   
@@ -4139,7 +5421,8 @@ const initialNodes = [
       status: 'done',
       state: 'released',
       owner: 'Customer: Nordic Shipping AB',
-      attachment: null
+      attachment: null,
+      issues: []
     }
   },
 ];
@@ -4162,6 +5445,554 @@ const initialEdges = [
   // Customer need flows to System
   { id: 'e10-1', source: '10', target: '1', type: 'custom', data: { relationType: 'satisfies', notes: 'Propulsion Control System satisfies customer speed control needs' } },
 ];
+
+// Issue Panel Modal for managing issues on a node
+function IssuePanelModal({ node, issues, onClose, onAddIssue, onUpdateIssue, onDeleteIssue }) {
+  const [isAdding, setIsAdding] = useState(false);
+  const [editingIssue, setEditingIssue] = useState(null);
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    severity: 'medium',
+    status: 'open',
+    type: 'bug',
+    assignee: '',
+    dueDate: ''
+  });
+
+  const nodeIssues = issues[node.id] || [];
+
+  const resetForm = () => {
+    setFormData({
+      title: '',
+      description: '',
+      severity: 'medium',
+      status: 'open',
+      type: 'bug',
+      assignee: '',
+      dueDate: ''
+    });
+  };
+
+  const handleAdd = () => {
+    if (formData.title.trim()) {
+      onAddIssue(node.id, formData);
+      resetForm();
+      setIsAdding(false);
+    }
+  };
+
+  const handleUpdate = () => {
+    if (editingIssue && formData.title.trim()) {
+      onUpdateIssue(node.id, editingIssue.id, formData);
+      resetForm();
+      setEditingIssue(null);
+    }
+  };
+
+  const startEdit = (issue) => {
+    setEditingIssue(issue);
+    setFormData({
+      title: issue.title,
+      description: issue.description,
+      severity: issue.severity,
+      status: issue.status,
+      type: issue.type,
+      assignee: issue.assignee,
+      dueDate: issue.dueDate
+    });
+    setIsAdding(false);
+  };
+
+  const cancelEdit = () => {
+    setEditingIssue(null);
+    setIsAdding(false);
+    resetForm();
+  };
+
+  const getSeverityColor = (severity) => {
+    switch (severity) {
+      case 'critical': return '#c0392b';
+      case 'high': return '#e74c3c';
+      case 'medium': return '#f39c12';
+      case 'low': return '#27ae60';
+      default: return '#95a5a6';
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'open': return '#e74c3c';
+      case 'in-progress': return '#3498db';
+      case 'resolved': return '#27ae60';
+      case 'closed': return '#95a5a6';
+      default: return '#95a5a6';
+    }
+  };
+
+  const getTypeIcon = (type) => {
+    switch (type) {
+      case 'bug': return '🐛';
+      case 'enhancement': return '✨';
+      case 'question': return '❓';
+      case 'task': return '📋';
+      default: return '📌';
+    }
+  };
+
+  const inputStyle = {
+    width: '100%',
+    padding: '8px',
+    background: '#34495e',
+    border: '1px solid #4a5f7f',
+    borderRadius: '4px',
+    color: 'white',
+    fontSize: '13px'
+  };
+
+  const selectStyle = {
+    ...inputStyle,
+    cursor: 'pointer'
+  };
+
+  const labelStyle = {
+    display: 'block',
+    marginBottom: '4px',
+    fontSize: '11px',
+    color: '#bdc3c7',
+    textTransform: 'uppercase'
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.6)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 3000
+    }}>
+      <div style={{
+        width: '600px',
+        maxHeight: '80vh',
+        background: '#2c3e50',
+        borderRadius: '12px',
+        boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden'
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: '16px 20px',
+          background: '#34495e',
+          borderBottom: '1px solid #4a5f7f',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <div>
+            <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'white' }}>
+              🐛 Issues for: {node.data.label}
+            </div>
+            <div style={{ fontSize: '12px', color: '#bdc3c7', marginTop: '2px' }}>
+              {node.data.reqId} • {nodeIssues.length} issue{nodeIssues.length !== 1 ? 's' : ''}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'white',
+              fontSize: '24px',
+              cursor: 'pointer',
+              padding: '0 8px'
+            }}
+          >×</button>
+        </div>
+
+        {/* Content */}
+        <div style={{ flex: 1, overflow: 'auto', padding: '16px' }}>
+          {/* Issue List */}
+          {nodeIssues.length === 0 && !isAdding && (
+            <div style={{
+              textAlign: 'center',
+              padding: '40px',
+              color: '#7f8c8d'
+            }}>
+              <div style={{ fontSize: '48px', marginBottom: '12px' }}>📋</div>
+              <div>No issues reported for this item</div>
+            </div>
+          )}
+
+          {nodeIssues.map(issue => (
+            <div 
+              key={issue.id}
+              style={{
+                background: editingIssue?.id === issue.id ? '#3d566e' : '#34495e',
+                borderRadius: '8px',
+                padding: '12px',
+                marginBottom: '10px',
+                border: editingIssue?.id === issue.id ? '2px solid #3498db' : '1px solid #4a5f7f'
+              }}
+            >
+              {editingIssue?.id === issue.id ? (
+                // Edit Mode
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <label style={labelStyle}>Title</label>
+                    <input
+                      type="text"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Description</label>
+                    <textarea
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      style={{ ...inputStyle, minHeight: '60px', resize: 'vertical' }}
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                    <div>
+                      <label style={labelStyle}>Severity</label>
+                      <select
+                        value={formData.severity}
+                        onChange={(e) => setFormData({ ...formData, severity: e.target.value })}
+                        style={selectStyle}
+                      >
+                        <option value="critical">🔴 Critical</option>
+                        <option value="high">🟠 High</option>
+                        <option value="medium">🟡 Medium</option>
+                        <option value="low">🟢 Low</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Status</label>
+                      <select
+                        value={formData.status}
+                        onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                        style={selectStyle}
+                      >
+                        <option value="open">Open</option>
+                        <option value="in-progress">In Progress</option>
+                        <option value="resolved">Resolved</option>
+                        <option value="closed">Closed</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Type</label>
+                      <select
+                        value={formData.type}
+                        onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                        style={selectStyle}
+                      >
+                        <option value="bug">🐛 Bug</option>
+                        <option value="enhancement">✨ Enhancement</option>
+                        <option value="question">❓ Question</option>
+                        <option value="task">📋 Task</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div>
+                      <label style={labelStyle}>Assignee</label>
+                      <input
+                        type="text"
+                        value={formData.assignee}
+                        onChange={(e) => setFormData({ ...formData, assignee: e.target.value })}
+                        placeholder="Enter name..."
+                        style={inputStyle}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Due Date</label>
+                      <input
+                        type="date"
+                        value={formData.dueDate}
+                        onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                        style={inputStyle}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                    <button
+                      onClick={cancelEdit}
+                      style={{
+                        padding: '8px 16px',
+                        background: '#7f8c8d',
+                        border: 'none',
+                        borderRadius: '4px',
+                        color: 'white',
+                        cursor: 'pointer'
+                      }}
+                    >Cancel</button>
+                    <button
+                      onClick={handleUpdate}
+                      style={{
+                        padding: '8px 16px',
+                        background: '#3498db',
+                        border: 'none',
+                        borderRadius: '4px',
+                        color: 'white',
+                        cursor: 'pointer'
+                      }}
+                    >Save Changes</button>
+                  </div>
+                </div>
+              ) : (
+                // View Mode
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '16px' }}>{getTypeIcon(issue.type)}</span>
+                      <span style={{ 
+                        fontWeight: 'bold', 
+                        color: 'white',
+                        textDecoration: issue.status === 'closed' ? 'line-through' : 'none',
+                        opacity: issue.status === 'closed' ? 0.6 : 1
+                      }}>
+                        {issue.title}
+                      </span>
+                      <span style={{
+                        fontSize: '10px',
+                        color: '#7f8c8d',
+                        fontFamily: 'monospace'
+                      }}>
+                        {issue.id}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button
+                        onClick={() => startEdit(issue)}
+                        style={{
+                          background: '#3498db',
+                          border: 'none',
+                          borderRadius: '4px',
+                          color: 'white',
+                          padding: '4px 8px',
+                          fontSize: '11px',
+                          cursor: 'pointer'
+                        }}
+                      >Edit</button>
+                      <button
+                        onClick={() => onDeleteIssue(node.id, issue.id)}
+                        style={{
+                          background: '#e74c3c',
+                          border: 'none',
+                          borderRadius: '4px',
+                          color: 'white',
+                          padding: '4px 8px',
+                          fontSize: '11px',
+                          cursor: 'pointer'
+                        }}
+                      >Delete</button>
+                    </div>
+                  </div>
+                  
+                  {issue.description && (
+                    <div style={{ color: '#bdc3c7', fontSize: '13px', marginBottom: '8px' }}>
+                      {issue.description}
+                    </div>
+                  )}
+                  
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      background: getSeverityColor(issue.severity),
+                      color: 'white'
+                    }}>
+                      {issue.severity.toUpperCase()}
+                    </span>
+                    <span style={{
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      background: getStatusColor(issue.status),
+                      color: 'white'
+                    }}>
+                      {issue.status.replace('-', ' ').toUpperCase()}
+                    </span>
+                    {issue.assignee && (
+                      <span style={{
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        background: '#8e44ad',
+                        color: 'white'
+                      }}>
+                        👤 {issue.assignee}
+                      </span>
+                    )}
+                    {issue.dueDate && (
+                      <span style={{
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        background: '#2c3e50',
+                        color: '#bdc3c7'
+                      }}>
+                        📅 {issue.dueDate}
+                      </span>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+
+          {/* Add Issue Form */}
+          {isAdding && (
+            <div style={{
+              background: '#34495e',
+              borderRadius: '8px',
+              padding: '16px',
+              border: '2px solid #27ae60'
+            }}>
+              <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '12px', color: 'white' }}>
+                ➕ New Issue
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <label style={labelStyle}>Title *</label>
+                  <input
+                    type="text"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    placeholder="Brief issue title..."
+                    style={inputStyle}
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>Description</label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Detailed description of the issue..."
+                    style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' }}
+                  />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label style={labelStyle}>Severity</label>
+                    <select
+                      value={formData.severity}
+                      onChange={(e) => setFormData({ ...formData, severity: e.target.value })}
+                      style={selectStyle}
+                    >
+                      <option value="critical">🔴 Critical</option>
+                      <option value="high">🟠 High</option>
+                      <option value="medium">🟡 Medium</option>
+                      <option value="low">🟢 Low</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Type</label>
+                    <select
+                      value={formData.type}
+                      onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                      style={selectStyle}
+                    >
+                      <option value="bug">🐛 Bug</option>
+                      <option value="enhancement">✨ Enhancement</option>
+                      <option value="question">❓ Question</option>
+                      <option value="task">📋 Task</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Assignee</label>
+                    <input
+                      type="text"
+                      value={formData.assignee}
+                      onChange={(e) => setFormData({ ...formData, assignee: e.target.value })}
+                      placeholder="Name..."
+                      style={inputStyle}
+                    />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={cancelEdit}
+                    style={{
+                      padding: '8px 16px',
+                      background: '#7f8c8d',
+                      border: 'none',
+                      borderRadius: '4px',
+                      color: 'white',
+                      cursor: 'pointer'
+                    }}
+                  >Cancel</button>
+                  <button
+                    onClick={handleAdd}
+                    disabled={!formData.title.trim()}
+                    style={{
+                      padding: '8px 16px',
+                      background: formData.title.trim() ? '#27ae60' : '#7f8c8d',
+                      border: 'none',
+                      borderRadius: '4px',
+                      color: 'white',
+                      cursor: formData.title.trim() ? 'pointer' : 'not-allowed'
+                    }}
+                  >Create Issue</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{
+          padding: '12px 16px',
+          background: '#34495e',
+          borderTop: '1px solid #4a5f7f',
+          display: 'flex',
+          justifyContent: 'space-between'
+        }}>
+          <button
+            onClick={() => { setIsAdding(true); setEditingIssue(null); resetForm(); }}
+            disabled={isAdding || editingIssue}
+            style={{
+              padding: '10px 20px',
+              background: isAdding || editingIssue ? '#7f8c8d' : '#27ae60',
+              border: 'none',
+              borderRadius: '6px',
+              color: 'white',
+              cursor: isAdding || editingIssue ? 'not-allowed' : 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            ➕ Add Issue
+          </button>
+          <button
+            onClick={onClose}
+            style={{
+              padding: '10px 20px',
+              background: '#34495e',
+              border: '1px solid #4a5f7f',
+              borderRadius: '6px',
+              color: 'white',
+              cursor: 'pointer'
+            }}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // New Object Modal
 function NewObjectModal({ onClose, onCreate }) {
@@ -4726,6 +6557,9 @@ function LeftIconStrip({
   onAddHardware,
   onAddUseCase,
   onAddActor,
+  onAddTextAnnotation,
+  onOpenLibrary,
+  onOpenIssueManager,
   onVoice,
   isListening,
   voiceStatus
@@ -4740,7 +6574,8 @@ function LeftIconStrip({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    transition: 'transform 0.1s, box-shadow 0.1s'
+    transition: 'transform 0.1s, box-shadow 0.1s',
+    flexShrink: 0
   };
 
   // Wrapper to stop propagation and prevent ReactFlow interference
@@ -4750,6 +6585,28 @@ function LeftIconStrip({
     callback();
   };
 
+  // Button with label component
+  const ToolbarButton = ({ onClick, title, bgColor, icon, children }) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <button 
+        onClick={handleClick(onClick)} 
+        title={title}
+        style={{ ...iconButtonStyle, background: bgColor }}
+      >
+        {children || icon}
+      </button>
+      <span style={{ 
+        color: 'white', 
+        fontSize: '11px', 
+        fontWeight: '500',
+        textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+        whiteSpace: 'nowrap'
+      }}>
+        {title.replace('Add ', '')}
+      </span>
+    </div>
+  );
+
   return (
     <div style={{
       position: 'fixed',
@@ -4757,172 +6614,113 @@ function LeftIconStrip({
       top: '70px',  // Below header
       display: 'flex',
       flexDirection: 'column',
-      gap: '8px',
-      zIndex: 2500
+      gap: '6px',
+      zIndex: 2500,
+      background: 'rgba(44, 62, 80, 0.85)',
+      padding: '10px',
+      borderRadius: '10px',
+      backdropFilter: 'blur(4px)'
     }}>
       {/* System Engineering */}
-      <button 
-        onClick={handleClick(onAddSystem)} 
-        title="Add System"
-        style={{ ...iconButtonStyle, background: '#1abc9c' }}
-      >
-        🔷
-      </button>
-      <button 
-        onClick={handleClick(onAddSubSystem)} 
-        title="Add Sub-System"
-        style={{ ...iconButtonStyle, background: '#3498db' }}
-      >
-        🔶
-      </button>
-      <button 
-        onClick={handleClick(onAddFunction)} 
-        title="Add Function"
-        style={{ ...iconButtonStyle, background: '#00bcd4' }}
-      >
-        ⚡
-      </button>
+      <ToolbarButton onClick={onAddSystem} title="Add System" bgColor="#1abc9c" icon="🔷" />
+      <ToolbarButton onClick={onAddSubSystem} title="Add Sub-System" bgColor="#3498db" icon="🔶" />
+      <ToolbarButton onClick={onAddFunction} title="Add Function" bgColor="#00bcd4" icon="⚡" />
       
       {/* Separator */}
       <div style={{ height: '1px', background: '#4a5f7f', margin: '4px 0' }} />
       
       {/* Hardware & Parameters */}
-      <button 
-        onClick={handleClick(() => onAddHardware('generic'))} 
-        title="Add Hardware"
-        style={{ ...iconButtonStyle, background: '#795548' }}
-      >
-        📦
-      </button>
-      <button 
-        onClick={handleClick(() => onAddParameter('configuration'))} 
-        title="Add Parameter"
-        style={{ ...iconButtonStyle, background: '#00bcd4' }}
-      >
-        ⚙️
-      </button>
+      <ToolbarButton onClick={() => onAddHardware('generic')} title="Add Hardware" bgColor="#795548" icon="📦" />
+      <ToolbarButton onClick={() => onAddParameter('configuration')} title="Add Parameter" bgColor="#00bcd4" icon="⚙️" />
       
       {/* Separator */}
       <div style={{ height: '1px', background: '#4a5f7f', margin: '4px 0' }} />
       
       {/* Test */}
-      <button 
-        onClick={handleClick(onAddTestCase)} 
-        title="Add Test Case"
-        style={{ ...iconButtonStyle, background: '#27ae60' }}
-      >
-        🧪
-      </button>
+      <ToolbarButton onClick={onAddTestCase} title="Add Test Case" bgColor="#27ae60" icon="🧪" />
       
       {/* Separator */}
       <div style={{ height: '1px', background: '#4a5f7f', margin: '4px 0' }} />
       
       {/* Use Cases */}
-      <button 
-        onClick={handleClick(onAddUseCase)} 
-        title="Add Use Case"
-        style={{ ...iconButtonStyle, background: '#f39c12' }}
-      >
-        🎯
-      </button>
-      <button 
-        onClick={handleClick(onAddActor)} 
-        title="Add Actor"
-        style={{ ...iconButtonStyle, background: '#2ecc71', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-      >
-        <svg 
-          width={24} 
-          height={28} 
-          viewBox="0 0 100 120" 
-          style={{ fill: 'white' }}
+      <ToolbarButton onClick={onAddUseCase} title="Add Use Case" bgColor="#f39c12" icon="🎯" />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <button 
+          onClick={handleClick(onAddActor)} 
+          title="Add Actor"
+          style={{ ...iconButtonStyle, background: '#2ecc71' }}
         >
-          {/* Head - circle */}
-          <circle 
-            cx="50" 
-            cy="20" 
-            r="12" 
-            fill="none" 
-            stroke="white" 
-            strokeWidth="4"
-          />
-          
-          {/* Body - vertical line */}
-          <line 
-            x1="50" 
-            y1="32" 
-            x2="50" 
-            y2="75" 
-            stroke="white" 
-            strokeWidth="4"
-          />
-          
-          {/* Arms - horizontal line */}
-          <line 
-            x1="25" 
-            y1="50" 
-            x2="75" 
-            y2="50" 
-            stroke="white" 
-            strokeWidth="4"
-          />
-          
-          {/* Left leg */}
-          <line 
-            x1="50" 
-            y1="75" 
-            x2="30" 
-            y2="105" 
-            stroke="white" 
-            strokeWidth="4"
-          />
-          
-          {/* Right leg */}
-          <line 
-            x1="50" 
-            y1="75" 
-            x2="70" 
-            y2="105" 
-            stroke="white" 
-            strokeWidth="4"
-          />
-        </svg>
-      </button>
+          <svg 
+            width={24} 
+            height={28} 
+            viewBox="0 0 100 120" 
+            style={{ fill: 'white' }}
+          >
+            <circle cx="50" cy="20" r="12" fill="none" stroke="white" strokeWidth="4" />
+            <line x1="50" y1="32" x2="50" y2="75" stroke="white" strokeWidth="4" />
+            <line x1="25" y1="50" x2="75" y2="50" stroke="white" strokeWidth="4" />
+            <line x1="50" y1="75" x2="30" y2="105" stroke="white" strokeWidth="4" />
+            <line x1="50" y1="75" x2="70" y2="105" stroke="white" strokeWidth="4" />
+          </svg>
+        </button>
+        <span style={{ 
+          color: 'white', 
+          fontSize: '11px', 
+          fontWeight: '500',
+          textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+          whiteSpace: 'nowrap'
+        }}>
+          Actor
+        </span>
+      </div>
       
       {/* Separator */}
       <div style={{ height: '1px', background: '#4a5f7f', margin: '4px 0' }} />
       
       {/* Requirements */}
-      <button 
-        onClick={handleClick(onAddRequirement)} 
-        title="Add Requirement"
-        style={{ ...iconButtonStyle, background: '#e67e22' }}
-      >
-        📋
-      </button>
-      <button 
-        onClick={handleClick(onAddPlatform)} 
-        title="Add Platform"
-        style={{ ...iconButtonStyle, background: '#9b59b6' }}
-      >
-        🟣
-      </button>
+      <ToolbarButton onClick={onAddRequirement} title="Add Requirement" bgColor="#e67e22" icon="📋" />
+      <ToolbarButton onClick={onAddPlatform} title="Add Platform" bgColor="#9b59b6" icon="🟣" />
+      
+      {/* Separator */}
+      <div style={{ height: '1px', background: '#4a5f7f', margin: '4px 0' }} />
+      
+      {/* Annotations */}
+      <ToolbarButton onClick={onAddTextAnnotation} title="Add Text" bgColor="#607d8b" icon="📝" />
+      
+      {/* Separator */}
+      <div style={{ height: '1px', background: '#4a5f7f', margin: '4px 0' }} />
+      
+      {/* Library & Issues */}
+      <ToolbarButton onClick={onOpenLibrary} title="Library" bgColor="#16a085" icon="📚" />
+      <ToolbarButton onClick={onOpenIssueManager} title="Issues" bgColor="#c0392b" icon="🐛" />
       
       {/* Separator */}
       <div style={{ height: '1px', background: '#4a5f7f', margin: '4px 0' }} />
       
       {/* Voice */}
-      <button 
-        onClick={handleClick(onVoice)} 
-        title={isListening ? 'Listening...' : 'Voice Command'}
-        disabled={isListening}
-        style={{ 
-          ...iconButtonStyle, 
-          background: isListening ? '#e74c3c' : '#3498db',
-          animation: isListening ? 'pulse 1s infinite' : 'none'
-        }}
-      >
-        🎤
-      </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <button 
+          onClick={handleClick(onVoice)} 
+          title={isListening ? 'Listening...' : 'Voice Command'}
+          disabled={isListening}
+          style={{ 
+            ...iconButtonStyle, 
+            background: isListening ? '#e74c3c' : '#3498db',
+            animation: isListening ? 'pulse 1s infinite' : 'none'
+          }}
+        >
+          🎤
+        </button>
+        <span style={{ 
+          color: 'white', 
+          fontSize: '11px', 
+          fontWeight: '500',
+          textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+          whiteSpace: 'nowrap'
+        }}>
+          Voice
+        </span>
+      </div>
       
       {/* Voice Status */}
       {voiceStatus && (
@@ -6585,6 +8383,20 @@ export default function App() {
   // Clipboard for copy/paste
   const [clipboard, setClipboard] = useState({ nodes: [], edges: [] });
 
+  // Issue Management State
+  const [issues, setIssues] = useState({});  // { nodeId: [issue1, issue2, ...] }
+  const [showIssuePanel, setShowIssuePanel] = useState(false);
+  const [issueNodeId, setIssueNodeId] = useState(null);  // Which node's issues to show
+  const [selectedIssue, setSelectedIssue] = useState(null);
+  const [issueIdCounter, setIssueIdCounter] = useState(1);
+  const [showCreateIssueModal, setShowCreateIssueModal] = useState(false);
+  const [createIssueNodeId, setCreateIssueNodeId] = useState(null);
+  const [showIssueManagerModal, setShowIssueManagerModal] = useState(false);
+
+  // Component Library State
+  const [showLibraryPanel, setShowLibraryPanel] = useState(false);
+  const [libraryItems, setLibraryItems] = useState([]);
+
   const [searchText, setSearchText] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -6886,6 +8698,23 @@ export default function App() {
       setUcIdCounter(maxUc + 1);
       setActIdCounter(maxAct + 1);
       
+      // Load issues if present
+      if (projectData.issues) {
+        setIssues(projectData.issues);
+        // Calculate max issue ID
+        let maxIssueId = 0;
+        Object.values(projectData.issues).forEach(nodeIssues => {
+          nodeIssues.forEach(issue => {
+            const idNum = parseInt(issue.id.replace('ISS-', '')) || 0;
+            if (idNum > maxIssueId) maxIssueId = idNum;
+          });
+        });
+        setIssueIdCounter(maxIssueId + 1);
+      } else {
+        setIssues({});
+        setIssueIdCounter(1);
+      }
+      
       console.log('Updated counters - nodeId:', maxId + 1, 'SYS:', maxSys + 1, 'HW:', maxHw + 1);
       
       // Process edges - validate handles exist on nodes
@@ -7012,7 +8841,9 @@ export default function App() {
         version: objectVersion,
         nodes: nodesToSave,
         edges: edgesToSave,
-        whiteboards: whiteboards
+        whiteboards: whiteboards,
+        issues: issues,
+        issueIdCounter: issueIdCounter
       });
       // Removed alert - bottom notification will show instead
     } catch (err) {
@@ -8050,6 +9881,143 @@ export default function App() {
     }
   };
 
+  // Issue Management Functions
+  const addIssue = useCallback((nodeId, issueData) => {
+    const newIssue = {
+      id: `ISS-${String(issueIdCounter).padStart(3, '0')}`,
+      title: issueData.title || 'New Issue',
+      description: issueData.description || '',
+      severity: issueData.severity || 'medium', // critical, high, medium, low
+      status: issueData.status || 'open', // open, in-progress, resolved, closed
+      type: issueData.type || 'bug', // bug, enhancement, question, task
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      assignee: issueData.assignee || '',
+      dueDate: issueData.dueDate || '',
+      comments: []
+    };
+    
+    setIssues(prev => ({
+      ...prev,
+      [nodeId]: [...(prev[nodeId] || []), newIssue]
+    }));
+    setIssueIdCounter(prev => prev + 1);
+    return newIssue;
+  }, [issueIdCounter]);
+
+  const updateIssue = useCallback((nodeId, issueId, updates) => {
+    setIssues(prev => ({
+      ...prev,
+      [nodeId]: (prev[nodeId] || []).map(issue => 
+        issue.id === issueId 
+          ? { ...issue, ...updates, updatedAt: new Date().toISOString() }
+          : issue
+      )
+    }));
+  }, []);
+
+  const deleteIssue = useCallback((nodeId, issueId) => {
+    setIssues(prev => ({
+      ...prev,
+      [nodeId]: (prev[nodeId] || []).filter(issue => issue.id !== issueId)
+    }));
+  }, []);
+
+  const getNodeIssues = useCallback((nodeId) => {
+    return issues[nodeId] || [];
+  }, [issues]);
+
+  const getOpenIssueCount = useCallback((nodeId) => {
+    return (issues[nodeId] || []).filter(i => i.status !== 'closed' && i.status !== 'resolved').length;
+  }, [issues]);
+
+  const getCriticalIssueCount = useCallback((nodeId) => {
+    return (issues[nodeId] || []).filter(i => 
+      (i.severity === 'critical' || i.severity === 'high') && 
+      i.status !== 'closed' && i.status !== 'resolved'
+    ).length;
+  }, [issues]);
+
+  // Library management callbacks
+  const fetchLibraryItems = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/library`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('plm_token')}`
+        }
+      });
+      if (response.ok) {
+        const items = await response.json();
+        setLibraryItems(items);
+      } else {
+        console.log('Library API not available, using empty library');
+        setLibraryItems([]);
+      }
+    } catch (error) {
+      console.log('Library fetch error:', error);
+      setLibraryItems([]);
+    }
+  }, []);
+
+  const saveNodeToLibrary = useCallback(async (node) => {
+    const libraryItem = {
+      name: node.data.label,
+      type: node.data.type || node.data.itemType,
+      itemType: node.data.itemType || node.data.type,
+      description: node.data.description || '',
+      version: '1.0',
+      nodeData: { ...node.data },
+      createdAt: new Date().toISOString()
+    };
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/library`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('plm_token')}`
+        },
+        body: JSON.stringify(libraryItem)
+      });
+      if (response.ok) {
+        const saved = await response.json();
+        setLibraryItems(prev => [...prev, saved]);
+        return saved;
+      }
+    } catch (error) {
+      console.log('Save to library error:', error);
+    }
+    // Fallback: save locally
+    const localItem = { ...libraryItem, id: `lib-${Date.now()}` };
+    setLibraryItems(prev => [...prev, localItem]);
+    return localItem;
+  }, []);
+
+  const addLibraryItemToCanvas = useCallback((libraryItem) => {
+    const newNode = {
+      id: String(nodeId),
+      type: 'custom',
+      position: { x: Math.random() * 400 + 100, y: Math.random() * 400 + 100 },
+      data: {
+        ...libraryItem.nodeData,
+        label: libraryItem.name,
+        libraryRef: libraryItem.id,
+        libraryVersion: libraryItem.version,
+      }
+    };
+    setNodes(nds => [...nds, newNode]);
+    setNodeId(prev => prev + 1);
+  }, [nodeId]);
+
+  // Node resize handler
+  const handleNodeResize = useCallback((nodeId, width, height) => {
+    setNodes(nds => nds.map(node => 
+      node.id === nodeId 
+        ? { ...node, data: { ...node.data, nodeWidth: width, nodeHeight: height } }
+        : node
+    ));
+  }, []);
+
   const processedNodes = useMemo(() => {
     return nodes.map((node) => {
       const searchLower = searchText.toLowerCase();
@@ -8068,12 +10036,32 @@ export default function App() {
       const isFiltered = matchesSearch && matchesType && matchesStatus && matchesPriority && matchesState && matchesReqType && matchesClassification;
       const isHighlighted = searchText !== '' && isFiltered;
 
+      // Add issue counts
+      const nodeIssues = issues[node.id] || [];
+      const issueCount = nodeIssues.filter(i => i.status !== 'closed' && i.status !== 'resolved').length;
+      const criticalIssueCount = nodeIssues.filter(i => 
+        (i.severity === 'critical' || i.severity === 'high') && 
+        i.status !== 'closed' && i.status !== 'resolved'
+      ).length;
+
       return {
         ...node,
-        data: { ...node.data, isFiltered, isHighlighted, isWhiteboardMode: viewMode === 'whiteboard', onChange: handleNodeLabelChange },
+        data: { 
+          ...node.data, 
+          isFiltered, 
+          isHighlighted, 
+          isWhiteboardMode: viewMode === 'whiteboard', 
+          onChange: handleNodeLabelChange,
+          issueCount,
+          criticalIssueCount,
+          onShowIssues: (n) => {
+            setIssueNodeId(n.id);
+            setShowIssuePanel(true);
+          }
+        },
       };
     });
-  }, [nodes, searchText, typeFilter, statusFilter, priorityFilter, stateFilter, reqTypeFilter, classificationFilter, handleNodeLabelChange,viewMode ]);
+  }, [nodes, searchText, typeFilter, statusFilter, priorityFilter, stateFilter, reqTypeFilter, classificationFilter, handleNodeLabelChange, viewMode, issues]);
 
   const filteredCount = processedNodes.filter(n => n.data.isFiltered).length;
 
@@ -8576,6 +10564,56 @@ const addPlatformNode = useCallback(() => {
     }, 0);
   }, [nodeId, handleNodeLabelChange, setNodes, setSelectedNode, generateItemId, reactFlowInstance]);
 
+  // Add Text Annotation Node
+  const addTextAnnotationNode = useCallback(() => {
+    setSelectedNode(null);
+    setNodes((nds) => nds.map(n => ({ ...n, selected: false })));
+    
+    let position = { x: Math.random() * 300 + 100, y: Math.random() * 200 + 100 };
+    
+    if (reactFlowInstance) {
+      const viewport = reactFlowInstance.getViewport();
+      const centerX = (-viewport.x + window.innerWidth / 2) / viewport.zoom;
+      const centerY = (-viewport.y + window.innerHeight / 2) / viewport.zoom;
+      position = { 
+        x: centerX + (Math.random() * 100 - 50), 
+        y: centerY + (Math.random() * 100 - 50) 
+      };
+    }
+    
+    setTimeout(() => {
+      const newNode = {
+        id: String(nodeId),
+        type: 'textAnnotation',
+        position: position,
+        selected: true,
+        data: { 
+          text: 'Double-click to edit',
+          itemType: 'textAnnotation',
+          fontSize: 14,
+          textColor: '#333333',
+          bgColor: 'rgba(255, 255, 200, 0.9)',
+          fontWeight: 'normal',
+          fontStyle: 'normal',
+          nodeWidth: 200,
+          nodeHeight: 60,
+          onChange: handleNodeLabelChange,
+          onResize: (nodeId, width, height) => {
+            setNodes((nds) =>
+              nds.map((node) =>
+                node.id === nodeId
+                  ? { ...node, data: { ...node.data, nodeWidth: width, nodeHeight: height } }
+                  : node
+              )
+            );
+          }
+        },
+      };
+      setNodes((nds) => [...nds, newNode]);
+      setNodeId((id) => id + 1);
+    }, 0);
+  }, [nodeId, handleNodeLabelChange, setNodes, setSelectedNode, reactFlowInstance]);
+
   const exportProject = useCallback(() => {
   // Ask user for filename
   const defaultName = objectName.replace(/[^a-z0-9]/gi, '_') || 'project';
@@ -8591,6 +10629,8 @@ const addPlatformNode = useCallback(() => {
     whiteboards,
     whiteboardNodes,
     whiteboardEdges,
+    issues,
+    issueIdCounter,
     savedAt: new Date().toISOString()
   };
   
@@ -8601,7 +10641,7 @@ const addPlatformNode = useCallback(() => {
   link.download = `${filename}.json`;
   link.click();
   URL.revokeObjectURL(url);
-}, [objectName, objectVersion, nodes, edges, whiteboards, whiteboardNodes, whiteboardEdges]);
+}, [objectName, objectVersion, nodes, edges, whiteboards, whiteboardNodes, whiteboardEdges, issues, issueIdCounter]);
 
  const exportToExcel = useCallback(() => {
     // Prepare data for Excel
@@ -9435,6 +11475,22 @@ const createNewObject = (name, version, description) => {
           setHwIdCounter(maxHw + 1);
           setTcIdCounter(maxTc + 1);
           
+          // Load issues if present
+          if (project.issues) {
+            setIssues(project.issues);
+            let maxIssueId = 0;
+            Object.values(project.issues).forEach(nodeIssues => {
+              nodeIssues.forEach(issue => {
+                const idNum = parseInt(issue.id.replace('ISS-', '')) || 0;
+                if (idNum > maxIssueId) maxIssueId = idNum;
+              });
+            });
+            setIssueIdCounter(maxIssueId + 1);
+          } else {
+            setIssues({});
+            setIssueIdCounter(1);
+          }
+          
           setSelectedNode(null);
           setSelectedEdge(null);
           setHistory([]);
@@ -9569,8 +11625,8 @@ const createNewObject = (name, version, description) => {
         onChangePassword={() => setShowChangePassword(true)}
       />
       
-      {/* Left Icon Strip */}
-      <LeftIconStrip
+      {/* Left Icon Strip - hidden in freeform whiteboard mode */}
+      {viewMode !== 'whiteboard' && <LeftIconStrip
         onAddSystem={addSystemNode}
         onAddSubSystem={addSubSystemNode}
         onAddFunction={addFunctionNode}
@@ -9581,13 +11637,16 @@ const createNewObject = (name, version, description) => {
         onAddHardware={addHardwareNode}
         onAddUseCase={addUseCaseNode}
         onAddActor={addActorNode}
+        onAddTextAnnotation={addTextAnnotationNode}
+        onOpenLibrary={() => setShowLibraryPanel(true)}
+        onOpenIssueManager={() => setShowIssueManagerModal(true)}
         onVoice={startVoiceRecognition}
         isListening={isListening}
         voiceStatus={voiceStatus}
-      />
+      />}
       
-      {/* Sidebar */}
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)}>
+      {/* Sidebar - hidden in freeform whiteboard mode */}
+      {viewMode !== 'whiteboard' && <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)}>
         <SidebarSection title="📁 Project">
           <SidebarButton 
             icon="💾" 
@@ -9768,9 +11827,9 @@ const createNewObject = (name, version, description) => {
             <div><strong>Duplicate:</strong> Ctrl+D</div>
           </div>
         </SidebarSection>
-      </Sidebar>
+      </Sidebar>}
       
-      {/* Show Document View OR Canvas */}
+      {/* Show Document View, Freeform Whiteboard, OR PLM Canvas */}
       {viewMode === 'document' ? (
         <DocumentView 
           nodes={nodes} 
@@ -9780,6 +11839,8 @@ const createNewObject = (name, version, description) => {
             setFloatingPanelPosition({ x: window.innerWidth - 350, y: 100 });
           }}
         />
+      ) : viewMode === 'whiteboard' ? (
+        <Whiteboard style={{ marginTop: '50px', height: 'calc(100vh - 50px)' }} />
       ) : (
       
       <ReactFlow
@@ -10032,8 +12093,179 @@ const createNewObject = (name, version, description) => {
       </ReactFlow>
       )}
 
-      {/* Floating Panel for Nodes */}
-      {selectedNode && (
+      {/* Floating Panel for Text Annotations */}
+      {selectedNode && selectedNode.data?.itemType === 'textAnnotation' && (
+        <div
+          style={{
+            position: 'fixed',
+            right: '20px',
+            top: '80px',
+            width: '280px',
+            background: '#2c3e50',
+            borderRadius: '8px',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+            zIndex: 2000,
+            color: 'white',
+            padding: '15px'
+          }}
+        >
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            marginBottom: '15px',
+            paddingBottom: '10px',
+            borderBottom: '1px solid #34495e'
+          }}>
+            <span style={{ fontWeight: 'bold', fontSize: '14px' }}>📝 Text Annotation</span>
+            <button
+              onClick={() => setSelectedNode(null)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'white',
+                fontSize: '18px',
+                cursor: 'pointer'
+              }}
+            >×</button>
+          </div>
+
+          {/* Font Size */}
+          <div style={{ marginBottom: '12px' }}>
+            <label style={{ fontSize: '11px', color: '#bdc3c7', display: 'block', marginBottom: '4px' }}>
+              Font Size
+            </label>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <input
+                type="range"
+                min="10"
+                max="48"
+                value={selectedNode.data.fontSize || 14}
+                onChange={(e) => updateNodeData(selectedNode.id, 'fontSize', parseInt(e.target.value))}
+                style={{ flex: 1 }}
+              />
+              <span style={{ fontSize: '12px', width: '30px' }}>{selectedNode.data.fontSize || 14}px</span>
+            </div>
+          </div>
+
+          {/* Text Color */}
+          <div style={{ marginBottom: '12px' }}>
+            <label style={{ fontSize: '11px', color: '#bdc3c7', display: 'block', marginBottom: '4px' }}>
+              Text Color
+            </label>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              {['#333333', '#e74c3c', '#e67e22', '#f1c40f', '#27ae60', '#3498db', '#9b59b6', '#ffffff'].map(color => (
+                <button
+                  key={color}
+                  onClick={() => updateNodeData(selectedNode.id, 'textColor', color)}
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '4px',
+                    background: color,
+                    border: selectedNode.data.textColor === color ? '3px solid #3498db' : '2px solid #4a5f7f',
+                    cursor: 'pointer'
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Background Color */}
+          <div style={{ marginBottom: '12px' }}>
+            <label style={{ fontSize: '11px', color: '#bdc3c7', display: 'block', marginBottom: '4px' }}>
+              Background
+            </label>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              {[
+                'transparent', 
+                'rgba(255,255,200,0.9)', 
+                'rgba(200,255,200,0.9)', 
+                'rgba(200,220,255,0.9)',
+                'rgba(255,200,200,0.9)',
+                'rgba(255,220,180,0.9)',
+                'rgba(220,200,255,0.9)',
+                '#ffffff'
+              ].map(color => (
+                <button
+                  key={color}
+                  onClick={() => updateNodeData(selectedNode.id, 'bgColor', color)}
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '4px',
+                    background: color === 'transparent' ? 'linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%), linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%)' : color,
+                    backgroundSize: color === 'transparent' ? '8px 8px' : 'auto',
+                    backgroundPosition: color === 'transparent' ? '0 0, 4px 4px' : 'auto',
+                    border: selectedNode.data.bgColor === color ? '3px solid #3498db' : '2px solid #4a5f7f',
+                    cursor: 'pointer'
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Font Style */}
+          <div style={{ marginBottom: '12px' }}>
+            <label style={{ fontSize: '11px', color: '#bdc3c7', display: 'block', marginBottom: '4px' }}>
+              Style
+            </label>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => updateNodeData(selectedNode.id, 'fontWeight', selectedNode.data.fontWeight === 'bold' ? 'normal' : 'bold')}
+                style={{
+                  padding: '6px 12px',
+                  background: selectedNode.data.fontWeight === 'bold' ? '#3498db' : '#34495e',
+                  border: 'none',
+                  borderRadius: '4px',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                B
+              </button>
+              <button
+                onClick={() => updateNodeData(selectedNode.id, 'fontStyle', selectedNode.data.fontStyle === 'italic' ? 'normal' : 'italic')}
+                style={{
+                  padding: '6px 12px',
+                  background: selectedNode.data.fontStyle === 'italic' ? '#3498db' : '#34495e',
+                  border: 'none',
+                  borderRadius: '4px',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontStyle: 'italic'
+                }}
+              >
+                I
+              </button>
+            </div>
+          </div>
+
+          {/* Delete Button */}
+          <button
+            onClick={() => {
+              setNodes(nds => nds.filter(n => n.id !== selectedNode.id));
+              setSelectedNode(null);
+            }}
+            style={{
+              width: '100%',
+              padding: '8px',
+              background: '#e74c3c',
+              border: 'none',
+              borderRadius: '4px',
+              color: 'white',
+              cursor: 'pointer',
+              marginTop: '10px'
+            }}
+          >
+            🗑️ Delete Annotation
+          </button>
+        </div>
+      )}
+
+      {/* Floating Panel for Regular Nodes */}
+      {selectedNode && selectedNode.data?.itemType !== 'textAnnotation' && (
         <FloatingPanel
           node={selectedNode}
           onClose={() => setSelectedNode(null)}
@@ -10041,6 +12273,21 @@ const createNewObject = (name, version, description) => {
           initialPosition={floatingPanelPosition}
           hardwareTypes={hardwareTypes.length > 0 ? hardwareTypes : defaultHardwareTypes}
           onManageTypes={() => setShowHardwareTypesModal(true)}
+        />
+      )}
+
+      {/* Issue Panel Modal */}
+      {showIssuePanel && issueNodeId && (
+        <IssuePanelModal
+          node={nodes.find(n => n.id === issueNodeId) || { id: issueNodeId, data: { label: 'Unknown', reqId: '' } }}
+          issues={issues}
+          onClose={() => {
+            setShowIssuePanel(false);
+            setIssueNodeId(null);
+          }}
+          onAddIssue={addIssue}
+          onUpdateIssue={updateIssue}
+          onDeleteIssue={deleteIssue}
         />
       )}
 
@@ -10101,6 +12348,71 @@ const createNewObject = (name, version, description) => {
         <NewObjectModal
           onClose={() => setShowNewObjectModal(false)}
           onCreate={createNewObject}
+        />
+      )}
+
+      {/* Issue Manager Modal */}
+      {showIssueManagerModal && (
+        <IssueManagerModal
+          issues={issues}
+          nodes={nodes}
+          onClose={() => setShowIssueManagerModal(false)}
+          onIssueClick={(issue) => {
+            setShowIssueManagerModal(false);
+            // Optionally select the node
+            const node = nodes.find(n => n.id === issue.nodeId);
+            if (node) {
+              setSelectedNode(node);
+            }
+          }}
+          onUpdateIssue={(updatedIssue) => {
+            updateIssue(updatedIssue.nodeId, updatedIssue.id, updatedIssue);
+          }}
+          onDeleteIssue={(issue) => {
+            deleteIssue(issue.nodeId, issue.id);
+          }}
+        />
+      )}
+
+      {/* Create Issue Modal */}
+      {showCreateIssueModal && createIssueNodeId && (
+        <CreateIssueModal
+          nodeId={createIssueNodeId}
+          nodeName={nodes.find(n => n.id === createIssueNodeId)?.data?.label || 'Unknown'}
+          onClose={() => {
+            setShowCreateIssueModal(false);
+            setCreateIssueNodeId(null);
+          }}
+          onCreate={(issueData) => {
+            addIssue(createIssueNodeId, issueData);
+            setShowCreateIssueModal(false);
+            setCreateIssueNodeId(null);
+          }}
+        />
+      )}
+
+      {/* Component Library Panel */}
+      <ComponentLibraryPanel
+        isOpen={showLibraryPanel}
+        onClose={() => setShowLibraryPanel(false)}
+        nodes={nodes}
+        libraryItems={libraryItems}
+        onAddFromLibrary={addLibraryItemToCanvas}
+        onSaveToLibrary={saveNodeToLibrary}
+        onRefresh={fetchLibraryItems}
+      />
+
+      {/* Text Annotation Toolbar - shows when text annotation is selected */}
+      {selectedNode && selectedNode.type === 'textAnnotation' && (
+        <TextAnnotationToolbar
+          node={selectedNode}
+          onUpdate={(nodeId, key, value) => {
+            setNodes(nds => nds.map(n => 
+              n.id === nodeId 
+                ? { ...n, data: { ...n.data, [key]: value } }
+                : n
+            ));
+          }}
         />
       )}
 
