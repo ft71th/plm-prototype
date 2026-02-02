@@ -193,23 +193,7 @@ export function getHandlePositions(element) {
  * @returns {string|null} Handle position ('nw', 'ne', etc.) or null
  */
 export function hitTestHandles(element, px, py, handleSize = 8) {
-  // Line endpoints: return 'line-start' or 'line-end'
-  if (element.type === 'line') {
-    const half = handleSize / 2;
-    if (element.x !== undefined && element.y !== undefined) {
-      if (px >= element.x - half && px <= element.x + half &&
-          py >= element.y - half && py <= element.y + half) {
-        return 'line-start';
-      }
-    }
-    if (element.x2 !== undefined && element.y2 !== undefined) {
-      if (px >= element.x2 - half && px <= element.x2 + half &&
-          py >= element.y2 - half && py <= element.y2 + half) {
-        return 'line-end';
-      }
-    }
-    return null;
-  }
+  if (element.type === 'line') return null; // Lines don't have resize handles (yet)
 
   const handles = getHandlePositions(element);
   const half = handleSize / 2;

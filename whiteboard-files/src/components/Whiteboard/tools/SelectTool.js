@@ -18,7 +18,6 @@ import {
   getBoundingBox,
   getCombinedBoundingBox,
 } from '../../../utils/geometry';
-import { findNearestConnectionPoint } from '../renderers/LineRenderer';
 
 export class SelectTool {
   constructor() {
@@ -130,9 +129,8 @@ export class SelectTool {
       store.getState().setSelectionBox(null);
     }
 
-    // Clear alignment guides and connection points
+    // Clear alignment guides
     renderer.setAlignmentGuides([]);
-    renderer._showConnectionPoints = false;
 
     this.isDragging = false;
     this.isResizing = false;
@@ -224,51 +222,10 @@ export class SelectTool {
       state.updateElement(id, updates);
     }
 
-    // Update connected lines: when moving a shape, update any line endpoints connected to it
-    for (const id of state.elementOrder) {
-      if (state.selectedIds.has(id)) continue; // Skip already-moved elements
-      const el = state.elements[id];
-      if (!el || el.type !== 'line') continue;
-
-      const lineUpdates = {};
-      if (el.startConnection && state.selectedIds.has(el.startConnection.elementId)) {
-        const targetEl = state.elements[el.startConnection.elementId];
-        if (targetEl) {
-          const pt = getConnectionPointPosition(targetEl, el.startConnection.side);
-          if (pt) {
-            lineUpdates.x = pt.x;
-            lineUpdates.y = pt.y;
-          }
-        }
-      }
-      if (el.endConnection && state.selectedIds.has(el.endConnection.elementId)) {
-        const targetEl = state.elements[el.endConnection.elementId];
-        if (targetEl) {
-          const pt = getConnectionPointPosition(targetEl, el.endConnection.side);
-          if (pt) {
-            lineUpdates.x2 = pt.x;
-            lineUpdates.y2 = pt.y;
-          }
-        }
-      }
-      if (Object.keys(lineUpdates).length > 0) {
-        state.updateElement(id, lineUpdates);
-      }
-    }
-
     renderer.markDirty();
   }
 
   _handleResize(worldX, worldY, shiftKey, store, renderer) {
-    const state = store.getState();
-    const el = state.elements[this.resizeElementId];
-
-    // Line endpoint dragging
-    if (el && el.type === 'line') {
-      this._handleLineEndpointDrag(worldX, worldY, shiftKey, store, renderer);
-      return;
-    }
-
     const dx = worldX - this.dragStartWorld.x;
     const dy = worldY - this.dragStartWorld.y;
 
@@ -295,61 +252,6 @@ export class SelectTool {
     renderer.markDirty();
   }
 
-  _handleLineEndpointDrag(worldX, worldY, shiftKey, store, renderer) {
-    const state = store.getState();
-    const el = state.elements[this.resizeElementId];
-    if (!el) return;
-
-    // Check for connection snap
-    const conn = findNearestConnectionPoint(
-      worldX, worldY,
-      state.elements, state.elementOrder, 20,
-      this.resizeElementId
-    );
-
-    let ex, ey;
-    let connection = null;
-
-    if (conn) {
-      ex = conn.x;
-      ey = conn.y;
-      connection = { elementId: conn.elementId, side: conn.side };
-    } else if (shiftKey) {
-      // Constrain to 45° angles from the other endpoint
-      const otherX = this.resizeHandle === 'line-start' ? el.x2 : el.x;
-      const otherY = this.resizeHandle === 'line-start' ? el.y2 : el.y;
-      const dx = worldX - otherX;
-      const dy = worldY - otherY;
-      const len = Math.hypot(dx, dy);
-      const angle = Math.atan2(dy, dx);
-      const snappedAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
-      ex = otherX + len * Math.cos(snappedAngle);
-      ey = otherY + len * Math.sin(snappedAngle);
-    } else if (state.snapToGrid) {
-      const snapped = snapToGrid({ x: worldX, y: worldY }, state.gridSize);
-      ex = snapped.x;
-      ey = snapped.y;
-    } else {
-      ex = worldX;
-      ey = worldY;
-    }
-
-    if (this.resizeHandle === 'line-start') {
-      state.updateElement(this.resizeElementId, {
-        x: ex, y: ey,
-        startConnection: connection,
-      });
-    } else {
-      state.updateElement(this.resizeElementId, {
-        x2: ex, y2: ey,
-        endConnection: connection,
-      });
-    }
-
-    renderer._showConnectionPoints = true;
-    renderer.markDirty();
-  }
-
   _handleLasso(worldX, worldY, store) {
     const dx = worldX - this.lassoStart.x;
     const dy = worldY - this.lassoStart.y;
@@ -372,10 +274,6 @@ export class SelectTool {
       if (!el) continue;
       const handle = hitTestHandles(el, worldX, worldY, 8);
       if (handle) {
-        // Line endpoints
-        if (handle === 'line-start' || handle === 'line-end') {
-          return 'grab';
-        }
         const cursorMap = {
           nw: 'nwse-resize', se: 'nwse-resize',
           ne: 'nesw-resize', sw: 'nesw-resize',
@@ -386,22 +284,5 @@ export class SelectTool {
       }
     }
     return 'default';
-  }
-}
-
-/**
- * Get the world-coordinates of a connection point on a shape.
- */
-function getConnectionPointPosition(el, side) {
-  if (!el || el.type === 'line' || el.type === 'text') return null;
-  const cx = el.x + el.width / 2;
-  const cy = el.y + el.height / 2;
-
-  switch (side) {
-    case 'top': return { x: cx, y: el.y };
-    case 'right': return { x: el.x + el.width, y: cy };
-    case 'bottom': return { x: cx, y: el.y + el.height };
-    case 'left': return { x: el.x, y: cy };
-    default: return { x: cx, y: cy };
   }
 }

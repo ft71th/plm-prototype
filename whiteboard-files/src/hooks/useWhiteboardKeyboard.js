@@ -66,10 +66,7 @@ export function useWhiteboardKeyboard(store) {
           case 'T':
             store.getState().setActiveTool('text');
             break;
-          case 'l':
-          case 'L':
-            store.getState().setActiveTool('line');
-            break;
+          // 'l' for line will be added in Deliverable 2
         }
       }
     };

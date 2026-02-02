@@ -52,7 +52,6 @@ export default function PropertiesPanel({ className = '' }) {
   // ─── Has selection ───────────────────────────────────
   const isShape = single?.type === 'shape';
   const isText = single?.type === 'text';
-  const isLine = single?.type === 'line';
   const hasTextContent = isShape ? !!single.text : isText;
   const textContent = isText ? single.content : (isShape ? single.text : null);
 
@@ -189,89 +188,6 @@ export default function PropertiesPanel({ className = '' }) {
               <option value="right">Höger</option>
             </select>
           </div>
-        </Section>
-      )}
-
-      {/* ─── Line Properties ─── */}
-      {isLine && (
-        <Section title="Linje">
-          <div style={styles.row}>
-            <label style={styles.inputLabel}>
-              <span style={styles.inputLabelText}>Stil</span>
-              <select
-                value={single.lineStyle || 'solid'}
-                onChange={(e) => updateElement(single.id, { lineStyle: e.target.value })}
-                style={styles.select}
-              >
-                <option value="solid">Solid</option>
-                <option value="dashed">Streckad</option>
-                <option value="dotted">Prickad</option>
-              </select>
-            </label>
-          </div>
-          <div style={styles.row}>
-            <label style={styles.inputLabel}>
-              <span style={styles.inputLabelText}>Pilhuvud</span>
-              <select
-                value={single.arrowHead || 'none'}
-                onChange={(e) => updateElement(single.id, { arrowHead: e.target.value })}
-                style={styles.select}
-              >
-                <option value="none">Ingen</option>
-                <option value="arrow">Pil</option>
-                <option value="open-arrow">Öppen pil</option>
-                <option value="diamond">Diamant</option>
-                <option value="circle">Cirkel</option>
-              </select>
-            </label>
-          </div>
-          <div style={styles.row}>
-            <label style={styles.inputLabel}>
-              <span style={styles.inputLabelText}>Pilsvans</span>
-              <select
-                value={single.arrowTail || 'none'}
-                onChange={(e) => updateElement(single.id, { arrowTail: e.target.value })}
-                style={styles.select}
-              >
-                <option value="none">Ingen</option>
-                <option value="arrow">Pil</option>
-                <option value="open-arrow">Öppen pil</option>
-                <option value="diamond">Diamant</option>
-                <option value="circle">Cirkel</option>
-              </select>
-            </label>
-          </div>
-          <div style={styles.row}>
-            <NumberInput
-              label="Kurvatur"
-              value={single.curvature || 0}
-              min={-200}
-              max={200}
-              step={10}
-              onChange={(v) => updateElement(single.id, { curvature: v })}
-            />
-          </div>
-          {/* Label */}
-          <div style={{ ...styles.row, marginTop: 8 }}>
-            <label style={{ ...styles.inputLabel, flex: 1 }}>
-              <span style={styles.inputLabelText}>Etikett</span>
-              <input
-                type="text"
-                value={single.label?.text || ''}
-                placeholder="Lägg till text..."
-                onChange={(e) => updateElement(single.id, {
-                  label: { ...(single.label || {}), text: e.target.value, fontSize: 12, color: '#333', background: 'rgba(255,255,255,0.9)' }
-                })}
-                style={styles.textInput}
-              />
-            </label>
-          </div>
-          {single.startConnection && (
-            <div style={styles.hint}>📌 Kopplad (start)</div>
-          )}
-          {single.endConnection && (
-            <div style={styles.hint}>📌 Kopplad (slut)</div>
-          )}
         </Section>
       )}
 
@@ -487,14 +403,5 @@ const styles = {
     color: '#999',
     fontSize: '12px',
     fontStyle: 'italic',
-  },
-  textInput: {
-    flex: 1,
-    padding: '4px 6px',
-    border: '1px solid #e0e0e0',
-    borderRadius: '4px',
-    fontSize: '12px',
-    boxSizing: 'border-box',
-    outline: 'none',
   },
 };

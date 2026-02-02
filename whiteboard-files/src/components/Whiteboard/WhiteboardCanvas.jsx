@@ -13,7 +13,6 @@ import { CanvasRenderer } from './CanvasRenderer';
 import { SelectTool } from './tools/SelectTool';
 import { ShapeTool } from './tools/ShapeTool';
 import { TextTool } from './tools/TextTool';
-import { LineTool } from './tools/LineTool';
 import useWhiteboardStore from '../../stores/whiteboardStore';
 import { useWhiteboardKeyboard } from '../../hooks/useWhiteboardKeyboard';
 
@@ -22,7 +21,7 @@ const tools = {
   select: new SelectTool(),
   shape: new ShapeTool(),
   text: new TextTool(),
-  line: new LineTool(),
+  // line: new LineTool(), // Deliverable 2
 };
 
 export default function WhiteboardCanvas({ className = '' }) {
@@ -173,29 +172,12 @@ export default function WhiteboardCanvas({ className = '' }) {
       store.getState().updateElement(state.editingElementId, {
         text: { ...currentText, text: e.target.value },
       });
-    } else if (el.type === 'line') {
-      const currentLabel = el.label || {
-        text: '', fontSize: 12, fontFamily: 'Inter, system-ui, sans-serif',
-        color: '#333333', background: 'rgba(255,255,255,0.9)',
-      };
-      store.getState().updateElement(state.editingElementId, {
-        label: { ...currentLabel, text: e.target.value },
-      });
     }
   }, [state.editingElementId, state.elements]);
 
   const handleTextBlur = useCallback(() => {
-    // Defer to avoid race condition: mousedown on canvas fires before blur,
-    // and may set a NEW editingElementId (e.g. TextTool creating next element).
-    // If we clear immediately, we'd overwrite the new editing state.
-    const currentEditingId = state.editingElementId;
-    requestAnimationFrame(() => {
-      // Only clear if no new editing started since the blur
-      if (store.getState().editingElementId === currentEditingId) {
-        store.getState().setEditingElementId(null);
-      }
-    });
-  }, [state.editingElementId]);
+    store.getState().setEditingElementId(null);
+  }, []);
 
   const handleTextKeyDown = useCallback((e) => {
     if (e.key === 'Escape') {
@@ -204,13 +186,13 @@ export default function WhiteboardCanvas({ className = '' }) {
     e.stopPropagation(); // Don't let keyboard shortcuts fire
   }, []);
 
-  // Focus textarea when editing starts (NOT on every content change)
+  // Focus textarea when editing starts
   useEffect(() => {
-    if (state.editingElementId && textareaRef.current) {
+    if (editingElement && textareaRef.current) {
       textareaRef.current.focus();
       textareaRef.current.select();
     }
-  }, [state.editingElementId]);
+  }, [editingElement]);
 
   // ─── Calculate textarea position ───────────────────
   const getTextareaStyle = () => {
@@ -218,37 +200,13 @@ export default function WhiteboardCanvas({ className = '' }) {
 
     const s = store.getState();
     const el = editingElement;
+    const textContent = el.type === 'text' ? el.content : (el.text || {});
 
-    let left, top, width, height, fontSize, fontFamily, fontWeight, fontStyle, color, textAlign;
-
-    if (el.type === 'line') {
-      // Position textarea at line midpoint
-      const midX = ((el.x || 0) + (el.x2 || 0)) / 2;
-      const midY = ((el.y || 0) + (el.y2 || 0)) / 2;
-      const labelData = el.label || {};
-      fontSize = (labelData.fontSize || 12) * s.zoom;
-      left = (midX - 75) * s.zoom + s.panX;
-      top = (midY - 15) * s.zoom + s.panY;
-      width = 150 * s.zoom;
-      height = 30 * s.zoom;
-      fontFamily = labelData.fontFamily || 'Inter, system-ui, sans-serif';
-      fontWeight = 'normal';
-      fontStyle = 'normal';
-      color = labelData.color || '#333333';
-      textAlign = 'center';
-    } else {
-      const textContent = el.type === 'text' ? el.content : (el.text || {});
-      left = el.x * s.zoom + s.panX;
-      top = el.y * s.zoom + s.panY;
-      width = (el.width || 150) * s.zoom;
-      height = (el.height || 30) * s.zoom;
-      fontSize = (textContent.fontSize || 14) * s.zoom;
-      fontFamily = textContent.fontFamily || 'sans-serif';
-      fontWeight = textContent.fontWeight || 'normal';
-      fontStyle = textContent.fontStyle || 'normal';
-      color = textContent.color || '#000000';
-      textAlign = textContent.align || 'center';
-    }
+    const left = el.x * s.zoom + s.panX;
+    const top = el.y * s.zoom + s.panY;
+    const width = (el.width || 150) * s.zoom;
+    const height = (el.height || 30) * s.zoom;
+    const fontSize = (textContent.fontSize || 14) * s.zoom;
 
     return {
       position: 'absolute',
@@ -257,11 +215,11 @@ export default function WhiteboardCanvas({ className = '' }) {
       width: `${width}px`,
       height: `${height}px`,
       fontSize: `${fontSize}px`,
-      fontFamily,
-      fontWeight,
-      fontStyle,
-      color,
-      textAlign,
+      fontFamily: textContent.fontFamily || 'sans-serif',
+      fontWeight: textContent.fontWeight || 'normal',
+      fontStyle: textContent.fontStyle || 'normal',
+      color: textContent.color || '#000000',
+      textAlign: textContent.align || 'center',
       background: 'rgba(255,255,255,0.9)',
       border: '2px solid #2196F3',
       borderRadius: '2px',
@@ -279,7 +237,6 @@ export default function WhiteboardCanvas({ className = '' }) {
     if (!editingElement) return '';
     if (editingElement.type === 'text') return editingElement.content?.text || '';
     if (editingElement.type === 'shape') return editingElement.text?.text || '';
-    if (editingElement.type === 'line') return editingElement.label?.text || '';
     return '';
   };
 

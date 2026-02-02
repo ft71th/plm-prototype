@@ -6406,6 +6406,22 @@ function TopHeader({
           🎨 Simple
         </button>
         <button
+          onClick={() => onViewModeChange('freeform')}
+          style={{
+            padding: '6px 10px',
+            background: viewMode === 'freeform' ? '#3498db' : '#2c3e50',
+            color: 'white',
+            border: '1px solid #4a5f7f',
+            borderRadius: '0',
+            cursor: 'pointer',
+            fontSize: '11px',
+            fontWeight: 'bold'
+          }}
+          title="Freeform Drawing"
+        >
+          ✏️ Draw
+        </button>
+        <button
           onClick={() => onViewModeChange('document')}
           style={{
             padding: '6px 10px',
@@ -11625,8 +11641,8 @@ const createNewObject = (name, version, description) => {
         onChangePassword={() => setShowChangePassword(true)}
       />
       
-      {/* Left Icon Strip - hidden in freeform whiteboard mode */}
-      {viewMode !== 'whiteboard' && <LeftIconStrip
+      {/* Left Icon Strip - hidden in freeform drawing mode */}
+      {viewMode !== 'freeform' && <LeftIconStrip
         onAddSystem={addSystemNode}
         onAddSubSystem={addSubSystemNode}
         onAddFunction={addFunctionNode}
@@ -11645,8 +11661,8 @@ const createNewObject = (name, version, description) => {
         voiceStatus={voiceStatus}
       />}
       
-      {/* Sidebar - hidden in freeform whiteboard mode */}
-      {viewMode !== 'whiteboard' && <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)}>
+      {/* Sidebar - hidden in freeform drawing mode */}
+      {viewMode !== 'freeform' && <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)}>
         <SidebarSection title="📁 Project">
           <SidebarButton 
             icon="💾" 
@@ -11839,7 +11855,7 @@ const createNewObject = (name, version, description) => {
             setFloatingPanelPosition({ x: window.innerWidth - 350, y: 100 });
           }}
         />
-      ) : viewMode === 'whiteboard' ? (
+      ) : viewMode === 'freeform' ? (
         <Whiteboard style={{ marginTop: '50px', height: 'calc(100vh - 50px)' }} />
       ) : (
       

@@ -12,7 +12,6 @@
 import { renderGrid } from './renderers/GridRenderer';
 import { renderShape } from './renderers/ShapeRenderer';
 import { renderText } from './renderers/TextRenderer';
-import { renderLine, renderConnectionPoints } from './renderers/LineRenderer';
 import { renderSelection, renderAlignmentGuides } from './renderers/SelectionRenderer';
 
 export class CanvasRenderer {
@@ -23,7 +22,6 @@ export class CanvasRenderer {
     this._dirty = true;
     this._guides = [];
     this._previewElement = null; // Element being created (shape/line preview)
-    this._showConnectionPoints = false; // Show connection points on shapes (line tool)
   }
 
   /**
@@ -109,11 +107,6 @@ export class CanvasRenderer {
       ctx.globalAlpha = 1;
     }
 
-    // 4c. Connection point indicators (when line tool is active)
-    if (this._showConnectionPoints) {
-      renderConnectionPoints(ctx, state.elements, state.elementOrder, state.zoom);
-    }
-
     // 5. Selection overlays
     renderSelection(ctx, state);
 
@@ -133,9 +126,7 @@ export class CanvasRenderer {
       case 'text':
         renderText(ctx, element);
         break;
-      case 'line':
-        renderLine(ctx, element);
-        break;
+      // 'line' will be added in Deliverable 2
       default:
         break;
     }
@@ -146,7 +137,7 @@ export class CanvasRenderer {
    * Returns element ID or null.
    */
   hitTest(state, worldX, worldY) {
-    const { hitTest: elementHitTest } = require('../../utils/geometry');
+    const { hitTest: elementHitTest } = require('../../../utils/geometry');
 
     // Iterate in reverse order (topmost first)
     for (let i = state.elementOrder.length - 1; i >= 0; i--) {

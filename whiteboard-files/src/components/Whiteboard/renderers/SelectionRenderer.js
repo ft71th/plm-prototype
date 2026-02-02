@@ -70,63 +70,17 @@ export function renderAlignmentGuides(ctx, guides) {
 }
 
 function drawSelectionOutline(ctx, element) {
+  const bb = getBoundingBox(element);
   ctx.save();
   ctx.strokeStyle = HANDLE_COLOR;
   ctx.lineWidth = 1.5;
   ctx.setLineDash([]);
-
-  if (element.type === 'line') {
-    // Draw a highlight along the line
-    ctx.lineWidth = (element.strokeWidth || 2) + 4;
-    ctx.globalAlpha = 0.25;
-    ctx.beginPath();
-    ctx.moveTo(element.x, element.y);
-    if (element.curvature) {
-      const midX = (element.x + element.x2) / 2;
-      const midY = (element.y + element.y2) / 2;
-      const dx = element.x2 - element.x;
-      const dy = element.y2 - element.y;
-      const len = Math.hypot(dx, dy) || 1;
-      const nx = -dy / len;
-      const ny = dx / len;
-      ctx.quadraticCurveTo(
-        midX + nx * element.curvature,
-        midY + ny * element.curvature,
-        element.x2, element.y2
-      );
-    } else {
-      ctx.lineTo(element.x2, element.y2);
-    }
-    ctx.stroke();
-    ctx.globalAlpha = 1;
-  } else {
-    const bb = getBoundingBox(element);
-    ctx.strokeRect(bb.x - 1, bb.y - 1, bb.width + 2, bb.height + 2);
-  }
-
+  ctx.strokeRect(bb.x - 1, bb.y - 1, bb.width + 2, bb.height + 2);
   ctx.restore();
 }
 
 function drawHandles(ctx, element) {
-  if (element.type === 'line') {
-    // Draw circle handles at line endpoints
-    const endpoints = [
-      { x: element.x, y: element.y },
-      { x: element.x2, y: element.y2 },
-    ];
-    ctx.save();
-    for (const pt of endpoints) {
-      ctx.fillStyle = HANDLE_FILL;
-      ctx.strokeStyle = HANDLE_COLOR;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(pt.x, pt.y, 5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-    }
-    ctx.restore();
-    return;
-  }
+  if (element.type === 'line') return; // Lines don't get resize handles
 
   const handles = getHandlePositions(element);
   const half = HANDLE_SIZE / 2;

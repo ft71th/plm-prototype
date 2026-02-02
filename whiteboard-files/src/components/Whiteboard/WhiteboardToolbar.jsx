@@ -122,8 +122,15 @@ export default function WhiteboardToolbar({ className = '' }) {
 
       <div style={styles.separator} />
 
-      {/* ─── Line Tool (with dropdown) ─── */}
-      <LineToolSection />
+      {/* ─── Line Tool (placeholder — Deliverable 2) ─── */}
+      <ToolButton
+        active={activeTool === 'line'}
+        onClick={() => {}}
+        title="Linje (kommer i nästa leverans)"
+        disabled
+      >
+        <span style={{ ...styles.icon, opacity: 0.4 }}>╱</span>
+      </ToolButton>
 
       {/* ─── Spacer ─── */}
       <div style={{ flex: 1 }} />
@@ -174,105 +181,6 @@ export default function WhiteboardToolbar({ className = '' }) {
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-const LINE_STYLES = [
-  { id: 'solid', label: 'Solid', icon: '━' },
-  { id: 'dashed', label: 'Streckad', icon: '╌' },
-  { id: 'dotted', label: 'Prickad', icon: '┈' },
-];
-
-const ARROW_HEADS = [
-  { id: 'none', label: 'Ingen', icon: '━━' },
-  { id: 'arrow', label: 'Pil', icon: '━▶' },
-  { id: 'open-arrow', label: 'Öppen pil', icon: '━>' },
-  { id: 'diamond', label: 'Diamant', icon: '━◇' },
-  { id: 'circle', label: 'Cirkel', icon: '━●' },
-];
-
-function LineToolSection() {
-  const activeTool = useWhiteboardStore((s) => s.activeTool);
-  const activeLineStyle = useWhiteboardStore((s) => s.activeLineStyle);
-  const activeArrowHead = useWhiteboardStore((s) => s.activeArrowHead);
-  const setActiveTool = useWhiteboardStore((s) => s.setActiveTool);
-  const setActiveLineStyle = useWhiteboardStore((s) => s.setActiveLineStyle);
-  const setActiveArrowHead = useWhiteboardStore((s) => s.setActiveArrowHead);
-
-  const [showMenu, setShowMenu] = useState(false);
-  const menuRef = useRef(null);
-
-  useEffect(() => {
-    const handleClick = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setShowMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
-
-  const currentArrowIcon = ARROW_HEADS.find((a) => a.id === activeArrowHead)?.icon || '━▶';
-
-  return (
-    <div ref={menuRef} style={styles.dropdownContainer}>
-      <ToolButton
-        active={activeTool === 'line'}
-        onClick={() => setActiveTool('line')}
-        title={`Linje (L) — ${LINE_STYLES.find(s => s.id === activeLineStyle)?.label}, ${ARROW_HEADS.find(a => a.id === activeArrowHead)?.label}`}
-      >
-        <span style={styles.icon}>╱</span>
-      </ToolButton>
-      <button
-        onClick={() => setShowMenu(!showMenu)}
-        style={styles.dropdownArrow}
-        title="Linjealternativ"
-      >
-        ▾
-      </button>
-
-      {showMenu && (
-        <div style={{ ...styles.dropdownMenu, minWidth: '200px' }}>
-          {/* Line style section */}
-          <div style={{ padding: '4px 12px', fontSize: '10px', color: '#999', fontWeight: 'bold', textTransform: 'uppercase' }}>
-            Linjestil
-          </div>
-          {LINE_STYLES.map((ls) => (
-            <button
-              key={ls.id}
-              onClick={() => { setActiveLineStyle(ls.id); setActiveTool('line'); }}
-              style={{
-                ...styles.menuItem,
-                background: activeLineStyle === ls.id ? '#e3f2fd' : 'transparent',
-              }}
-            >
-              <span style={styles.menuIcon}>{ls.icon}</span>
-              {ls.label}
-            </button>
-          ))}
-
-          <div style={{ borderTop: '1px solid #eee', margin: '4px 0' }} />
-
-          {/* Arrow head section */}
-          <div style={{ padding: '4px 12px', fontSize: '10px', color: '#999', fontWeight: 'bold', textTransform: 'uppercase' }}>
-            Pilhuvud
-          </div>
-          {ARROW_HEADS.map((ah) => (
-            <button
-              key={ah.id}
-              onClick={() => { setActiveArrowHead(ah.id); setActiveTool('line'); }}
-              style={{
-                ...styles.menuItem,
-                background: activeArrowHead === ah.id ? '#e3f2fd' : 'transparent',
-              }}
-            >
-              <span style={styles.menuIcon}>{ah.icon}</span>
-              {ah.label}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
