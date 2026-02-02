@@ -53,6 +53,8 @@ const DEFAULT_LINE = {
 // Store
 // ============================================================
 
+const HISTORY_LIMIT = 50;
+
 const useWhiteboardStore = create((set, get) => ({
   // ─── Elements ──────────────────────────────────────────
   elements: {},
@@ -97,26 +99,100 @@ const useWhiteboardStore = create((set, get) => ({
   // ─── Inline editing ────────────────────────────────────
   editingElementId: null,
 
+  // ─── Undo/Redo History ─────────────────────────────────
+  _undoStack: [],
+  _redoStack: [],
+  _skipHistory: false,
+
   // ═══════════════════════════════════════════════════════
-  // ACTIONS: Element CRUD
+  // INTERNAL: History snapshot
   // ═══════════════════════════════════════════════════════
 
-  addElement: (element) => set((state) => {
-    const id = element.id || generateId(element.type);
-    const el = {
-      ...element,
-      id,
-      zIndex: state.elementOrder.length,
-      groupId: element.groupId ?? null,
-      parentId: element.parentId ?? null,
-      locked: element.locked ?? false,
-      visible: element.visible ?? true,
+  _pushHistory: () => {
+    const state = get();
+    if (state._skipHistory) return;
+    const snapshot = {
+      elements: JSON.parse(JSON.stringify(state.elements)),
+      elementOrder: [...state.elementOrder],
     };
+    set((s) => ({
+      _undoStack: [...s._undoStack.slice(-(HISTORY_LIMIT - 1)), snapshot],
+      _redoStack: [], // clear redo on new action
+    }));
+  },
+
+  // ═══════════════════════════════════════════════════════
+  // ACTIONS: Undo / Redo
+  // ═══════════════════════════════════════════════════════
+
+  undo: () => set((state) => {
+    if (state._undoStack.length === 0) return state;
+    const stack = [...state._undoStack];
+    const snapshot = stack.pop();
+
+    // Save current state to redo
+    const currentSnapshot = {
+      elements: JSON.parse(JSON.stringify(state.elements)),
+      elementOrder: [...state.elementOrder],
+    };
+
     return {
-      elements: { ...state.elements, [id]: el },
-      elementOrder: [...state.elementOrder, id],
+      _undoStack: stack,
+      _redoStack: [...state._redoStack, currentSnapshot],
+      elements: snapshot.elements,
+      elementOrder: snapshot.elementOrder,
+      selectedIds: new Set(),
+      editingElementId: null,
     };
   }),
+
+  redo: () => set((state) => {
+    if (state._redoStack.length === 0) return state;
+    const stack = [...state._redoStack];
+    const snapshot = stack.pop();
+
+    // Save current state to undo
+    const currentSnapshot = {
+      elements: JSON.parse(JSON.stringify(state.elements)),
+      elementOrder: [...state.elementOrder],
+    };
+
+    return {
+      _redoStack: stack,
+      _undoStack: [...state._undoStack, currentSnapshot],
+      elements: snapshot.elements,
+      elementOrder: snapshot.elementOrder,
+      selectedIds: new Set(),
+      editingElementId: null,
+    };
+  }),
+
+  canUndo: () => get()._undoStack.length > 0,
+  canRedo: () => get()._redoStack.length > 0,
+
+  // ═══════════════════════════════════════════════════════
+  // ACTIONS: Element CRUD (with history)
+  // ═══════════════════════════════════════════════════════
+
+  addElement: (element) => {
+    get()._pushHistory();
+    set((state) => {
+      const id = element.id || generateId(element.type);
+      const el = {
+        ...element,
+        id,
+        zIndex: state.elementOrder.length,
+        groupId: element.groupId ?? null,
+        parentId: element.parentId ?? null,
+        locked: element.locked ?? false,
+        visible: element.visible ?? true,
+      };
+      return {
+        elements: { ...state.elements, [id]: el },
+        elementOrder: [...state.elementOrder, id],
+      };
+    });
+  },
 
   updateElement: (id, updates) => set((state) => {
     if (!state.elements[id]) return state;
@@ -135,72 +211,74 @@ const useWhiteboardStore = create((set, get) => ({
     };
   }),
 
-  deleteElements: (ids) => set((state) => {
-    const idSet = new Set(ids);
-    const newElements = { ...state.elements };
-    const newSelectedIds = new Set(state.selectedIds);
+  // Push history before a batch of updateElement calls (for drag operations)
+  pushHistoryCheckpoint: () => { get()._pushHistory(); },
 
-    for (const id of ids) {
-      if (!newElements[id]) continue;
+  deleteElements: (ids) => {
+    get()._pushHistory();
+    set((state) => {
+      const idSet = new Set(ids);
+      const newElements = { ...state.elements };
+      const newSelectedIds = new Set(state.selectedIds);
 
-      // If deleting a container, also delete children
-      const el = newElements[id];
-      if (el.childIds && el.childIds.length > 0) {
-        for (const childId of el.childIds) {
-          delete newElements[childId];
-          newSelectedIds.delete(childId);
-          idSet.add(childId);
-        }
-      }
+      for (const id of ids) {
+        if (!newElements[id]) continue;
 
-      // If deleting a grouped element, remove from group
-      if (el.groupId && newElements[el.groupId]) {
-        const group = newElements[el.groupId];
-        newElements[el.groupId] = {
-          ...group,
-          childIds: group.childIds.filter((cid) => cid !== id),
-        };
-      }
-
-      // If deleting a child, remove from parent
-      if (el.parentId && newElements[el.parentId]) {
-        const parent = newElements[el.parentId];
-        newElements[el.parentId] = {
-          ...parent,
-          childIds: parent.childIds.filter((cid) => cid !== id),
-        };
-      }
-
-      // Clean up line connections pointing to this element
-      for (const key of Object.keys(newElements)) {
-        const other = newElements[key];
-        if (other.type === 'line') {
-          let changed = false;
-          const lineUpdates = {};
-          if (other.startConnection?.elementId === id) {
-            lineUpdates.startConnection = null;
-            changed = true;
-          }
-          if (other.endConnection?.elementId === id) {
-            lineUpdates.endConnection = null;
-            changed = true;
-          }
-          if (changed) {
-            newElements[key] = { ...other, ...lineUpdates };
+        const el = newElements[id];
+        if (el.childIds && el.childIds.length > 0) {
+          for (const childId of el.childIds) {
+            delete newElements[childId];
+            newSelectedIds.delete(childId);
+            idSet.add(childId);
           }
         }
+
+        if (el.groupId && newElements[el.groupId]) {
+          const group = newElements[el.groupId];
+          newElements[el.groupId] = {
+            ...group,
+            childIds: group.childIds.filter((cid) => cid !== id),
+          };
+        }
+
+        if (el.parentId && newElements[el.parentId]) {
+          const parent = newElements[el.parentId];
+          newElements[el.parentId] = {
+            ...parent,
+            childIds: parent.childIds.filter((cid) => cid !== id),
+          };
+        }
+
+        for (const key of Object.keys(newElements)) {
+          const other = newElements[key];
+          if (other.type === 'line') {
+            let changed = false;
+            const lineUpdates = {};
+            if (other.startConnection?.elementId === id) {
+              lineUpdates.startConnection = null;
+              changed = true;
+            }
+            if (other.endConnection?.elementId === id) {
+              lineUpdates.endConnection = null;
+              changed = true;
+            }
+            if (changed) {
+              newElements[key] = { ...other, ...lineUpdates };
+            }
+          }
+        }
+
+        delete newElements[id];
+        newSelectedIds.delete(id);
       }
 
-      delete newElements[id];
-      newSelectedIds.delete(id);
-    }
-
-    return {
-      elements: newElements,
-      elementOrder: state.elementOrder.filter((eid) => !idSet.has(eid)),
-      selectedIds: newSelectedIds,
-    };
-  }),
+      return {
+        elements: newElements,
+        elementOrder: state.elementOrder.filter((eid) => !idSet.has(eid)),
+        selectedIds: newSelectedIds,
+      };
+    });
+  },
 
   // ═══════════════════════════════════════════════════════
   // ACTIONS: Selection
@@ -370,6 +448,240 @@ const useWhiteboardStore = create((set, get) => ({
       } else {
         newElements[idArray[i]] = { ...el, width: reference.width, height: reference.height };
       }
+    }
+    return { elements: newElements };
+  }),
+
+  // ═══════════════════════════════════════════════════════
+  // ACTIONS: Copy / Paste / Duplicate
+  // ═══════════════════════════════════════════════════════
+
+  copyElements: () => set((state) => {
+    const copies = [...state.selectedIds]
+      .map((id) => state.elements[id])
+      .filter(Boolean)
+      .map((el) => JSON.parse(JSON.stringify(el)));
+    return { clipboard: copies };
+  }),
+
+  pasteElements: () => {
+    const state = get();
+    if (state.clipboard.length === 0) return;
+
+    get()._pushHistory();
+
+    const idMap = {};
+    const newElements = { ...state.elements };
+    const newOrder = [...state.elementOrder];
+    const newSelected = new Set();
+    const offset = 20;
+
+    for (const original of state.clipboard) {
+      const newId = generateId(original.type);
+      idMap[original.id] = newId;
+
+      const copy = {
+        ...JSON.parse(JSON.stringify(original)),
+        id: newId,
+        x: (original.x || 0) + offset,
+        y: (original.y || 0) + offset,
+        zIndex: newOrder.length,
+      };
+      if (copy.x2 !== undefined) copy.x2 = original.x2 + offset;
+      if (copy.y2 !== undefined) copy.y2 = original.y2 + offset;
+
+      // Clear connections (they reference old elements)
+      if (copy.startConnection) copy.startConnection = null;
+      if (copy.endConnection) copy.endConnection = null;
+      copy.groupId = null;
+
+      newElements[newId] = copy;
+      newOrder.push(newId);
+      newSelected.add(newId);
+    }
+
+    set({
+      elements: newElements,
+      elementOrder: newOrder,
+      selectedIds: newSelected,
+    });
+  },
+
+  duplicateElements: () => {
+    const state = get();
+    if (state.selectedIds.size === 0) return;
+
+    get()._pushHistory();
+
+    const newElements = { ...state.elements };
+    const newOrder = [...state.elementOrder];
+    const newSelected = new Set();
+    const offset = 20;
+
+    for (const id of state.selectedIds) {
+      const original = state.elements[id];
+      if (!original) continue;
+
+      const newId = generateId(original.type);
+      const copy = {
+        ...JSON.parse(JSON.stringify(original)),
+        id: newId,
+        x: (original.x || 0) + offset,
+        y: (original.y || 0) + offset,
+        zIndex: newOrder.length,
+        groupId: null,
+      };
+      if (copy.x2 !== undefined) copy.x2 = original.x2 + offset;
+      if (copy.y2 !== undefined) copy.y2 = original.y2 + offset;
+      if (copy.startConnection) copy.startConnection = null;
+      if (copy.endConnection) copy.endConnection = null;
+
+      newElements[newId] = copy;
+      newOrder.push(newId);
+      newSelected.add(newId);
+    }
+
+    set({
+      elements: newElements,
+      elementOrder: newOrder,
+      selectedIds: newSelected,
+    });
+  },
+
+  // ═══════════════════════════════════════════════════════
+  // ACTIONS: Grouping
+  // ═══════════════════════════════════════════════════════
+
+  groupElements: () => {
+    const state = get();
+    const ids = [...state.selectedIds];
+    if (ids.length < 2) return;
+
+    get()._pushHistory();
+
+    const groupId = generateId('group');
+    const newElements = { ...state.elements };
+
+    // Create group container element
+    const memberEls = ids.map((id) => state.elements[id]).filter(Boolean);
+    const { getCombinedBoundingBox: getCBB } = require('../utils/geometry');
+    const bb = getCBB(memberEls);
+
+    newElements[groupId] = {
+      type: 'group',
+      id: groupId,
+      x: bb.x,
+      y: bb.y,
+      width: bb.width,
+      height: bb.height,
+      childIds: ids,
+      locked: false,
+      visible: true,
+      zIndex: state.elementOrder.length,
+    };
+
+    // Tag each child with groupId
+    for (const id of ids) {
+      if (newElements[id]) {
+        newElements[id] = { ...newElements[id], groupId };
+      }
+    }
+
+    set({
+      elements: newElements,
+      elementOrder: [...state.elementOrder, groupId],
+      selectedIds: new Set([groupId]),
+    });
+  },
+
+  ungroupElements: () => {
+    const state = get();
+    const ids = [...state.selectedIds];
+    if (ids.length === 0) return;
+
+    get()._pushHistory();
+
+    const newElements = { ...state.elements };
+    const newOrder = [...state.elementOrder];
+    const newSelected = new Set();
+
+    for (const id of ids) {
+      const el = newElements[id];
+      if (!el || el.type !== 'group') {
+        newSelected.add(id);
+        continue;
+      }
+
+      // Ungroup: remove group, free children
+      for (const childId of (el.childIds || [])) {
+        if (newElements[childId]) {
+          newElements[childId] = { ...newElements[childId], groupId: null };
+          newSelected.add(childId);
+        }
+      }
+
+      delete newElements[id];
+      const idx = newOrder.indexOf(id);
+      if (idx !== -1) newOrder.splice(idx, 1);
+    }
+
+    set({
+      elements: newElements,
+      elementOrder: newOrder,
+      selectedIds: newSelected,
+    });
+  },
+
+  // ═══════════════════════════════════════════════════════
+  // ACTIONS: Z-Order
+  // ═══════════════════════════════════════════════════════
+
+  bringToFront: () => set((state) => {
+    if (state.selectedIds.size === 0) return state;
+    const selected = [...state.selectedIds];
+    const remaining = state.elementOrder.filter((id) => !state.selectedIds.has(id));
+    return { elementOrder: [...remaining, ...selected] };
+  }),
+
+  sendToBack: () => set((state) => {
+    if (state.selectedIds.size === 0) return state;
+    const selected = [...state.selectedIds];
+    const remaining = state.elementOrder.filter((id) => !state.selectedIds.has(id));
+    return { elementOrder: [...selected, ...remaining] };
+  }),
+
+  bringForward: () => set((state) => {
+    if (state.selectedIds.size === 0) return state;
+    const order = [...state.elementOrder];
+    // Move each selected element one step forward
+    for (let i = order.length - 2; i >= 0; i--) {
+      if (state.selectedIds.has(order[i]) && !state.selectedIds.has(order[i + 1])) {
+        [order[i], order[i + 1]] = [order[i + 1], order[i]];
+      }
+    }
+    return { elementOrder: order };
+  }),
+
+  sendBackward: () => set((state) => {
+    if (state.selectedIds.size === 0) return state;
+    const order = [...state.elementOrder];
+    for (let i = 1; i < order.length; i++) {
+      if (state.selectedIds.has(order[i]) && !state.selectedIds.has(order[i - 1])) {
+        [order[i], order[i - 1]] = [order[i - 1], order[i]];
+      }
+    }
+    return { elementOrder: order };
+  }),
+
+  // ═══════════════════════════════════════════════════════
+  // ACTIONS: Lock / Unlock
+  // ═══════════════════════════════════════════════════════
+
+  toggleLock: (ids) => set((state) => {
+    const newElements = { ...state.elements };
+    for (const id of ids) {
+      if (!newElements[id]) continue;
+      newElements[id] = { ...newElements[id], locked: !newElements[id].locked };
     }
     return { elements: newElements };
   }),

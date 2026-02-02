@@ -134,11 +134,191 @@ export class CanvasRenderer {
         renderText(ctx, element);
         break;
       case 'line':
-        renderLine(ctx, element);
+        // Inline line rendering to guarantee visibility
+        this._renderLineInline(ctx, element);
         break;
       default:
         break;
     }
+  }
+
+  /**
+   * Inline line rendering — draws line directly on canvas context.
+   * Handles: straight lines, bézier curves, arrow heads, line styles, labels.
+   */
+  _renderLineInline(ctx, line) {
+    const { x, y, x2, y2 } = line;
+    if (x === undefined || y === undefined || x2 === undefined || y2 === undefined) return;
+
+    const stroke = line.stroke || '#000000';
+    const strokeWidth = line.strokeWidth || 2;
+    const lineStyle = line.lineStyle || 'solid';
+    const arrowHead = line.arrowHead || 'none';
+
+    ctx.save();
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = strokeWidth;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // Dash pattern
+    if (lineStyle === 'dashed') {
+      ctx.setLineDash([10, 6]);
+    } else if (lineStyle === 'dotted') {
+      ctx.setLineDash([3, 4]);
+    } else {
+      ctx.setLineDash([]);
+    }
+
+    // Bézier curve support
+    const isCurved = !!line.curvature && line.curvature !== 0;
+    let cpx, cpy;
+    if (isCurved) {
+      const midX = (x + x2) / 2;
+      const midY = (y + y2) / 2;
+      const dx = x2 - x;
+      const dy = y2 - y;
+      const len = Math.hypot(dx, dy) || 1;
+      cpx = midX + (-dy / len) * line.curvature;
+      cpy = midY + (dx / len) * line.curvature;
+    }
+
+    // Draw line path
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    if (isCurved) {
+      ctx.quadraticCurveTo(cpx, cpy, x2, y2);
+    } else {
+      ctx.lineTo(x2, y2);
+    }
+    ctx.stroke();
+
+    // Reset dash for arrow heads
+    ctx.setLineDash([]);
+
+    // Arrow head at end
+    if (arrowHead && arrowHead !== 'none') {
+      let angle;
+      if (isCurved) {
+        angle = Math.atan2(y2 - cpy, x2 - cpx);
+      } else {
+        angle = Math.atan2(y2 - y, x2 - x);
+      }
+      this._drawArrowHead(ctx, x2, y2, angle, arrowHead, stroke, strokeWidth);
+    }
+
+    // Arrow tail at start
+    if (line.arrowTail && line.arrowTail !== 'none') {
+      let angle;
+      if (isCurved) {
+        angle = Math.atan2(y - cpy, x - cpx);
+      } else {
+        angle = Math.atan2(y - y2, x - x2);
+      }
+      this._drawArrowHead(ctx, x, y, angle, line.arrowTail, stroke, strokeWidth);
+    }
+
+    // Connection dots
+    if (line.startConnection) {
+      ctx.fillStyle = '#2196F3';
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    if (line.endConnection) {
+      ctx.fillStyle = '#2196F3';
+      ctx.beginPath();
+      ctx.arc(x2, y2, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Label
+    if (line.label && line.label.text) {
+      let lx, ly;
+      if (isCurved) {
+        lx = 0.25 * x + 0.5 * cpx + 0.25 * x2;
+        ly = 0.25 * y + 0.5 * cpy + 0.25 * y2;
+      } else {
+        lx = (x + x2) / 2;
+        ly = (y + y2) / 2;
+      }
+      const offset = line.label.offset || -14;
+      const dx2 = x2 - x;
+      const dy2 = y2 - y;
+      const len2 = Math.hypot(dx2, dy2) || 1;
+      lx += (-dy2 / len2) * offset;
+      ly += (dx2 / len2) * offset;
+
+      const fSize = line.label.fontSize || 12;
+      ctx.font = `${fSize}px ${line.label.fontFamily || 'Inter, system-ui, sans-serif'}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      // Background pill
+      const metrics = ctx.measureText(line.label.text);
+      const pw = metrics.width + 12;
+      const ph = fSize + 6;
+      ctx.fillStyle = line.label.background || 'rgba(255,255,255,0.9)';
+      ctx.fillRect(lx - pw / 2, ly - ph / 2, pw, ph);
+      ctx.strokeStyle = '#e0e0e0';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(lx - pw / 2, ly - ph / 2, pw, ph);
+
+      ctx.fillStyle = line.label.color || '#333333';
+      ctx.fillText(line.label.text, lx, ly);
+    }
+
+    ctx.restore();
+  }
+
+  _drawArrowHead(ctx, tipX, tipY, angle, type, color, lineWidth) {
+    const size = Math.max(10, lineWidth * 4);
+    ctx.save();
+    ctx.translate(tipX, tipY);
+    ctx.rotate(angle);
+    ctx.fillStyle = color;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lineWidth;
+
+    switch (type) {
+      case 'arrow':
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(-size, -size * 0.4);
+        ctx.lineTo(-size * 0.7, 0);
+        ctx.lineTo(-size, size * 0.4);
+        ctx.closePath();
+        ctx.fill();
+        break;
+      case 'open-arrow':
+        ctx.beginPath();
+        ctx.moveTo(-size, -size * 0.4);
+        ctx.lineTo(0, 0);
+        ctx.lineTo(-size, size * 0.4);
+        ctx.stroke();
+        break;
+      case 'diamond': {
+        const ds = size * 0.5;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(-ds, -ds * 0.5);
+        ctx.lineTo(-ds * 2, 0);
+        ctx.lineTo(-ds, ds * 0.5);
+        ctx.closePath();
+        ctx.fill();
+        break;
+      }
+      case 'circle': {
+        const r = size * 0.3;
+        ctx.beginPath();
+        ctx.arc(-r, 0, r, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      }
+      default:
+        break;
+    }
+    ctx.restore();
   }
 
   /**

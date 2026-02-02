@@ -125,6 +125,11 @@ export default function WhiteboardToolbar({ className = '' }) {
       {/* ─── Line Tool (with dropdown) ─── */}
       <LineToolSection />
 
+      <div style={styles.separator} />
+
+      {/* ─── Action Buttons ─── */}
+      <ActionButtons />
+
       {/* ─── Spacer ─── */}
       <div style={{ flex: 1 }} />
 
@@ -191,6 +196,71 @@ const ARROW_HEADS = [
   { id: 'diamond', label: 'Diamant', icon: '━◇' },
   { id: 'circle', label: 'Cirkel', icon: '━●' },
 ];
+
+function ActionButtons() {
+  const selectedIds = useWhiteboardStore((s) => s.selectedIds);
+  const undo = useWhiteboardStore((s) => s.undo);
+  const redo = useWhiteboardStore((s) => s.redo);
+  const copyElements = useWhiteboardStore((s) => s.copyElements);
+  const pasteElements = useWhiteboardStore((s) => s.pasteElements);
+  const duplicateElements = useWhiteboardStore((s) => s.duplicateElements);
+  const groupElements = useWhiteboardStore((s) => s.groupElements);
+  const ungroupElements = useWhiteboardStore((s) => s.ungroupElements);
+  const bringToFront = useWhiteboardStore((s) => s.bringToFront);
+  const sendToBack = useWhiteboardStore((s) => s.sendToBack);
+  const clipboard = useWhiteboardStore((s) => s.clipboard);
+  const elements = useWhiteboardStore((s) => s.elements);
+
+  const hasSelection = selectedIds.size > 0;
+  const hasMultiSelection = selectedIds.size > 1;
+  const hasClipboard = clipboard.length > 0;
+  const hasGroup = [...selectedIds].some((id) => elements[id]?.type === 'group');
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '1px' }}>
+      {/* Undo / Redo */}
+      <ToolButton onClick={undo} title="Ångra (Ctrl+Z)">
+        <span style={styles.icon}>↩</span>
+      </ToolButton>
+      <ToolButton onClick={redo} title="Gör om (Ctrl+Shift+Z)">
+        <span style={styles.icon}>↪</span>
+      </ToolButton>
+
+      <div style={styles.separator} />
+
+      {/* Copy / Paste / Duplicate */}
+      <ToolButton onClick={copyElements} title="Kopiera (Ctrl+C)" disabled={!hasSelection}>
+        <span style={styles.icon}>📋</span>
+      </ToolButton>
+      <ToolButton onClick={pasteElements} title="Klistra in (Ctrl+V)" disabled={!hasClipboard}>
+        <span style={styles.icon}>📄</span>
+      </ToolButton>
+      <ToolButton onClick={duplicateElements} title="Duplicera (Ctrl+D)" disabled={!hasSelection}>
+        <span style={styles.icon}>⧉</span>
+      </ToolButton>
+
+      <div style={styles.separator} />
+
+      {/* Group / Ungroup */}
+      <ToolButton onClick={groupElements} title="Gruppera (Ctrl+G)" disabled={!hasMultiSelection}>
+        <span style={{ ...styles.icon, fontSize: '14px' }}>⊞</span>
+      </ToolButton>
+      <ToolButton onClick={ungroupElements} title="Avgruppera (Ctrl+Shift+G)" disabled={!hasGroup}>
+        <span style={{ ...styles.icon, fontSize: '14px' }}>⊟</span>
+      </ToolButton>
+
+      <div style={styles.separator} />
+
+      {/* Z-order */}
+      <ToolButton onClick={bringToFront} title="Längst fram (Ctrl+])" disabled={!hasSelection}>
+        <span style={{ ...styles.icon, fontSize: '13px' }}>⬆</span>
+      </ToolButton>
+      <ToolButton onClick={sendToBack} title="Längst bak (Ctrl+[)" disabled={!hasSelection}>
+        <span style={{ ...styles.icon, fontSize: '13px' }}>⬇</span>
+      </ToolButton>
+    </div>
+  );
+}
 
 function LineToolSection() {
   const activeTool = useWhiteboardStore((s) => s.activeTool);

@@ -206,9 +206,21 @@ export default function WhiteboardCanvas({ className = '' }) {
 
   // Focus textarea when editing starts (NOT on every content change)
   useEffect(() => {
-    if (state.editingElementId && textareaRef.current) {
-      textareaRef.current.focus();
-      textareaRef.current.select();
+    if (state.editingElementId) {
+      // Double-rAF: first waits for React DOM commit, second ensures paint.
+      // This is needed because canvas mouseDown steals browser focus,
+      // and the textarea might not be in DOM yet during the first frame.
+      const focusTextarea = () => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          if (textareaRef.current.value) {
+            textareaRef.current.select();
+          }
+        }
+      };
+      requestAnimationFrame(() => {
+        requestAnimationFrame(focusTextarea);
+      });
     }
   }, [state.editingElementId]);
 

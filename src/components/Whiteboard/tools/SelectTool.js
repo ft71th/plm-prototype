@@ -42,6 +42,9 @@ export class SelectTool {
       if (!el) continue;
       const handle = hitTestHandles(el, worldX, worldY, 8);
       if (handle) {
+        // Push history before starting resize
+        store.getState().pushHistoryCheckpoint();
+
         this.isResizing = true;
         this.resizeHandle = handle;
         this.resizeElementId = id;
@@ -60,6 +63,9 @@ export class SelectTool {
       } else if (!state.selectedIds.has(hitId)) {
         store.getState().selectElement(hitId, false);
       }
+
+      // Push history before starting drag
+      store.getState().pushHistoryCheckpoint();
 
       // Start move
       this.isDragging = true;
@@ -278,7 +284,6 @@ export class SelectTool {
     const newBounds = calculateResize(this.resizeOriginal, this.resizeHandle, dx, dy, preserveAspect);
 
     // Snap to grid
-    const state = store.getState();
     if (state.snapToGrid) {
       const snapped = snapToGrid({ x: newBounds.x, y: newBounds.y }, state.gridSize);
       const snappedEnd = snapToGrid(
