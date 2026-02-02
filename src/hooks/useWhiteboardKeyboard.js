@@ -1,12 +1,7 @@
 /**
  * useWhiteboardKeyboard — Keyboard shortcuts for the whiteboard.
  *
- * Tool switching: V, R, O, T, L
- * Delete/Backspace, Ctrl+A, Escape
- * Ctrl+Z (undo), Ctrl+Shift+Z / Ctrl+Y (redo)
- * Ctrl+C (copy), Ctrl+V (paste), Ctrl+D (duplicate)
- * Ctrl+G (group), Ctrl+Shift+G (ungroup)
- * Z-order: ] (forward), [ (backward), Ctrl+] (front), Ctrl+[ (back)
+ * Deliverable 4: Added Ctrl++/- zoom, Ctrl+0 fit, Ctrl+E export
  */
 
 import { useEffect } from 'react';
@@ -62,7 +57,6 @@ export function useWhiteboardKeyboard(store) {
 
       // Ctrl+V — paste
       if (isCtrl && e.key === 'v' && !e.shiftKey) {
-        // Only paste if clipboard has items
         if (state.clipboard.length > 0) {
           e.preventDefault();
           store.getState().pasteElements();
@@ -90,24 +84,58 @@ export function useWhiteboardKeyboard(store) {
       // Z-order: ] and [
       if (e.key === ']') {
         e.preventDefault();
-        if (isCtrl) {
-          store.getState().bringToFront();
-        } else {
-          store.getState().bringForward();
-        }
+        if (isCtrl) store.getState().bringToFront();
+        else store.getState().bringForward();
       }
       if (e.key === '[') {
         e.preventDefault();
-        if (isCtrl) {
-          store.getState().sendToBack();
-        } else {
-          store.getState().sendBackward();
-        }
+        if (isCtrl) store.getState().sendToBack();
+        else store.getState().sendBackward();
+      }
+
+      // ─── Zoom shortcuts (Deliverable 4) ────────────
+      // Ctrl++ / Ctrl+= — zoom in
+      if (isCtrl && (e.key === '+' || e.key === '=')) {
+        e.preventDefault();
+        store.getState().zoomIn();
+      }
+
+      // Ctrl+- — zoom out
+      if (isCtrl && e.key === '-') {
+        e.preventDefault();
+        store.getState().zoomOut();
+      }
+
+      // Ctrl+0 — zoom to fit
+      if (isCtrl && e.key === '0') {
+        e.preventDefault();
+        store.getState().zoomToFit();
+      }
+
+      // Ctrl+1 — zoom to 100%
+      if (isCtrl && e.key === '1') {
+        e.preventDefault();
+        store.getState().zoomReset();
+      }
+
+      // Ctrl+E — export dialog
+      if (isCtrl && e.key === 'e') {
+        e.preventDefault();
+        store.getState().setShowExportDialog(true);
       }
 
       // Escape — deselect, switch to select tool
       if (e.key === 'Escape') {
         e.preventDefault();
+        // Close dialogs first
+        if (state.showExportDialog) {
+          store.getState().setShowExportDialog(false);
+          return;
+        }
+        if (state.showTemplateDialog) {
+          store.getState().setShowTemplateDialog(false);
+          return;
+        }
         store.getState().clearSelection();
         store.getState().setActiveTool('select');
       }

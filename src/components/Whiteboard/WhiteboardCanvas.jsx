@@ -1,11 +1,7 @@
 /**
  * WhiteboardCanvas — Main canvas component for the whiteboard.
  *
- * Handles:
- * - Canvas rendering via CanvasRenderer
- * - Mouse event delegation to active tool
- * - Inline text editing overlay
- * - Pan/zoom via mouse wheel
+ * Deliverable 4: Space+drag panning, middle-click pan, canvasRef forwarding
  */
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
@@ -25,11 +21,17 @@ const tools = {
   line: new LineTool(),
 };
 
-export default function WhiteboardCanvas({ className = '' }) {
+export default function WhiteboardCanvas({ className = '', canvasRef: externalCanvasRef }) {
   const canvasRef = useRef(null);
   const rendererRef = useRef(null);
   const containerRef = useRef(null);
   const textareaRef = useRef(null);
+
+  // Space panning state
+  const [isSpacePanning, setIsSpacePanning] = useState(false);
+  const [isPanning, setIsPanning] = useState(false);
+  const panStartRef = useRef(null);
+  const spaceDownRef = useRef(false);
 
   // Subscribe to relevant store slices
   const state = useWhiteboardStore();
@@ -37,6 +39,13 @@ export default function WhiteboardCanvas({ className = '' }) {
 
   // Keyboard shortcuts
   useWhiteboardKeyboard(store);
+
+  // Forward ref to external canvasRef
+  useEffect(() => {
+    if (externalCanvasRef) {
+      externalCanvasRef.current = canvasRef.current;
+    }
+  }, [externalCanvasRef]);
 
   // ─── Renderer lifecycle ─────────────────────────────
   useEffect(() => {
@@ -58,13 +67,36 @@ export default function WhiteboardCanvas({ className = '' }) {
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-
     const observer = new ResizeObserver(() => {
       rendererRef.current?.markDirty();
     });
     observer.observe(container);
     return () => observer.disconnect();
   }, []);
+
+  // ─── Space key tracking (for space+drag pan) ───────
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.code === 'Space' && !state.editingElementId) {
+        e.preventDefault();
+        spaceDownRef.current = true;
+        setIsSpacePanning(true);
+      }
+    };
+    const handleKeyUp = (e) => {
+      if (e.code === 'Space') {
+        spaceDownRef.current = false;
+        setIsSpacePanning(false);
+        setIsPanning(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [state.editingElementId]);
 
   // ─── Coordinate conversion ─────────────────────────
   const getWorldCoords = useCallback((e) => {
@@ -83,7 +115,22 @@ export default function WhiteboardCanvas({ className = '' }) {
 
   // ─── Mouse handlers ─────────────────────────────────
   const handleMouseDown = useCallback((e) => {
+    // Middle click pan
+    if (e.button === 1) {
+      e.preventDefault();
+      setIsPanning(true);
+      panStartRef.current = { x: e.clientX, y: e.clientY, panX: store.getState().panX, panY: store.getState().panY };
+      return;
+    }
+
     if (e.button !== 0) return; // Only left click
+
+    // Space+left click = pan
+    if (spaceDownRef.current) {
+      setIsPanning(true);
+      panStartRef.current = { x: e.clientX, y: e.clientY, panX: store.getState().panX, panY: store.getState().panY };
+      return;
+    }
 
     // Close inline editor if clicking outside
     if (state.editingElementId) {
@@ -96,31 +143,51 @@ export default function WhiteboardCanvas({ className = '' }) {
   }, [state.editingElementId, getWorldCoords, getActiveTool]);
 
   const handleMouseMove = useCallback((e) => {
+    // Pan mode
+    if (isPanning && panStartRef.current) {
+      const dx = e.clientX - panStartRef.current.x;
+      const dy = e.clientY - panStartRef.current.y;
+      store.getState().setPan(panStartRef.current.panX + dx, panStartRef.current.panY + dy);
+      rendererRef.current?.markDirty();
+      return;
+    }
+
     const world = getWorldCoords(e);
     const tool = getActiveTool();
-
     tool.onMouseMove(world.x, world.y, e.shiftKey, store, rendererRef.current);
 
     // Update cursor
-    const cursor = tool.getCursor?.(world.x, world.y, store.getState()) || 'default';
+    let cursor;
+    if (isSpacePanning) {
+      cursor = isPanning ? 'grabbing' : 'grab';
+    } else {
+      cursor = tool.getCursor?.(world.x, world.y, store.getState()) || 'default';
+    }
     if (canvasRef.current) {
       canvasRef.current.style.cursor = cursor;
     }
 
     rendererRef.current?.markDirty();
-  }, [getWorldCoords, getActiveTool]);
+  }, [isPanning, isSpacePanning, getWorldCoords, getActiveTool]);
 
   const handleMouseUp = useCallback((e) => {
+    if (isPanning) {
+      setIsPanning(false);
+      panStartRef.current = null;
+      return;
+    }
+
     const world = getWorldCoords(e);
     getActiveTool().onMouseUp(world.x, world.y, e.shiftKey, store, rendererRef.current);
     rendererRef.current?.markDirty();
-  }, [getWorldCoords, getActiveTool]);
+  }, [isPanning, getWorldCoords, getActiveTool]);
 
   const handleDoubleClick = useCallback((e) => {
+    if (isSpacePanning) return;
     const world = getWorldCoords(e);
     getActiveTool().onDoubleClick?.(world.x, world.y, store, rendererRef.current);
     rendererRef.current?.markDirty();
-  }, [getWorldCoords, getActiveTool]);
+  }, [isSpacePanning, getWorldCoords, getActiveTool]);
 
   // ─── Wheel handler (pan/zoom) ──────────────────────
   const handleWheel = useCallback((e) => {
@@ -185,12 +252,8 @@ export default function WhiteboardCanvas({ className = '' }) {
   }, [state.editingElementId, state.elements]);
 
   const handleTextBlur = useCallback(() => {
-    // Defer to avoid race condition: mousedown on canvas fires before blur,
-    // and may set a NEW editingElementId (e.g. TextTool creating next element).
-    // If we clear immediately, we'd overwrite the new editing state.
     const currentEditingId = state.editingElementId;
     requestAnimationFrame(() => {
-      // Only clear if no new editing started since the blur
       if (store.getState().editingElementId === currentEditingId) {
         store.getState().setEditingElementId(null);
       }
@@ -201,15 +264,12 @@ export default function WhiteboardCanvas({ className = '' }) {
     if (e.key === 'Escape') {
       store.getState().setEditingElementId(null);
     }
-    e.stopPropagation(); // Don't let keyboard shortcuts fire
+    e.stopPropagation();
   }, []);
 
-  // Focus textarea when editing starts (NOT on every content change)
+  // Focus textarea when editing starts
   useEffect(() => {
     if (state.editingElementId) {
-      // Double-rAF: first waits for React DOM commit, second ensures paint.
-      // This is needed because canvas mouseDown steals browser focus,
-      // and the textarea might not be in DOM yet during the first frame.
       const focusTextarea = () => {
         if (textareaRef.current) {
           textareaRef.current.focus();
@@ -234,7 +294,6 @@ export default function WhiteboardCanvas({ className = '' }) {
     let left, top, width, height, fontSize, fontFamily, fontWeight, fontStyle, color, textAlign;
 
     if (el.type === 'line') {
-      // Position textarea at line midpoint
       const midX = ((el.x || 0) + (el.x2 || 0)) / 2;
       const midY = ((el.y || 0) + (el.y2 || 0)) / 2;
       const labelData = el.label || {};
@@ -263,27 +322,12 @@ export default function WhiteboardCanvas({ className = '' }) {
     }
 
     return {
-      position: 'absolute',
-      left: `${left}px`,
-      top: `${top}px`,
-      width: `${width}px`,
-      height: `${height}px`,
-      fontSize: `${fontSize}px`,
-      fontFamily,
-      fontWeight,
-      fontStyle,
-      color,
-      textAlign,
-      background: 'rgba(255,255,255,0.9)',
-      border: '2px solid #2196F3',
-      borderRadius: '2px',
-      outline: 'none',
-      resize: 'none',
-      overflow: 'hidden',
-      padding: '4px 8px',
-      boxSizing: 'border-box',
-      zIndex: 10,
-      lineHeight: 1.3,
+      position: 'absolute', left: `${left}px`, top: `${top}px`,
+      width: `${width}px`, height: `${height}px`,
+      fontSize: `${fontSize}px`, fontFamily, fontWeight, fontStyle, color, textAlign,
+      background: 'rgba(255,255,255,0.9)', border: '2px solid #2196F3',
+      borderRadius: '2px', outline: 'none', resize: 'none', overflow: 'hidden',
+      padding: '4px 8px', boxSizing: 'border-box', zIndex: 10, lineHeight: 1.3,
     };
   };
 

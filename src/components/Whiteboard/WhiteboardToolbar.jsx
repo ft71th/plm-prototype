@@ -1,9 +1,7 @@
 /**
  * WhiteboardToolbar — Tool selection bar for the whiteboard.
  *
- * Shows: Select, Shape (with variant picker), Text tools
- * Deliverable 2 adds: Line tool
- * Deliverable 4 adds: Undo/Redo, Copy/Paste, Group, Z-order
+ * Deliverable 4: Added new shapes, export/import, template buttons
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -16,6 +14,10 @@ const SHAPE_VARIANTS = [
   { id: 'diamond', label: 'Romb', icon: '◇' },
   { id: 'triangle', label: 'Triangel', icon: '△' },
   { id: 'hexagon', label: 'Hexagon', icon: '⬡' },
+  { id: 'cylinder', label: 'Cylinder', icon: '⊙' },
+  { id: 'cloud', label: 'Moln', icon: '☁' },
+  { id: 'star', label: 'Stjärna', icon: '★' },
+  { id: 'parallelogram', label: 'Parallellogram', icon: '▱' },
 ];
 
 export default function WhiteboardToolbar({ className = '' }) {
@@ -24,12 +26,14 @@ export default function WhiteboardToolbar({ className = '' }) {
   const gridEnabled = useWhiteboardStore((s) => s.gridEnabled);
   const snapToGrid = useWhiteboardStore((s) => s.snapToGrid);
   const showAlignmentGuides = useWhiteboardStore((s) => s.showAlignmentGuides);
+  const gridSize = useWhiteboardStore((s) => s.gridSize);
 
   const setActiveTool = useWhiteboardStore((s) => s.setActiveTool);
   const setActiveShapeVariant = useWhiteboardStore((s) => s.setActiveShapeVariant);
   const setGridEnabled = useWhiteboardStore((s) => s.setGridEnabled);
   const setSnapToGrid = useWhiteboardStore((s) => s.setSnapToGrid);
   const setShowAlignmentGuides = useWhiteboardStore((s) => s.setShowAlignmentGuides);
+  const setGridSize = useWhiteboardStore((s) => s.setGridSize);
 
   const [showShapeMenu, setShowShapeMenu] = useState(false);
   const [showGridMenu, setShowGridMenu] = useState(false);
@@ -75,9 +79,7 @@ export default function WhiteboardToolbar({ className = '' }) {
       <div ref={shapeMenuRef} style={styles.dropdownContainer}>
         <ToolButton
           active={activeTool === 'shape'}
-          onClick={() => {
-            setActiveTool('shape');
-          }}
+          onClick={() => setActiveTool('shape')}
           title={`Form: ${SHAPE_VARIANTS.find((v) => v.id === activeShapeVariant)?.label} (R)`}
         >
           <span style={styles.icon}>{currentShapeIcon}</span>
@@ -91,7 +93,7 @@ export default function WhiteboardToolbar({ className = '' }) {
         </button>
 
         {showShapeMenu && (
-          <div style={styles.dropdownMenu}>
+          <div style={{ ...styles.dropdownMenu, minWidth: '200px' }}>
             {SHAPE_VARIANTS.map((variant) => (
               <button
                 key={variant.id}
@@ -130,6 +132,11 @@ export default function WhiteboardToolbar({ className = '' }) {
       {/* ─── Action Buttons ─── */}
       <ActionButtons />
 
+      <div style={styles.separator} />
+
+      {/* ─── Export / Import / Template ─── */}
+      <FileButtons />
+
       {/* ─── Spacer ─── */}
       <div style={{ flex: 1 }} />
 
@@ -153,29 +160,28 @@ export default function WhiteboardToolbar({ className = '' }) {
         {showGridMenu && (
           <div style={{ ...styles.dropdownMenu, right: 0, left: 'auto' }}>
             <label style={styles.checkboxItem}>
-              <input
-                type="checkbox"
-                checked={gridEnabled}
-                onChange={(e) => setGridEnabled(e.target.checked)}
-              />
+              <input type="checkbox" checked={gridEnabled} onChange={(e) => setGridEnabled(e.target.checked)} />
               Visa rutnät
             </label>
             <label style={styles.checkboxItem}>
-              <input
-                type="checkbox"
-                checked={snapToGrid}
-                onChange={(e) => setSnapToGrid(e.target.checked)}
-              />
+              <input type="checkbox" checked={snapToGrid} onChange={(e) => setSnapToGrid(e.target.checked)} />
               Snappa till rutnät
             </label>
             <label style={styles.checkboxItem}>
-              <input
-                type="checkbox"
-                checked={showAlignmentGuides}
-                onChange={(e) => setShowAlignmentGuides(e.target.checked)}
-              />
+              <input type="checkbox" checked={showAlignmentGuides} onChange={(e) => setShowAlignmentGuides(e.target.checked)} />
               Visa justeringslinjer
             </label>
+            <div style={{ padding: '8px 12px', borderTop: '1px solid #eee' }}>
+              <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Rutstorlek: {gridSize}px</div>
+              <input
+                type="range"
+                min={5}
+                max={50}
+                value={gridSize}
+                onChange={(e) => setGridSize(Number(e.target.value))}
+                style={{ width: '100%' }}
+              />
+            </div>
           </div>
         )}
       </div>
@@ -196,6 +202,22 @@ const ARROW_HEADS = [
   { id: 'diamond', label: 'Diamant', icon: '━◇' },
   { id: 'circle', label: 'Cirkel', icon: '━●' },
 ];
+
+function FileButtons() {
+  const setShowExportDialog = useWhiteboardStore((s) => s.setShowExportDialog);
+  const setShowTemplateDialog = useWhiteboardStore((s) => s.setShowTemplateDialog);
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '1px' }}>
+      <ToolButton onClick={() => setShowExportDialog(true)} title="Exportera / Importera">
+        <span style={{ ...styles.icon, fontSize: '15px' }}>💾</span>
+      </ToolButton>
+      <ToolButton onClick={() => setShowTemplateDialog(true)} title="Mallar">
+        <span style={{ ...styles.icon, fontSize: '15px' }}>📋</span>
+      </ToolButton>
+    </div>
+  );
+}
 
 function ActionButtons() {
   const selectedIds = useWhiteboardStore((s) => s.selectedIds);
@@ -218,7 +240,6 @@ function ActionButtons() {
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '1px' }}>
-      {/* Undo / Redo */}
       <ToolButton onClick={undo} title="Ångra (Ctrl+Z)">
         <span style={styles.icon}>↩</span>
       </ToolButton>
@@ -228,7 +249,6 @@ function ActionButtons() {
 
       <div style={styles.separator} />
 
-      {/* Copy / Paste / Duplicate */}
       <ToolButton onClick={copyElements} title="Kopiera (Ctrl+C)" disabled={!hasSelection}>
         <span style={styles.icon}>📋</span>
       </ToolButton>
@@ -241,7 +261,6 @@ function ActionButtons() {
 
       <div style={styles.separator} />
 
-      {/* Group / Ungroup */}
       <ToolButton onClick={groupElements} title="Gruppera (Ctrl+G)" disabled={!hasMultiSelection}>
         <span style={{ ...styles.icon, fontSize: '14px' }}>⊞</span>
       </ToolButton>
@@ -251,7 +270,6 @@ function ActionButtons() {
 
       <div style={styles.separator} />
 
-      {/* Z-order */}
       <ToolButton onClick={bringToFront} title="Längst fram (Ctrl+])" disabled={!hasSelection}>
         <span style={{ ...styles.icon, fontSize: '13px' }}>⬆</span>
       </ToolButton>
@@ -275,15 +293,11 @@ function LineToolSection() {
 
   useEffect(() => {
     const handleClick = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setShowMenu(false);
-      }
+      if (menuRef.current && !menuRef.current.contains(e.target)) setShowMenu(false);
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
-
-  const currentArrowIcon = ARROW_HEADS.find((a) => a.id === activeArrowHead)?.icon || '━▶';
 
   return (
     <div ref={menuRef} style={styles.dropdownContainer}>
@@ -294,48 +308,28 @@ function LineToolSection() {
       >
         <span style={styles.icon}>╱</span>
       </ToolButton>
-      <button
-        onClick={() => setShowMenu(!showMenu)}
-        style={styles.dropdownArrow}
-        title="Linjealternativ"
-      >
-        ▾
-      </button>
+      <button onClick={() => setShowMenu(!showMenu)} style={styles.dropdownArrow} title="Linjealternativ">▾</button>
 
       {showMenu && (
         <div style={{ ...styles.dropdownMenu, minWidth: '200px' }}>
-          {/* Line style section */}
-          <div style={{ padding: '4px 12px', fontSize: '10px', color: '#999', fontWeight: 'bold', textTransform: 'uppercase' }}>
-            Linjestil
-          </div>
+          <div style={{ padding: '4px 12px', fontSize: '10px', color: '#999', fontWeight: 'bold', textTransform: 'uppercase' }}>Linjestil</div>
           {LINE_STYLES.map((ls) => (
             <button
               key={ls.id}
               onClick={() => { setActiveLineStyle(ls.id); setActiveTool('line'); }}
-              style={{
-                ...styles.menuItem,
-                background: activeLineStyle === ls.id ? '#e3f2fd' : 'transparent',
-              }}
+              style={{ ...styles.menuItem, background: activeLineStyle === ls.id ? '#e3f2fd' : 'transparent' }}
             >
               <span style={styles.menuIcon}>{ls.icon}</span>
               {ls.label}
             </button>
           ))}
-
           <div style={{ borderTop: '1px solid #eee', margin: '4px 0' }} />
-
-          {/* Arrow head section */}
-          <div style={{ padding: '4px 12px', fontSize: '10px', color: '#999', fontWeight: 'bold', textTransform: 'uppercase' }}>
-            Pilhuvud
-          </div>
+          <div style={{ padding: '4px 12px', fontSize: '10px', color: '#999', fontWeight: 'bold', textTransform: 'uppercase' }}>Pilhuvud</div>
           {ARROW_HEADS.map((ah) => (
             <button
               key={ah.id}
               onClick={() => { setActiveArrowHead(ah.id); setActiveTool('line'); }}
-              style={{
-                ...styles.menuItem,
-                background: activeArrowHead === ah.id ? '#e3f2fd' : 'transparent',
-              }}
+              style={{ ...styles.menuItem, background: activeArrowHead === ah.id ? '#e3f2fd' : 'transparent' }}
             >
               <span style={styles.menuIcon}>{ah.icon}</span>
               {ah.label}
@@ -372,90 +366,36 @@ function ToolButton({ active, onClick, title, disabled, children }) {
 
 const styles = {
   toolbar: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '2px',
-    padding: '4px 8px',
-    background: '#ffffff',
-    borderBottom: '1px solid #e0e0e0',
-    height: '44px',
-    boxSizing: 'border-box',
-    userSelect: 'none',
+    display: 'flex', alignItems: 'center', gap: '2px',
+    padding: '4px 8px', background: '#ffffff', borderBottom: '1px solid #e0e0e0',
+    height: '44px', boxSizing: 'border-box', userSelect: 'none',
   },
   toolButton: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '36px',
-    height: '36px',
-    border: '1.5px solid transparent',
-    borderRadius: '6px',
-    background: 'transparent',
-    cursor: 'pointer',
-    fontSize: '18px',
-    transition: 'all 0.15s',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    width: '36px', height: '36px', border: '1.5px solid transparent',
+    borderRadius: '6px', background: 'transparent', cursor: 'pointer',
+    fontSize: '18px', transition: 'all 0.15s',
   },
-  icon: {
-    fontSize: '18px',
-    lineHeight: 1,
-  },
-  separator: {
-    width: '1px',
-    height: '24px',
-    background: '#e0e0e0',
-    margin: '0 4px',
-  },
-  dropdownContainer: {
-    position: 'relative',
-    display: 'flex',
-    alignItems: 'center',
-  },
+  icon: { fontSize: '18px', lineHeight: 1 },
+  separator: { width: '1px', height: '24px', background: '#e0e0e0', margin: '0 4px' },
+  dropdownContainer: { position: 'relative', display: 'flex', alignItems: 'center' },
   dropdownArrow: {
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    fontSize: '10px',
-    padding: '2px',
-    color: '#666',
-    marginLeft: '-4px',
+    background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px',
+    padding: '2px', color: '#666', marginLeft: '-4px',
   },
   dropdownMenu: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    marginTop: '4px',
-    background: '#ffffff',
-    border: '1px solid #e0e0e0',
-    borderRadius: '8px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-    padding: '4px',
-    zIndex: 100,
-    minWidth: '180px',
+    position: 'absolute', top: '100%', left: 0, marginTop: '4px',
+    background: '#ffffff', border: '1px solid #e0e0e0', borderRadius: '8px',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.15)', padding: '4px', zIndex: 100, minWidth: '180px',
   },
   menuItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    width: '100%',
-    padding: '8px 12px',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '13px',
-    textAlign: 'left',
-    background: 'transparent',
+    display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
+    padding: '8px 12px', border: 'none', borderRadius: '4px', cursor: 'pointer',
+    fontSize: '13px', textAlign: 'left', background: 'transparent',
   },
-  menuIcon: {
-    fontSize: '16px',
-    width: '20px',
-    textAlign: 'center',
-  },
+  menuIcon: { fontSize: '16px', width: '20px', textAlign: 'center' },
   checkboxItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '8px 12px',
-    fontSize: '13px',
-    cursor: 'pointer',
+    display: 'flex', alignItems: 'center', gap: '8px',
+    padding: '8px 12px', fontSize: '13px', cursor: 'pointer',
   },
 };

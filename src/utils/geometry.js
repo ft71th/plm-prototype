@@ -76,6 +76,12 @@ export function hitTest(element, px, py) {
       return hitTestTriangle(element, px, py);
     case 'hexagon':
       return hitTestHexagon(element, px, py);
+    case 'cylinder':
+    case 'cloud':
+    case 'star':
+    case 'parallelogram':
+      // Use bounding box for these complex shapes
+      return hitTestRect(element.x, element.y, element.width, element.height, px, py);
     case 'rectangle':
     case 'rounded-rectangle':
     default:
