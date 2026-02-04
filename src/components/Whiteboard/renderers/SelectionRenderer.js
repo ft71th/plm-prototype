@@ -14,18 +14,52 @@ const GUIDE_COLOR = '#FF4081';
 export function renderSelection(ctx, state) {
   const { elements, selectedIds, selectionBox } = state;
 
-  // Draw selection handles for each selected element
+  // Track which elements are group children (to skip individual rendering)
+  const groupChildIds = new Set();
+  const groupIds = new Set();
+  
   for (const id of selectedIds) {
     const el = elements[id];
     if (!el) continue;
-    drawSelectionOutline(ctx, el);
-    drawHandles(ctx, el);
+    if (el.type === 'group' && el.childIds) {
+      groupIds.add(id);
+      for (const childId of el.childIds) {
+        groupChildIds.add(childId);
+      }
+    }
   }
 
-  // Draw combined bounding box if multiple selected
-  if (selectedIds.size > 1) {
-    const selectedElements = [...selectedIds]
-      .map((id) => elements[id])
+  // Draw selection handles for each selected element (skip group children)
+  for (const id of selectedIds) {
+    if (groupChildIds.has(id)) continue; // Skip - will be covered by group outline
+    const el = elements[id];
+    if (!el) continue;
+    
+    if (el.type === 'group') {
+      // Draw group outline using children's combined bounding box
+      drawGroupOutline(ctx, el, elements);
+    } else {
+      drawSelectionOutline(ctx, el);
+      drawHandles(ctx, el);
+    }
+  }
+
+  // Draw combined bounding box if multiple selected (excluding group internals)
+  const topLevelSelected = [...selectedIds].filter(id => !groupChildIds.has(id));
+  if (topLevelSelected.length > 1) {
+    const selectedElements = topLevelSelected
+      .map((id) => {
+        const el = elements[id];
+        if (el?.type === 'group' && el.childIds) {
+          // Use children's bounding box for groups
+          const children = el.childIds.map(cid => elements[cid]).filter(Boolean);
+          if (children.length > 0) {
+            const bb = getCombinedBoundingBox(children);
+            return bb ? { x: bb.x, y: bb.y, width: bb.width, height: bb.height } : el;
+          }
+        }
+        return el;
+      })
       .filter(Boolean);
     const combinedBox = getCombinedBoundingBox(selectedElements);
     if (combinedBox) {
@@ -66,6 +100,50 @@ export function renderAlignmentGuides(ctx, guides) {
   }
 
   ctx.setLineDash([]);
+  ctx.restore();
+}
+
+function drawGroupOutline(ctx, groupEl, elements) {
+  // Draw outline around all children of the group
+  const children = (groupEl.childIds || []).map(id => elements[id]).filter(Boolean);
+  if (children.length === 0) return;
+  
+  const bb = getCombinedBoundingBox(children);
+  if (!bb) return;
+  
+  const padding = 8;
+  
+  ctx.save();
+  ctx.strokeStyle = HANDLE_COLOR;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 3]);
+  ctx.strokeRect(bb.x - padding, bb.y - padding, bb.width + padding * 2, bb.height + padding * 2);
+  ctx.setLineDash([]);
+  
+  // Draw group label
+  if (groupEl.label) {
+    ctx.font = '11px Inter, system-ui, sans-serif';
+    ctx.fillStyle = HANDLE_COLOR;
+    ctx.textAlign = 'left';
+    ctx.fillText(groupEl.label || 'Group', bb.x - padding, bb.y - padding - 4);
+  }
+  
+  // Draw corner handles on the group bounding box
+  const handles = [
+    { x: bb.x - padding, y: bb.y - padding },
+    { x: bb.x + bb.width + padding, y: bb.y - padding },
+    { x: bb.x - padding, y: bb.y + bb.height + padding },
+    { x: bb.x + bb.width + padding, y: bb.y + bb.height + padding },
+  ];
+  const half = HANDLE_SIZE / 2;
+  for (const pos of handles) {
+    ctx.fillStyle = HANDLE_FILL;
+    ctx.strokeStyle = HANDLE_COLOR;
+    ctx.lineWidth = 1.5;
+    ctx.fillRect(pos.x - half, pos.y - half, HANDLE_SIZE, HANDLE_SIZE);
+    ctx.strokeRect(pos.x - half, pos.y - half, HANDLE_SIZE, HANDLE_SIZE);
+  }
+  
   ctx.restore();
 }
 

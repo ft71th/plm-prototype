@@ -1,7 +1,7 @@
 /**
  * ShapeRenderer — Draws shape elements on Canvas 2D context.
  * Supports: rectangle, rounded-rectangle, ellipse, diamond, triangle, hexagon,
- *           cylinder, cloud, star, parallelogram
+ *           cylinder, cloud, star, parallelogram, sticky-note
  */
 
 export function renderShape(ctx, shape) {
@@ -51,6 +51,9 @@ export function renderShape(ctx, shape) {
     case 'parallelogram':
       drawParallelogram(ctx, x, y, width, height);
       break;
+    case 'sticky-note':
+      drawStickyNote(ctx, x, y, width, height, cornerRadius || 2);
+      break;
     default:
       ctx.rect(x, y, width, height);
   }
@@ -81,6 +84,11 @@ export function renderShape(ctx, shape) {
     drawCylinderTop(ctx, x, y, width, height, fill, fillOpacity, stroke, strokeWidth);
   }
 
+  // Sticky note fold corner
+  if (shapeVariant === 'sticky-note') {
+    renderStickyNoteFold(ctx, shape);
+  }
+
   ctx.restore();
 
   // Render text inside shape (if any)
@@ -93,7 +101,6 @@ function renderShapeText(ctx, shape) {
   const { text: textContent } = shape;
   const padding = 8;
   const maxWidth = shape.width - padding * 2;
-  const textY = shape.y + padding;
 
   ctx.save();
 
@@ -101,28 +108,40 @@ function renderShapeText(ctx, shape) {
   const fontWeight = textContent.fontWeight === 'bold' ? 'bold ' : '';
   ctx.font = `${fontStyle}${fontWeight}${textContent.fontSize}px ${textContent.fontFamily || 'sans-serif'}`;
   ctx.fillStyle = textContent.color || '#000000';
-  ctx.textBaseline = 'top';
 
-  let alignX = shape.x + padding;
-  if (textContent.align === 'center') {
+  // Alignment — default to 'center' to match textarea editing
+  const align = textContent.align || 'center';
+  let alignX;
+  if (align === 'center') {
     ctx.textAlign = 'center';
     alignX = shape.x + shape.width / 2;
-  } else if (textContent.align === 'right') {
+  } else if (align === 'right') {
     ctx.textAlign = 'right';
     alignX = shape.x + shape.width - padding;
   } else {
     ctx.textAlign = 'left';
+    alignX = shape.x + padding;
   }
 
   const lines = wrapText(ctx, textContent.text, maxWidth);
   const lineHeight = textContent.fontSize * 1.3;
   const totalTextHeight = lines.length * lineHeight;
 
-  let startY = textY;
-  if (textContent.verticalAlign === 'middle') {
-    startY = shape.y + (shape.height - totalTextHeight) / 2;
-  } else if (textContent.verticalAlign === 'bottom') {
-    startY = shape.y + shape.height - totalTextHeight - padding;
+  // Use textBaseline 'middle' for accurate vertical centering
+  ctx.textBaseline = 'middle';
+
+  // Vertical alignment — default to 'middle'
+  const vAlign = textContent.verticalAlign || 'middle';
+  let firstLineY;
+  if (vAlign === 'middle') {
+    // Center the block of text vertically
+    // First line's middle point = shape center - half of total height + half of line height
+    firstLineY = shape.y + shape.height / 2 - totalTextHeight / 2 + lineHeight / 2;
+  } else if (vAlign === 'bottom') {
+    firstLineY = shape.y + shape.height - padding - totalTextHeight + lineHeight / 2;
+  } else {
+    // top
+    firstLineY = shape.y + padding + lineHeight / 2;
   }
 
   ctx.beginPath();
@@ -130,7 +149,7 @@ function renderShapeText(ctx, shape) {
   ctx.clip();
 
   for (let i = 0; i < lines.length; i++) {
-    ctx.fillText(lines[i], alignX, startY + i * lineHeight);
+    ctx.fillText(lines[i], alignX, firstLineY + i * lineHeight);
   }
 
   ctx.restore();
@@ -275,22 +294,85 @@ export function wrapText(ctx, text, maxWidth) {
   if (!text) return [];
   if (maxWidth <= 0) return [text];
 
-  const words = text.split(' ');
-  const lines = [];
-  let currentLine = '';
+  // Split by explicit newlines first, then word-wrap each paragraph
+  const paragraphs = text.split('\n');
+  const allLines = [];
 
-  for (const word of words) {
-    const testLine = currentLine ? `${currentLine} ${word}` : word;
-    const metrics = ctx.measureText(testLine);
-
-    if (metrics.width > maxWidth && currentLine) {
-      lines.push(currentLine);
-      currentLine = word;
-    } else {
-      currentLine = testLine;
+  for (const paragraph of paragraphs) {
+    if (paragraph === '') {
+      allLines.push('');
+      continue;
     }
-  }
-  if (currentLine) lines.push(currentLine);
 
-  return lines;
+    const words = paragraph.split(' ');
+    let currentLine = '';
+
+    for (const word of words) {
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      const metrics = ctx.measureText(testLine);
+
+      if (metrics.width > maxWidth && currentLine) {
+        allLines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine = testLine;
+      }
+    }
+    if (currentLine) allLines.push(currentLine);
+  }
+
+  return allLines;
+}
+
+// ─── Sticky Note ──────────────────────────────────────
+function drawStickyNote(ctx, x, y, width, height, radius) {
+  // Sticky note med vikt hörn (nere till höger)
+  const foldSize = Math.min(20, width * 0.15, height * 0.15);
+
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.arcTo(x + width, y, x + width, y + radius, radius);
+  ctx.lineTo(x + width, y + height - foldSize);
+  // Vikt hörn
+  ctx.lineTo(x + width - foldSize, y + height);
+  ctx.lineTo(x + radius, y + height);
+  ctx.arcTo(x, y + height, x, y + height - radius, radius);
+  ctx.lineTo(x, y + radius);
+  ctx.arcTo(x, y, x + radius, y, radius);
+  ctx.closePath();
+}
+
+// Rita det vikta hörnet som en triangel efter fill/stroke
+// (anropas från renderShape om vi vill ha visuell vik)
+export function renderStickyNoteFold(ctx, shape) {
+  if (shape.shapeVariant !== 'sticky-note') return;
+  const { x, y, width, height, fill, stroke } = shape;
+  const foldSize = Math.min(20, width * 0.15, height * 0.15);
+
+  ctx.save();
+  // Triangel i nedre högra hörnet
+  ctx.beginPath();
+  ctx.moveTo(x + width - foldSize, y + height);
+  ctx.lineTo(x + width, y + height - foldSize);
+  ctx.lineTo(x + width - foldSize, y + height - foldSize);
+  ctx.closePath();
+
+  // Lite mörkare variant av fyllningen
+  ctx.fillStyle = darkenColor(fill || '#FFF9C4', 0.12);
+  ctx.fill();
+  if (stroke) {
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function darkenColor(hex, amount) {
+  // Enkel funktion för att mörkna en hex-färg
+  const num = parseInt(hex.replace('#', ''), 16);
+  const r = Math.max(0, ((num >> 16) & 255) * (1 - amount));
+  const g = Math.max(0, ((num >> 8) & 255) * (1 - amount));
+  const b = Math.max(0, (num & 255) * (1 - amount));
+  return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
 }

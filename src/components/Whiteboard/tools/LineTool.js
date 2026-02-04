@@ -132,9 +132,7 @@ export class LineTool {
 
     store.getState().addElement(line);
     store.getState().selectElement(line.id);
-
-    // Stay in line tool for drawing multiple lines
-    // (user can press V or Escape to switch back to select)
+    store.getState().setActiveTool('select');
 
     this.reset();
     renderer.markDirty();

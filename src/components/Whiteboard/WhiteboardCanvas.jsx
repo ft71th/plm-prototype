@@ -10,6 +10,7 @@ import { SelectTool } from './tools/SelectTool';
 import { ShapeTool } from './tools/ShapeTool';
 import { TextTool } from './tools/TextTool';
 import { LineTool } from './tools/LineTool';
+import { PenTool } from './tools/PenTool';
 import useWhiteboardStore from '../../stores/whiteboardStore';
 import { useWhiteboardKeyboard } from '../../hooks/useWhiteboardKeyboard';
 
@@ -19,6 +20,7 @@ const tools = {
   shape: new ShapeTool(),
   text: new TextTool(),
   line: new LineTool(),
+  pen: new PenTool(),
 };
 
 export default function WhiteboardCanvas({ className = '', canvasRef: externalCanvasRef }) {
@@ -132,9 +134,13 @@ export default function WhiteboardCanvas({ className = '', canvasRef: externalCa
       return;
     }
 
-    // Close inline editor if clicking outside
+    // Close inline editor if clicking outside — and DON'T call the tool
+    // This prevents TextTool from creating a new element when user clicks to exit edit mode
     if (state.editingElementId) {
       store.getState().setEditingElementId(null);
+      store.getState().setActiveTool('select');
+      rendererRef.current?.markDirty();
+      return; // Critical: don't call tool.onMouseDown
     }
 
     const world = getWorldCoords(e);
@@ -190,12 +196,15 @@ export default function WhiteboardCanvas({ className = '', canvasRef: externalCa
   }, [isSpacePanning, getWorldCoords, getActiveTool]);
 
   // ─── Wheel handler (pan/zoom) ──────────────────────
-  const handleWheel = useCallback((e) => {
+  // Must use native addEventListener with { passive: false } to prevent browser zoom
+  const wheelHandlerRef = useRef(null);
+  wheelHandlerRef.current = (e) => {
     e.preventDefault();
+    e.stopPropagation();
     const s = store.getState();
 
     if (e.ctrlKey || e.metaKey) {
-      // Zoom
+      // Zoom canvas only (not browser)
       const delta = e.deltaY > 0 ? 0.9 : 1.1;
       const newZoom = Math.max(0.1, Math.min(5, s.zoom * delta));
 
@@ -215,7 +224,133 @@ export default function WhiteboardCanvas({ className = '', canvasRef: externalCa
     }
 
     rendererRef.current?.markDirty();
+  };
+
+  // Attach non-passive wheel listener to prevent browser Ctrl+scroll zoom
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const handler = (e) => wheelHandlerRef.current?.(e);
+    canvas.addEventListener('wheel', handler, { passive: false });
+    return () => canvas.removeEventListener('wheel', handler);
   }, []);
+
+  // ─── Context Menu (right-click) ────────────────────
+  const handleContextMenu = useCallback((e) => {
+    e.preventDefault();
+    const world = getWorldCoords(e);
+
+    // Om vi klickar på ett element, markera det
+    const hitId = rendererRef.current?.hitTest(store.getState(), world.x, world.y);
+    if (hitId && !store.getState().selectedIds.has(hitId)) {
+      store.getState().selectElement(hitId);
+    }
+
+    store.getState().setContextMenu({ x: e.clientX, y: e.clientY });
+  }, [getWorldCoords]);
+
+  // ─── Paste from clipboard (images) ─────────────────
+  useEffect(() => {
+    const handlePaste = (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (!file) continue;
+
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            const dataUrl = ev.target.result;
+            const img = new Image();
+            img.onload = () => {
+              const s = store.getState();
+              // Placera bilden mitt i viewport
+              const canvasWidth = window.innerWidth - 280;
+              const canvasHeight = window.innerHeight - 100;
+              const worldCenterX = (canvasWidth / 2 - s.panX) / s.zoom;
+              const worldCenterY = (canvasHeight / 2 - s.panY) / s.zoom;
+
+              // Begränsa storlek till max 500px
+              let w = img.width;
+              let h = img.height;
+              const maxSize = 500;
+              if (w > maxSize || h > maxSize) {
+                const scale = maxSize / Math.max(w, h);
+                w = Math.round(w * scale);
+                h = Math.round(h * scale);
+              }
+
+              const imgElement = s.createImageElement(
+                worldCenterX - w / 2,
+                worldCenterY - h / 2,
+                w, h, dataUrl
+              );
+              s.addElement(imgElement);
+
+              // Markera den nya bilden
+              const newState = store.getState();
+              const lastId = newState.elementOrder[newState.elementOrder.length - 1];
+              newState.selectElement(lastId);
+            };
+            img.src = dataUrl;
+          };
+          reader.readAsDataURL(file);
+          return; // Hantera bara första bilden
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, []);
+
+  // ─── Drag-and-drop images ──────────────────────────
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  }, []);
+
+  const handleDrop = useCallback((e) => {
+    e.preventDefault();
+    const files = e.dataTransfer?.files;
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    if (!file.type.startsWith('image/')) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target.result;
+      const img = new Image();
+      img.onload = () => {
+        const world = getWorldCoords(e);
+        let w = img.width;
+        let h = img.height;
+        const maxSize = 500;
+        if (w > maxSize || h > maxSize) {
+          const scale = maxSize / Math.max(w, h);
+          w = Math.round(w * scale);
+          h = Math.round(h * scale);
+        }
+
+        const s = store.getState();
+        const imgElement = s.createImageElement(
+          world.x - w / 2, world.y - h / 2,
+          w, h, dataUrl
+        );
+        s.addElement(imgElement);
+
+        const newState = store.getState();
+        const lastId = newState.elementOrder[newState.elementOrder.length - 1];
+        newState.selectElement(lastId);
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  }, [getWorldCoords]);
 
   // ─── Inline text editing ───────────────────────────
   const editingElement = state.editingElementId
@@ -227,9 +362,21 @@ export default function WhiteboardCanvas({ className = '', canvasRef: externalCa
     const el = state.elements[state.editingElementId];
     if (!el) return;
 
+    const newText = e.target.value;
+
+    // Auto-grow height for multi-line text
+    const autoGrowHeight = (textProps, currentHeight) => {
+      const lineCount = newText.split('\n').length;
+      const lineHeight = (textProps.fontSize || 14) * 1.3;
+      const neededHeight = lineCount * lineHeight + 16; // 8px padding top+bottom
+      return Math.max(currentHeight, neededHeight);
+    };
+
     if (el.type === 'text') {
+      const newHeight = autoGrowHeight(el.content || {}, el.height);
       store.getState().updateElement(state.editingElementId, {
-        content: { ...el.content, text: e.target.value },
+        content: { ...el.content, text: newText },
+        height: newHeight,
       });
     } else if (el.type === 'shape') {
       const currentText = el.text || {
@@ -237,8 +384,10 @@ export default function WhiteboardCanvas({ className = '', canvasRef: externalCa
         fontWeight: 'normal', fontStyle: 'normal', color: '#000000',
         align: 'center', verticalAlign: 'middle',
       };
+      const newHeight = autoGrowHeight(currentText, el.height);
       store.getState().updateElement(state.editingElementId, {
-        text: { ...currentText, text: e.target.value },
+        text: { ...currentText, text: newText },
+        height: newHeight,
       });
     } else if (el.type === 'line') {
       const currentLabel = el.label || {
@@ -246,7 +395,7 @@ export default function WhiteboardCanvas({ className = '', canvasRef: externalCa
         color: '#333333', background: 'rgba(255,255,255,0.9)',
       };
       store.getState().updateElement(state.editingElementId, {
-        label: { ...currentLabel, text: e.target.value },
+        label: { ...currentLabel, text: newText },
       });
     }
   }, [state.editingElementId, state.elements]);
@@ -256,6 +405,8 @@ export default function WhiteboardCanvas({ className = '', canvasRef: externalCa
     requestAnimationFrame(() => {
       if (store.getState().editingElementId === currentEditingId) {
         store.getState().setEditingElementId(null);
+        // Switch to select tool when text editing ends
+        store.getState().setActiveTool('select');
       }
     });
   }, [state.editingElementId]);
@@ -321,13 +472,25 @@ export default function WhiteboardCanvas({ className = '', canvasRef: externalCa
       textAlign = textContent.align || 'center';
     }
 
+    // Calculate vertical centering padding
+    const lineHeight = fontSize * 1.3;
+    const text = el.type === 'line' ? (el.label?.text || '') :
+                 el.type === 'text' ? (el.content?.text || '') :
+                 (el.text?.text || '');
+    const lineCount = Math.max(1, (text.match(/\n/g) || []).length + 1);
+    const textHeight = lineCount * lineHeight;
+    const verticalPadding = Math.max(4, (height - textHeight) / 2);
+
     return {
       position: 'absolute', left: `${left}px`, top: `${top}px`,
       width: `${width}px`, height: `${height}px`,
       fontSize: `${fontSize}px`, fontFamily, fontWeight, fontStyle, color, textAlign,
       background: 'rgba(255,255,255,0.9)', border: '2px solid #2196F3',
-      borderRadius: '2px', outline: 'none', resize: 'none', overflow: 'hidden',
-      padding: '4px 8px', boxSizing: 'border-box', zIndex: 10, lineHeight: 1.3,
+      borderRadius: '2px', outline: 'none', resize: 'none', overflow: 'auto',
+      paddingTop: `${verticalPadding}px`, paddingBottom: `${verticalPadding}px`,
+      paddingLeft: '8px', paddingRight: '8px',
+      boxSizing: 'border-box', zIndex: 10, lineHeight: 1.3,
+      whiteSpace: 'pre-wrap', overflowWrap: 'break-word',
     };
   };
 
@@ -358,8 +521,9 @@ export default function WhiteboardCanvas({ className = '', canvasRef: externalCa
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onDoubleClick={handleDoubleClick}
-        onWheel={handleWheel}
-        onContextMenu={(e) => e.preventDefault()}
+        onContextMenu={handleContextMenu}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
       />
 
       {/* Inline text editing overlay */}

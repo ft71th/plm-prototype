@@ -124,10 +124,107 @@ export function useWhiteboardKeyboard(store) {
         store.getState().setShowExportDialog(true);
       }
 
-      // Escape — deselect, switch to select tool
+      // Ctrl+S — save (export to JSON in localStorage + show notification)
+      if (isCtrl && e.key === 's') {
+        e.preventDefault();
+        const json = store.getState().exportToJSON();
+        try {
+          localStorage.setItem('whiteboard-autosave', json);
+          localStorage.setItem('whiteboard-autosave-time', new Date().toISOString());
+          // Show visual notification
+          store.getState().setSaveNotification({ message: '✓ Sparad!', time: Date.now() });
+          // Auto-hide after 2 seconds
+          setTimeout(() => {
+            const current = store.getState().saveNotification;
+            if (current && Date.now() - current.time >= 1900) {
+              store.getState().setSaveNotification(null);
+            }
+          }, 2000);
+        } catch (err) {
+          console.warn('[Whiteboard] Failed to save to localStorage:', err);
+          store.getState().setSaveNotification({ message: '⚠ Kunde inte spara', time: Date.now() });
+        }
+      }
+
+      // Ctrl+F — search
+      if (isCtrl && e.key === 'f') {
+        e.preventDefault();
+        store.getState().setShowSearch(true);
+      }
+
+      // ─── D5: Alignment shortcuts ────────────────────
+      // Ctrl+Shift+L — align left
+      if (isCtrl && e.shiftKey && e.key === 'L') {
+        e.preventDefault();
+        store.getState().alignElements('left');
+      }
+      // Ctrl+Shift+R — align right (not intercepted by browser)
+      if (isCtrl && e.shiftKey && e.key === 'R') {
+        e.preventDefault();
+        store.getState().alignElements('right');
+      }
+      // Ctrl+Shift+C — align center horizontal
+      if (isCtrl && e.shiftKey && e.key === 'C') {
+        e.preventDefault();
+        store.getState().alignElements('center-h');
+      }
+      // Ctrl+Shift+H — distribute horizontal
+      if (isCtrl && e.shiftKey && e.key === 'H') {
+        e.preventDefault();
+        store.getState().distributeElements('horizontal');
+      }
+      // Ctrl+Shift+V — distribute vertical
+      if (isCtrl && e.shiftKey && e.key === 'V') {
+        e.preventDefault();
+        store.getState().distributeElements('vertical');
+      }
+
+      // ─── D5: Panel toggles ──────────────────────────
+      // Ctrl+L — toggle layers panel
+      if (isCtrl && !e.shiftKey && e.key === 'l') {
+        e.preventDefault();
+        const s = store.getState();
+        s.setShowLayersPanel(!s.showLayersPanel);
+      }
+
+      // Ctrl+P — toggle properties panel (prevent print dialog)
+      if (isCtrl && !e.shiftKey && e.key === 'p') {
+        e.preventDefault();
+        const s = store.getState();
+        s.setShowPropertiesPanel(!s.showPropertiesPanel);
+      }
+
+      // Ctrl+M — toggle measurements
+      if (isCtrl && e.key === 'm') {
+        e.preventDefault();
+        const s = store.getState();
+        s.setShowMeasurements(!s.showMeasurements);
+      }
+
+      // Ctrl+Shift+P — presentation mode (not intercepted)
+      if (isCtrl && e.shiftKey && e.key === 'P') {
+        e.preventDefault();
+        const s = store.getState();
+        if (s.frames.length > 0) s.setPresentationMode(true);
+      }
+
+      // Escape — deselect, switch to select tool, close menus
       if (e.key === 'Escape') {
         e.preventDefault();
         // Close dialogs first
+        if (state.presentationMode) {
+          store.getState().setPresentationMode(false);
+          return;
+        }
+        if (state.showSearch) {
+          store.getState().setShowSearch(false);
+          store.getState().setSearchHighlights([]);
+          return;
+        }
+        if (state.contextMenu) {
+          store.getState().setContextMenu(null);
+          return;
+        }
         if (state.showExportDialog) {
           store.getState().setShowExportDialog(false);
           return;
@@ -159,6 +256,9 @@ export function useWhiteboardKeyboard(store) {
             break;
           case 'l':
             store.getState().setActiveTool('line');
+            break;
+          case 'p':
+            store.getState().setActiveTool('pen');
             break;
           default:
             break;

@@ -14,6 +14,12 @@ export default function PropertiesPanel({ className = '' }) {
   const updateElement = useWhiteboardStore((s) => s.updateElement);
   const addRecentColor = useWhiteboardStore((s) => s.addRecentColor);
   const pushHistoryCheckpoint = useWhiteboardStore((s) => s.pushHistoryCheckpoint);
+  const layers = useWhiteboardStore((s) => s.layers);
+  const showPropertiesPanel = useWhiteboardStore((s) => s.showPropertiesPanel);
+  const store = useWhiteboardStore;
+
+  // Hide panel if toggled off
+  if (!showPropertiesPanel) return null;
 
   const selectedElements = [...selectedIds].map((id) => elements[id]).filter(Boolean);
   const single = selectedElements.length === 1 ? selectedElements[0] : null;
@@ -50,6 +56,28 @@ export default function PropertiesPanel({ className = '' }) {
 
   return (
     <div className={className} style={styles.panel}>
+
+      {/* ─── Layer Assignment (D5) ─── */}
+      {single && (
+        <Section title="Lager">
+          <div style={styles.row}>
+            <select
+              value={single.layerId || 'default'}
+              onChange={(e) => { pushHistoryCheckpoint(); store.getState().moveElementsToLayer([single.id], e.target.value); }}
+              style={styles.select}
+            >
+              {layers.map((l) => (
+                <option key={l.id} value={l.id}>{l.name}</option>
+              ))}
+            </select>
+          </div>
+          {single.plmNodeId && (
+            <div style={{ background: '#ede9fe', borderRadius: 4, padding: '3px 6px', fontSize: 10, color: '#6366f1', fontWeight: 600, marginTop: 2 }}>
+              🔗 PLM: {single.plmNodeId}
+            </div>
+          )}
+        </Section>
+      )}
 
       {/* ─── Position & Size ─── */}
       {single && single.type !== 'line' && (
@@ -216,6 +244,15 @@ export default function PropertiesPanel({ className = '' }) {
           <div style={styles.row}>
             <NumberInput label="Kurvatur" value={single.curvature || 0} min={-200} max={200} step={10} onChange={(v) => updateElement(single.id, { curvature: v })} />
           </div>
+          <div style={styles.row}>
+            <label style={styles.inputLabel}>
+              <span style={styles.inputLabelText}>Routing</span>
+              <select value={single.routing || 'straight'} onChange={(e) => { pushHistoryCheckpoint(); updateElement(single.id, { routing: e.target.value }); }} style={styles.select}>
+                <option value="straight">Rak</option>
+                <option value="orthogonal">Rätvinklig</option>
+              </select>
+            </label>
+          </div>
           <div style={{ ...styles.row, marginTop: 8 }}>
             <label style={{ ...styles.inputLabel, flex: 1 }}>
               <span style={styles.inputLabelText}>Etikett</span>
@@ -232,6 +269,27 @@ export default function PropertiesPanel({ className = '' }) {
           </div>
           {single.startConnection && <div style={styles.hint}>📌 Kopplad (start)</div>}
           {single.endConnection && <div style={styles.hint}>📌 Kopplad (slut)</div>}
+        </Section>
+      )}
+
+      {/* ─── Image Properties ─── */}
+      {single?.type === 'image' && (
+        <Section title="Bild">
+          <div style={styles.row}>
+            <NumberInput label="Opacity" value={Math.round((single.opacity ?? 1) * 100)} min={0} max={100} suffix="%" onChange={(v) => { pushHistoryCheckpoint(); updateElement(single.id, { opacity: v / 100 }); }} />
+          </div>
+          <div style={styles.hint}>
+            {single.width}×{single.height} px
+          </div>
+        </Section>
+      )}
+
+      {/* ─── Path Properties ─── */}
+      {single?.type === 'path' && (
+        <Section title="Bana">
+          <div style={styles.hint}>
+            {single.points?.length || 0} punkter
+          </div>
         </Section>
       )}
 
@@ -304,6 +362,7 @@ const SHAPE_LABELS = {
   rectangle: 'Rektangel', 'rounded-rectangle': 'Rundad rektangel',
   ellipse: 'Ellips', diamond: 'Romb', triangle: 'Triangel', hexagon: 'Hexagon',
   cylinder: 'Cylinder', cloud: 'Moln', star: 'Stjärna', parallelogram: 'Parallellogram',
+  'sticky-note': 'Klisterlapp',
 };
 
 // ─── Styles ─────────────────────────────────────────────

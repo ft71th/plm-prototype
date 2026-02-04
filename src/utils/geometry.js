@@ -22,6 +22,7 @@ export function getBoundingBox(element) {
     const maxY = Math.max(element.y, element.y2);
     return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
   }
+  // path, image, shape, text, group — alla har x, y, width, height
   return { x: element.x, y: element.y, width: element.width, height: element.height };
 }
 
@@ -62,6 +63,26 @@ export function hitTest(element, px, py) {
     return hitTestLine(element, px, py, 6);
   }
 
+  if (element.type === 'path') {
+    return hitTestPath(element, px, py, 8);
+  }
+
+  if (element.type === 'frame') {
+    // Frames: hit on border only (not interior), or on label area
+    const border = 8;
+    const x = element.x, y = element.y, w = element.width, h = element.height;
+    const onLeft = px >= x - border && px <= x + border && py >= y && py <= y + h;
+    const onRight = px >= x + w - border && px <= x + w + border && py >= y && py <= y + h;
+    const onTop = py >= y - border && py <= y + border && px >= x && px <= x + w;
+    const onBottom = py >= y + h - border && py <= y + h + border && px >= x && px <= x + w;
+    const onLabel = py >= y - 24 && py <= y && px >= x && px <= x + 200;
+    return onLeft || onRight || onTop || onBottom || onLabel;
+  }
+
+  if (element.type === 'image') {
+    return hitTestRect(element.x, element.y, element.width, element.height, px, py);
+  }
+
   if (element.type === 'text' || element.type === 'group') {
     return hitTestRect(element.x, element.y, element.width, element.height, px, py);
   }
@@ -80,6 +101,7 @@ export function hitTest(element, px, py) {
     case 'cloud':
     case 'star':
     case 'parallelogram':
+    case 'sticky-note':
       // Use bounding box for these complex shapes
       return hitTestRect(element.x, element.y, element.width, element.height, px, py);
     case 'rectangle':
@@ -142,6 +164,25 @@ function hitTestLine(line, px, py, tolerance) {
   // Distance from point to line segment
   const dist = distanceToLineSegment(line.x, line.y, line.x2, line.y2, px, py);
   return dist <= tolerance;
+}
+
+function hitTestPath(element, px, py, tolerance) {
+  // Snabb bounding-box check
+  if (px < element.x - tolerance || px > element.x + element.width + tolerance ||
+      py < element.y - tolerance || py > element.y + element.height + tolerance) return false;
+
+  // Kolla avstånd till varje segment i banan
+  const pts = element.points;
+  if (!pts || pts.length < 2) return false;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const ax = element.x + pts[i].x;
+    const ay = element.y + pts[i].y;
+    const bx = element.x + pts[i + 1].x;
+    const by = element.y + pts[i + 1].y;
+    const dist = distanceToLineSegment(ax, ay, bx, by, px, py);
+    if (dist <= tolerance) return true;
+  }
+  return false;
 }
 
 function distanceToLineSegment(x1, y1, x2, y2, px, py) {

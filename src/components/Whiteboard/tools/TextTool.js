@@ -13,6 +13,16 @@ export class TextTool {
 
   onMouseDown(worldX, worldY, shiftKey, store, renderer) {
     const state = store.getState();
+
+    // If currently editing, clicking outside should just end editing
+    // (don't create a new text element)
+    if (state.editingElementId) {
+      store.getState().setEditingElementId(null);
+      store.getState().setActiveTool('select');
+      renderer.markDirty();
+      return;
+    }
+
     let sx = worldX;
     let sy = worldY;
 
@@ -30,7 +40,6 @@ export class TextTool {
     // Enter editing mode immediately
     store.getState().setEditingElementId(textEl.id);
 
-    // Stay in text tool (user might want to add more text elements)
     renderer.markDirty();
   }
 

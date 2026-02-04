@@ -11,7 +11,7 @@ export function renderText(ctx, textElement) {
 
   ctx.save();
 
-  const padding = 4;
+  const padding = 8;
   const maxWidth = width - padding * 2;
 
   // Font
@@ -20,18 +20,19 @@ export function renderText(ctx, textElement) {
   const fontSize = content.fontSize || 14;
   ctx.font = `${fontStyle}${fontWeight}${fontSize}px ${content.fontFamily || 'sans-serif'}`;
   ctx.fillStyle = content.color || '#000000';
-  ctx.textBaseline = 'top';
 
-  // Alignment
-  let alignX = x + padding;
-  if (content.align === 'center') {
+  // Alignment — default to 'center' to match the textarea editing behavior
+  const align = content.align || 'center';
+  let alignX;
+  if (align === 'center') {
     ctx.textAlign = 'center';
     alignX = x + width / 2;
-  } else if (content.align === 'right') {
+  } else if (align === 'right') {
     ctx.textAlign = 'right';
     alignX = x + width - padding;
   } else {
     ctx.textAlign = 'left';
+    alignX = x + padding;
   }
 
   // Word wrap
@@ -39,17 +40,25 @@ export function renderText(ctx, textElement) {
   const lineHeight = fontSize * 1.3;
   const totalTextHeight = lines.length * lineHeight;
 
-  // Vertical alignment
-  let startY = y + padding;
-  if (content.verticalAlign === 'middle') {
-    startY = y + (height - totalTextHeight) / 2;
-  } else if (content.verticalAlign === 'bottom') {
-    startY = y + height - totalTextHeight - padding;
+  // Use textBaseline 'middle' for accurate vertical centering
+  ctx.textBaseline = 'middle';
+
+  // Vertical alignment — default to 'middle'
+  const vAlign = content.verticalAlign || 'middle';
+  let firstLineY;
+  if (vAlign === 'middle') {
+    // Center the block of text vertically
+    firstLineY = y + height / 2 - totalTextHeight / 2 + lineHeight / 2;
+  } else if (vAlign === 'bottom') {
+    firstLineY = y + height - padding - totalTextHeight + lineHeight / 2;
+  } else {
+    // top
+    firstLineY = y + padding + lineHeight / 2;
   }
 
   // Draw each line
   for (let i = 0; i < lines.length; i++) {
-    ctx.fillText(lines[i], alignX, startY + i * lineHeight);
+    ctx.fillText(lines[i], alignX, firstLineY + i * lineHeight);
   }
 
   ctx.restore();

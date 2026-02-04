@@ -8570,6 +8570,7 @@ export default function App() {
   
   // Custom onNodesChange that handles group movement
   const onNodesChange = useCallback((changes) => {
+    // Check if we're moving a node that belongs to a group
     const positionChanges = changes.filter(c => c.type === 'position' && c.position);
     
     if (positionChanges.length > 0) {
@@ -8579,6 +8580,7 @@ export default function App() {
         positionChanges.forEach(change => {
           const movedNode = currentNodes.find(n => n.id === change.id);
           
+          // If moving a GROUP, move all children with it
           if (movedNode?.data?.isGroup && movedNode?.data?.childIds) {
             const childIds = movedNode.data.childIds;
             const childRelPos = movedNode.data.childRelativePositions || {};
@@ -8586,9 +8588,11 @@ export default function App() {
             
             updatedNodes = updatedNodes.map(n => {
               if (n.id === change.id) {
+                // Update group position
                 return { ...n, position: newGroupPos };
               }
               if (childIds.includes(n.id) && childRelPos[n.id]) {
+                // Update child position relative to group
                 return {
                   ...n,
                   position: {
@@ -8600,6 +8604,7 @@ export default function App() {
               return n;
             });
           }
+          // If moving a CHILD of a group, move the ENTIRE group
           else if (movedNode?.data?.groupId) {
             const groupId = movedNode.data.groupId;
             const group = currentNodes.find(n => n.id === groupId);
@@ -8609,6 +8614,7 @@ export default function App() {
               const myRelPos = childRelPos[movedNode.id];
               
               if (myRelPos) {
+                // Calculate new group position based on child movement
                 const newGroupX = change.position.x - myRelPos.x;
                 const newGroupY = change.position.y - myRelPos.y;
                 
@@ -8631,6 +8637,7 @@ export default function App() {
             }
           }
           else {
+            // Regular node, just apply the change
             updatedNodes = updatedNodes.map(n => 
               n.id === change.id ? { ...n, position: change.position } : n
             );
@@ -8640,11 +8647,13 @@ export default function App() {
         return updatedNodes;
       });
       
+      // Filter out position changes we've already handled
       const otherChanges = changes.filter(c => c.type !== 'position' || !c.position);
       if (otherChanges.length > 0) {
         onNodesChangeOriginal(otherChanges);
       }
     } else {
+      // No position changes, pass through normally
       onNodesChangeOriginal(changes);
     }
   }, [onNodesChangeOriginal, setNodes]);
@@ -8656,7 +8665,19 @@ export default function App() {
   const [isListening, setIsListening] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState('');
   const [showRelationshipLabels, setShowRelationshipLabels] = useState(true);
-  const [viewMode, setViewMode] = useState('plm');
+  const [viewMode, setViewModeInternal] = useState('plm');
+  
+  // Wrapper for setViewMode with debug logging
+  const setViewMode = useCallback((newMode) => {
+    console.log('=== VIEW MODE CHANGE ===');
+    console.log('From:', viewMode, 'To:', newMode);
+    console.log('Current nodes count:', nodes.length);
+    console.log('Nodes IDs:', nodes.map(n => n.id).join(', '));
+    console.log('Nodes with groupId:', nodes.filter(n => n.data?.groupId).map(n => n.id).join(', '));
+    console.log('Group nodes:', nodes.filter(n => n.data?.isGroup).map(n => n.id).join(', '));
+    console.log('=========================');
+    setViewModeInternal(newMode);
+  }, [viewMode, nodes]);
   const [whiteboards, setWhiteboards] = useState([
     { id: 'plm', name: 'Project', type: 'plm' }
   ]);
@@ -9261,6 +9282,14 @@ export default function App() {
       return () => clearTimeout(timeoutId);
     }
   }, [nodes, edges, isUndoRedo, saveToHistory]);
+
+  // DEBUG: Log whenever nodes change
+  useEffect(() => {
+    console.log('=== NODES CHANGED ===');
+    console.log('Node count:', nodes.length);
+    console.log('Groups:', nodes.filter(n => n.data?.isGroup).map(n => `${n.id}:${n.data.label}`).join(', '));
+    console.log('Grouped children:', nodes.filter(n => n.data?.groupId).map(n => `${n.id}→${n.data.groupId}`).join(', '));
+  }, [nodes]);
 
   // Generate ID based on type
   const generateItemId = useCallback((itemType) => {
@@ -10101,6 +10130,8 @@ export default function App() {
       return [groupNode, ...updatedNodes];
     });
     setNodeId(prev => prev + 1);
+    
+    console.log(`Created group "${groupName}" with ${childIds.length} nodes`);
   }, [nodes, nodeId, handleNodeLabelChange, setNodes]);
 
   // Ungroup - remove group container
@@ -10192,6 +10223,7 @@ export default function App() {
       toggleLockSelectedNodes, groupSelectedNodes, ungroupSelectedNodes, setNodes]);
 
   const handleNodeClick = (event, node) => {
+    // Single click just highlights/selects - doesn't open panel
     setSelectedEdge(null);
   };
 

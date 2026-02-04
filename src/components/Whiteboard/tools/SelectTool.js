@@ -42,9 +42,6 @@ export class SelectTool {
       if (!el) continue;
       const handle = hitTestHandles(el, worldX, worldY, 8);
       if (handle) {
-        // Push history before starting resize
-        store.getState().pushHistoryCheckpoint();
-
         this.isResizing = true;
         this.resizeHandle = handle;
         this.resizeElementId = id;
@@ -58,24 +55,43 @@ export class SelectTool {
     const hitId = renderer.hitTest(state, worldX, worldY);
 
     if (hitId) {
-      if (shiftKey) {
-        store.getState().selectElement(hitId, true);
-      } else if (!state.selectedIds.has(hitId)) {
-        store.getState().selectElement(hitId, false);
+      // GROUP-AWARE SELECTION: If we hit a child of a group, expand selection to include all group members
+      const hitEl = state.elements[hitId];
+      let effectiveHitId = hitId;
+      
+      if (hitEl?.groupId && state.elements[hitEl.groupId]) {
+        effectiveHitId = hitEl.groupId;
       }
-
-      // Push history before starting drag
-      store.getState().pushHistoryCheckpoint();
+      
+      if (shiftKey) {
+        store.getState().selectElement(effectiveHitId, true);
+      } else if (!state.selectedIds.has(effectiveHitId)) {
+        store.getState().selectElement(effectiveHitId, false);
+      }
+      
+      // After selecting group, also ensure all children are in selectedIds
+      const currentState = store.getState();
+      const selectedEl = currentState.elements[effectiveHitId];
+      if (selectedEl?.type === 'group' && selectedEl.childIds) {
+        // Add all children to selection
+        const newSelected = new Set(currentState.selectedIds);
+        for (const childId of selectedEl.childIds) {
+          newSelected.add(childId);
+        }
+        // Also add the group itself
+        newSelected.add(effectiveHitId);
+        store.setState({ selectedIds: newSelected });
+      }
 
       // Start move
       this.isDragging = true;
       this.dragStartWorld = { x: worldX, y: worldY };
 
-      // Save starting positions for all selected elements
-      const currentState = store.getState();
+      // Save starting positions for all selected elements (now includes group children)
+      const moveState = store.getState();
       this.dragStartPositions = {};
-      for (const id of currentState.selectedIds) {
-        const el = currentState.elements[id];
+      for (const id of moveState.selectedIds) {
+        const el = moveState.elements[id];
         if (el) {
           this.dragStartPositions[id] = { x: el.x, y: el.y };
           if (el.type === 'line') {

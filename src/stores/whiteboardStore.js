@@ -1,10 +1,11 @@
 /**
  * WhiteboardStore — Zustand-baserad state management
  *
- * Alla whiteboard-element (former, text, linjer) lagras här,
+ * Alla whiteboard-element (former, text, linjer, banor, bilder) lagras här,
  * HELT separerat från PLM-noder.
  *
- * Deliverable 4: Export/import, zoom controls, templates, PLM integration
+ * Deliverable 5: Pennverktyg, sticky notes, bilder, högerklicksmeny,
+ * ortogonala kopplingar, sök
  *
  * Architecture ref: docs/architecture/whiteboard-freeform-drawing.md
  */
@@ -47,10 +48,66 @@ const DEFAULT_LINE = {
   strokeWidth: 2,
   lineStyle: 'solid',
   arrowHead: 'none',
+  routing: 'straight', // 'straight' | 'orthogonal'
   startConnection: null,
   endConnection: null,
   label: null,
 };
+
+const DEFAULT_PATH = {
+  type: 'path',
+  stroke: '#000000',
+  strokeWidth: 2,
+  fill: 'none',
+  points: [],
+};
+
+const DEFAULT_IMAGE = {
+  type: 'image',
+  imageData: null, // dataURL
+  opacity: 1,
+};
+
+const DEFAULT_FRAME = {
+  type: 'frame',
+  label: 'Frame',
+  fill: 'transparent',
+  stroke: '#6366f1',
+  strokeWidth: 2,
+  cornerRadius: 8,
+  showLabel: true,
+};
+
+// ============================================================
+// Layer system defaults
+// ============================================================
+
+const DEFAULT_LAYER = {
+  id: 'default',
+  name: 'Standard',
+  visible: true,
+  locked: false,
+  color: '#6366f1',
+  opacity: 1,
+};
+
+const LAYER_COLORS = [
+  '#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6',
+  '#8b5cf6', '#ef4444', '#14b8a6', '#f97316', '#06b6d4',
+];
+
+// ============================================================
+// Sticky note colors (klisterlapps-färger)
+// ============================================================
+
+export const STICKY_COLORS = [
+  { id: 'yellow', fill: '#FFF9C4', stroke: '#F9A825', label: 'Gul' },
+  { id: 'pink',   fill: '#F8BBD0', stroke: '#C2185B', label: 'Rosa' },
+  { id: 'green',  fill: '#C8E6C9', stroke: '#388E3C', label: 'Grön' },
+  { id: 'blue',   fill: '#BBDEFB', stroke: '#1976D2', label: 'Blå' },
+  { id: 'purple', fill: '#E1BEE7', stroke: '#7B1FA2', label: 'Lila' },
+  { id: 'orange', fill: '#FFE0B2', stroke: '#E65100', label: 'Orange' },
+];
 
 // ============================================================
 // Font families
@@ -303,6 +360,39 @@ const useWhiteboardStore = create((set, get) => ({
   // ─── Dialogs ───────────────────────────────────────────
   showExportDialog: false,
   showTemplateDialog: false,
+  saveNotification: null, // { message: 'Saved!', time: Date.now() }
+
+  // ─── Context Menu ──────────────────────────────────────
+  contextMenu: null, // { x, y } screen coords, null = hidden
+
+  // ─── Search ────────────────────────────────────────────
+  showSearch: false,
+  searchHighlights: [], // [elementId, ...]
+
+  // ─── Line Routing Default ──────────────────────────────
+  activeLineRouting: 'straight', // 'straight' | 'orthogonal'
+
+  // ─── Layers ────────────────────────────────────────────
+  layers: [{ ...DEFAULT_LAYER }],
+  activeLayerId: 'default',
+  showLayersPanel: false,
+  showPropertiesPanel: true, // Default to visible
+
+  // ─── Frames & Presentation ────────────────────────────
+  frames: [], // [{ id, label, order }] – frame elements are also in elements{}
+  presentationMode: false,
+  presentationFrameIndex: 0,
+
+  // ─── Element Metadata ──────────────────────────────────
+  showMetadataPanel: false,
+
+  // ─── Rulers & Measurement ─────────────────────────────
+  showRulers: true,
+  showMeasurements: false,
+  measurementUnit: 'px', // 'px' | 'mm' | 'cm'
+
+  // ─── Alignment & Distribution ─────────────────────────
+  showAlignBar: false,
 
   // ═══════════════════════════════════════════════════════
   // INTERNAL: History snapshot
@@ -379,6 +469,7 @@ const useWhiteboardStore = create((set, get) => ({
         parentId: element.parentId ?? null,
         locked: element.locked ?? false,
         visible: element.visible ?? true,
+        layerId: element.layerId ?? state.activeLayerId,
       };
       return {
         elements: { ...state.elements, [id]: el },
@@ -671,23 +762,72 @@ const useWhiteboardStore = create((set, get) => ({
     const newOrder = [...state.elementOrder];
     const newSelected = new Set();
     const offset = 20;
+    const idMapping = {}; // old id -> new id
+    
+    // First pass: collect all elements to duplicate (including group children)
+    const elementsToDuplicate = [];
     for (const id of state.selectedIds) {
       const original = state.elements[id];
       if (!original) continue;
-      const newId = generateId(original.type);
+      elementsToDuplicate.push(original);
+      
+      // If this is a group, also add its children
+      if (original.type === 'group' && original.childIds) {
+        for (const childId of original.childIds) {
+          const child = state.elements[childId];
+          if (child && !elementsToDuplicate.find(e => e.id === childId)) {
+            elementsToDuplicate.push(child);
+          }
+        }
+      }
+    }
+    
+    // Second pass: create ID mapping
+    for (const original of elementsToDuplicate) {
+      idMapping[original.id] = generateId(original.type);
+    }
+    
+    // Third pass: create duplicates with updated references
+    for (const original of elementsToDuplicate) {
+      const newId = idMapping[original.id];
       const copy = {
-        ...JSON.parse(JSON.stringify(original)), id: newId,
-        x: (original.x || 0) + offset, y: (original.y || 0) + offset,
-        zIndex: newOrder.length, groupId: null,
+        ...JSON.parse(JSON.stringify(original)), 
+        id: newId,
+        x: (original.x || 0) + offset, 
+        y: (original.y || 0) + offset,
+        zIndex: newOrder.length,
       };
+      
+      // Update line endpoints
       if (copy.x2 !== undefined) copy.x2 = original.x2 + offset;
       if (copy.y2 !== undefined) copy.y2 = original.y2 + offset;
+      
+      // Clear connections (they reference old elements)
       if (copy.startConnection) copy.startConnection = null;
       if (copy.endConnection) copy.endConnection = null;
+      
+      // Update group references
+      if (copy.type === 'group' && copy.childIds) {
+        // Map old child IDs to new child IDs
+        copy.childIds = copy.childIds.map(oldId => idMapping[oldId] || oldId);
+      }
+      
+      // Update groupId to point to new group (if it was duplicated)
+      if (copy.groupId && idMapping[copy.groupId]) {
+        copy.groupId = idMapping[copy.groupId];
+      } else {
+        copy.groupId = null;
+      }
+      
       newElements[newId] = copy;
       newOrder.push(newId);
-      newSelected.add(newId);
+      
+      // Only select top-level duplicates (groups, not their children)
+      if (state.selectedIds.has(original.id)) {
+        newSelected.add(newId);
+      }
     }
+    
     set({ elements: newElements, elementOrder: newOrder, selectedIds: newSelected });
   },
 
@@ -797,12 +937,33 @@ const useWhiteboardStore = create((set, get) => ({
 
   setShowExportDialog: (show) => set({ showExportDialog: show }),
   setShowTemplateDialog: (show) => set({ showTemplateDialog: show }),
+  setSaveNotification: (notification) => set({ saveNotification: notification }),
+
+  // ═══════════════════════════════════════════════════════
+  // ACTIONS: Context Menu
+  // ═══════════════════════════════════════════════════════
+
+  setContextMenu: (menu) => set({ contextMenu: menu }),
+
+  // ═══════════════════════════════════════════════════════
+  // ACTIONS: Search
+  // ═══════════════════════════════════════════════════════
+
+  setShowSearch: (show) => set({ showSearch: show }),
+  setSearchHighlights: (ids) => set({ searchHighlights: ids }),
+
+  // ═══════════════════════════════════════════════════════
+  // ACTIONS: Line Routing
+  // ═══════════════════════════════════════════════════════
+
+  setActiveLineRouting: (routing) => set({ activeLineRouting: routing }),
 
   exportToJSON: () => {
     const state = get();
     return JSON.stringify({
-      version: '1.0', timestamp: new Date().toISOString(),
-      elements: state.elements, elementOrder: state.elementOrder, gridSize: state.gridSize,
+      version: '2.0', timestamp: new Date().toISOString(),
+      elements: state.elements, elementOrder: state.elementOrder,
+      gridSize: state.gridSize, layers: state.layers, frames: state.frames,
     }, null, 2);
   },
 
@@ -813,7 +974,10 @@ const useWhiteboardStore = create((set, get) => ({
       get()._pushHistory();
       set({
         elements: data.elements, elementOrder: data.elementOrder,
-        gridSize: data.gridSize || 20, selectedIds: new Set(), editingElementId: null,
+        gridSize: data.gridSize || 20,
+        layers: data.layers || [{ ...DEFAULT_LAYER }],
+        frames: data.frames || [],
+        selectedIds: new Set(), editingElementId: null,
       });
       return { success: true };
     } catch (err) {
@@ -856,6 +1020,350 @@ const useWhiteboardStore = create((set, get) => ({
   // FACTORY HELPERS
   // ═══════════════════════════════════════════════════════
 
+  // ─── Layer Actions ───────────────────────────────────
+  setShowLayersPanel: (show) => set({ showLayersPanel: show }),
+  setShowPropertiesPanel: (show) => set({ showPropertiesPanel: show }),
+  setActiveLayerId: (id) => set({ activeLayerId: id }),
+
+  addLayer: (name) => {
+    const id = generateId('layer');
+    const colorIdx = get().layers.length % LAYER_COLORS.length;
+    set((state) => ({
+      layers: [...state.layers, { id, name: name || `Lager ${state.layers.length + 1}`, visible: true, locked: false, color: LAYER_COLORS[colorIdx], opacity: 1 }],
+      activeLayerId: id,
+    }));
+    return id;
+  },
+
+  removeLayer: (layerId) => {
+    if (layerId === 'default') return; // Can't remove default
+    get()._pushHistory();
+    set((state) => {
+      // Move elements on deleted layer to default
+      const newElements = { ...state.elements };
+      for (const id of state.elementOrder) {
+        if (newElements[id]?.layerId === layerId) {
+          newElements[id] = { ...newElements[id], layerId: 'default' };
+        }
+      }
+      return {
+        layers: state.layers.filter((l) => l.id !== layerId),
+        activeLayerId: state.activeLayerId === layerId ? 'default' : state.activeLayerId,
+        elements: newElements,
+      };
+    });
+  },
+
+  updateLayer: (layerId, updates) => set((state) => ({
+    layers: state.layers.map((l) => l.id === layerId ? { ...l, ...updates } : l),
+  })),
+
+  reorderLayers: (fromIndex, toIndex) => set((state) => {
+    const arr = [...state.layers];
+    const [moved] = arr.splice(fromIndex, 1);
+    arr.splice(toIndex, 0, moved);
+    return { layers: arr };
+  }),
+
+  moveElementsToLayer: (elementIds, layerId) => {
+    get()._pushHistory();
+    set((state) => {
+      const newElements = { ...state.elements };
+      for (const id of elementIds) {
+        if (newElements[id]) newElements[id] = { ...newElements[id], layerId };
+      }
+      return { elements: newElements };
+    });
+  },
+
+  isElementVisible: (elementId) => {
+    const state = get();
+    const el = state.elements[elementId];
+    if (!el || !el.visible) return false;
+    const layerId = el.layerId || 'default';
+    const layer = state.layers.find((l) => l.id === layerId);
+    return layer ? layer.visible : true;
+  },
+
+  isElementLayerLocked: (elementId) => {
+    const state = get();
+    const el = state.elements[elementId];
+    if (!el) return false;
+    const layerId = el.layerId || 'default';
+    const layer = state.layers.find((l) => l.id === layerId);
+    return layer ? layer.locked : false;
+  },
+
+  // ─── Alignment & Distribution ────────────────────────
+  setShowAlignBar: (show) => set({ showAlignBar: show }),
+
+  alignElements: (direction) => {
+    const state = get();
+    const ids = [...state.selectedIds];
+    if (ids.length < 2) return;
+    get()._pushHistory();
+    const els = ids.map((id) => state.elements[id]).filter(Boolean);
+    const boxes = els.map((el) => getBoundingBox(el));
+    const newElements = { ...state.elements };
+
+    switch (direction) {
+      case 'left': {
+        const minX = Math.min(...boxes.map((b) => b.x));
+        els.forEach((el) => { newElements[el.id] = { ...el, x: minX }; });
+        break;
+      }
+      case 'center-h': {
+        const allBox = getCombinedBoundingBox(els);
+        const centerX = allBox.x + allBox.width / 2;
+        els.forEach((el) => {
+          const box = getBoundingBox(el);
+          newElements[el.id] = { ...el, x: centerX - box.width / 2 };
+        });
+        break;
+      }
+      case 'right': {
+        const maxRight = Math.max(...boxes.map((b) => b.x + b.width));
+        els.forEach((el) => {
+          const box = getBoundingBox(el);
+          newElements[el.id] = { ...el, x: maxRight - box.width };
+        });
+        break;
+      }
+      case 'top': {
+        const minY = Math.min(...boxes.map((b) => b.y));
+        els.forEach((el) => { newElements[el.id] = { ...el, y: minY }; });
+        break;
+      }
+      case 'center-v': {
+        const allBox = getCombinedBoundingBox(els);
+        const centerY = allBox.y + allBox.height / 2;
+        els.forEach((el) => {
+          const box = getBoundingBox(el);
+          newElements[el.id] = { ...el, y: centerY - box.height / 2 };
+        });
+        break;
+      }
+      case 'bottom': {
+        const maxBottom = Math.max(...boxes.map((b) => b.y + b.height));
+        els.forEach((el) => {
+          const box = getBoundingBox(el);
+          newElements[el.id] = { ...el, y: maxBottom - box.height };
+        });
+        break;
+      }
+    }
+    set({ elements: newElements });
+  },
+
+  distributeElements: (direction) => {
+    const state = get();
+    const ids = [...state.selectedIds];
+    if (ids.length < 3) return;
+    get()._pushHistory();
+    const els = ids.map((id) => state.elements[id]).filter(Boolean);
+    const newElements = { ...state.elements };
+
+    if (direction === 'horizontal') {
+      const sorted = [...els].sort((a, b) => (a.x || 0) - (b.x || 0));
+      const boxes = sorted.map((el) => getBoundingBox(el));
+      const totalWidth = boxes.reduce((sum, b) => sum + b.width, 0);
+      const minX = Math.min(...boxes.map((b) => b.x));
+      const maxRight = Math.max(...boxes.map((b) => b.x + b.width));
+      const totalSpace = maxRight - minX - totalWidth;
+      const gap = totalSpace / (sorted.length - 1);
+      let currentX = minX;
+      sorted.forEach((el, i) => {
+        const box = boxes[i];
+        newElements[el.id] = { ...el, x: currentX };
+        currentX += box.width + gap;
+      });
+    } else {
+      const sorted = [...els].sort((a, b) => (a.y || 0) - (b.y || 0));
+      const boxes = sorted.map((el) => getBoundingBox(el));
+      const totalHeight = boxes.reduce((sum, b) => sum + b.height, 0);
+      const minY = Math.min(...boxes.map((b) => b.y));
+      const maxBottom = Math.max(...boxes.map((b) => b.y + b.height));
+      const totalSpace = maxBottom - minY - totalHeight;
+      const gap = totalSpace / (sorted.length - 1);
+      let currentY = minY;
+      sorted.forEach((el, i) => {
+        const box = boxes[i];
+        newElements[el.id] = { ...el, y: currentY };
+        currentY += box.height + gap;
+      });
+    }
+    set({ elements: newElements });
+  },
+
+  // ─── Auto-Layout ─────────────────────────────────────
+  autoLayout: (mode) => {
+    const state = get();
+    const ids = [...state.selectedIds];
+    if (ids.length < 2) return;
+    get()._pushHistory();
+    const els = ids.map((id) => state.elements[id]).filter((el) => el && el.type !== 'line');
+    if (els.length < 2) return;
+    const newElements = { ...state.elements };
+    const padding = 30;
+
+    switch (mode) {
+      case 'grid': {
+        const cols = Math.ceil(Math.sqrt(els.length));
+        const maxW = Math.max(...els.map((e) => e.width || 100));
+        const maxH = Math.max(...els.map((e) => e.height || 60));
+        const startX = els[0].x || 100;
+        const startY = els[0].y || 100;
+        els.forEach((el, i) => {
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          newElements[el.id] = { ...el, x: startX + col * (maxW + padding), y: startY + row * (maxH + padding) };
+        });
+        break;
+      }
+      case 'tree': {
+        const rootEl = els[0];
+        const children = els.slice(1);
+        const rootX = rootEl.x || 300;
+        const rootY = rootEl.y || 60;
+        const childWidth = Math.max(...children.map((e) => e.width || 100));
+        const totalWidth = children.length * (childWidth + padding) - padding;
+        const startX = rootX + (rootEl.width || 100) / 2 - totalWidth / 2;
+        newElements[rootEl.id] = { ...rootEl, x: rootX, y: rootY };
+        children.forEach((el, i) => {
+          newElements[el.id] = { ...el, x: startX + i * (childWidth + padding), y: rootY + (rootEl.height || 60) + padding * 3 };
+        });
+        break;
+      }
+      case 'circle': {
+        const bb = getCombinedBoundingBox(els);
+        const cx = bb.x + bb.width / 2;
+        const cy = bb.y + bb.height / 2;
+        const maxDim = Math.max(...els.map((e) => Math.max(e.width || 100, e.height || 60)));
+        const radius = Math.max(maxDim * 1.5, els.length * (maxDim + padding) / (2 * Math.PI));
+        els.forEach((el, i) => {
+          const angle = (2 * Math.PI * i) / els.length - Math.PI / 2;
+          newElements[el.id] = {
+            ...el,
+            x: cx + radius * Math.cos(angle) - (el.width || 100) / 2,
+            y: cy + radius * Math.sin(angle) - (el.height || 60) / 2,
+          };
+        });
+        break;
+      }
+      case 'horizontal': {
+        const startY = els[0].y || 100;
+        const startX = els[0].x || 100;
+        const maxH = Math.max(...els.map((e) => e.height || 60));
+        let currentX = startX;
+        els.forEach((el) => {
+          newElements[el.id] = { ...el, x: currentX, y: startY + maxH / 2 - (el.height || 60) / 2 };
+          currentX += (el.width || 100) + padding;
+        });
+        break;
+      }
+      case 'vertical': {
+        const startX = els[0].x || 100;
+        const startY = els[0].y || 100;
+        const maxW = Math.max(...els.map((e) => e.width || 100));
+        let currentY = startY;
+        els.forEach((el) => {
+          newElements[el.id] = { ...el, x: startX + maxW / 2 - (el.width || 100) / 2, y: currentY };
+          currentY += (el.height || 60) + padding;
+        });
+        break;
+      }
+    }
+    set({ elements: newElements });
+  },
+
+  // ─── Frame Actions ───────────────────────────────────
+  createFrame: (x, y, width, height, label) => {
+    const state = get();
+    const id = generateId('frame');
+    const frame = {
+      ...DEFAULT_FRAME, id, x, y, width: width || 800, height: height || 600,
+      label: label || `Ram ${state.frames.length + 1}`,
+      zIndex: 0, // Frames render behind everything
+      groupId: null, parentId: null, locked: false, visible: true,
+      layerId: state.activeLayerId,
+    };
+    get()._pushHistory();
+    set((state) => ({
+      elements: { ...state.elements, [id]: frame },
+      elementOrder: [id, ...state.elementOrder], // Insert at beginning (behind)
+      frames: [...state.frames, { id, label: frame.label, order: state.frames.length }],
+    }));
+    return frame;
+  },
+
+  updateFrameOrder: (frameId, newOrder) => set((state) => ({
+    frames: state.frames.map((f) => f.id === frameId ? { ...f, order: newOrder } : f)
+      .sort((a, b) => a.order - b.order),
+  })),
+
+  // ─── Presentation Mode ───────────────────────────────
+  setPresentationMode: (active) => set({ presentationMode: active, presentationFrameIndex: 0 }),
+  setPresentationFrameIndex: (idx) => set({ presentationFrameIndex: idx }),
+
+  navigateToFrame: (frameId) => {
+    const state = get();
+    const el = state.elements[frameId];
+    if (!el) return;
+    const canvasW = window.innerWidth;
+    const canvasH = window.innerHeight;
+    const padX = 40, padY = 40;
+    const scaleX = (canvasW - padX * 2) / el.width;
+    const scaleY = (canvasH - padY * 2) / el.height;
+    const zoom = clamp(Math.min(scaleX, scaleY), 0.1, 3);
+    const panX = canvasW / 2 - (el.x + el.width / 2) * zoom;
+    const panY = canvasH / 2 - (el.y + el.height / 2) * zoom;
+    set({ zoom, panX, panY });
+  },
+
+  // ─── Element Metadata ────────────────────────────────
+  setShowMetadataPanel: (show) => set({ showMetadataPanel: show }),
+
+  setElementMetadata: (elementId, key, value) => set((state) => {
+    const el = state.elements[elementId];
+    if (!el) return state;
+    const metadata = { ...(el.metadata || {}), [key]: value };
+    if (value === '' || value === null || value === undefined) delete metadata[key];
+    return { elements: { ...state.elements, [elementId]: { ...el, metadata } } };
+  }),
+
+  setElementPLMLink: (elementId, plmNodeId) => set((state) => {
+    const el = state.elements[elementId];
+    if (!el) return state;
+    return { elements: { ...state.elements, [elementId]: { ...el, plmNodeId: plmNodeId || null } } };
+  }),
+
+  getLinkedPLMElements: () => {
+    const state = get();
+    return state.elementOrder
+      .map((id) => state.elements[id])
+      .filter((el) => el && el.plmNodeId);
+  },
+
+  // ─── Ruler & Measurements ────────────────────────────
+  setShowRulers: (show) => set({ showRulers: show }),
+  setShowMeasurements: (show) => set({ showMeasurements: show }),
+  setMeasurementUnit: (unit) => set({ measurementUnit: unit }),
+
+  getMeasurementBetween: (id1, id2) => {
+    const state = get();
+    const el1 = state.elements[id1];
+    const el2 = state.elements[id2];
+    if (!el1 || !el2) return null;
+    const b1 = getBoundingBox(el1);
+    const b2 = getBoundingBox(el2);
+    const c1 = { x: b1.x + b1.width / 2, y: b1.y + b1.height / 2 };
+    const c2 = { x: b2.x + b2.width / 2, y: b2.y + b2.height / 2 };
+    const distance = Math.hypot(c2.x - c1.x, c2.y - c1.y);
+    const dx = Math.abs(b2.x - (b1.x + b1.width));
+    const dy = Math.abs(b2.y - (b1.y + b1.height));
+    return { distance: Math.round(distance), gapX: Math.round(dx), gapY: Math.round(dy), c1, c2 };
+  },
+
   createShape: (x, y, width, height, overrides = {}) => {
     const state = get();
     return {
@@ -882,11 +1390,56 @@ const useWhiteboardStore = create((set, get) => ({
       ...DEFAULT_LINE, id: generateId('line'), x, y, x2, y2,
       stroke: state.defaultStroke, strokeWidth: state.defaultStrokeWidth,
       lineStyle: state.activeLineStyle, arrowHead: state.activeArrowHead,
+      routing: state.activeLineRouting,
       zIndex: state.elementOrder.length, groupId: null, parentId: null, locked: false, visible: true,
+      ...overrides,
+    };
+  },
+
+  // ─── Sticky Note Factory ─────────────────────────────
+  createStickyNote: (x, y, colorId = 'yellow', overrides = {}) => {
+    const state = get();
+    const color = STICKY_COLORS.find((c) => c.id === colorId) || STICKY_COLORS[0];
+    return {
+      ...DEFAULT_SHAPE,
+      id: generateId('shape'),
+      shapeVariant: 'sticky-note',
+      x, y, width: 150, height: 150,
+      fill: color.fill,
+      stroke: color.stroke,
+      strokeWidth: 1,
+      fillOpacity: 1,
+      cornerRadius: 2,
+      shadow: { color: 'rgba(0,0,0,0.15)', blur: 8, offsetX: 2, offsetY: 3 },
+      text: {
+        ...DEFAULT_TEXT_CONTENT,
+        text: '',
+        fontSize: 14,
+        align: 'left',
+        verticalAlign: 'top',
+        color: '#333333',
+      },
+      stickyColorId: colorId,
+      zIndex: state.elementOrder.length,
+      groupId: null, parentId: null, locked: false, visible: true,
+      ...overrides,
+    };
+  },
+
+  // ─── Image Factory ───────────────────────────────────
+  createImageElement: (x, y, width, height, imageData, overrides = {}) => {
+    const state = get();
+    return {
+      ...DEFAULT_IMAGE,
+      id: generateId('image'),
+      x, y, width, height,
+      imageData,
+      zIndex: state.elementOrder.length,
+      groupId: null, parentId: null, locked: false, visible: true,
       ...overrides,
     };
   },
 }));
 
 export default useWhiteboardStore;
-export { DEFAULT_SHAPE, DEFAULT_TEXT_CONTENT, DEFAULT_LINE };
+export { DEFAULT_SHAPE, DEFAULT_TEXT_CONTENT, DEFAULT_LINE, DEFAULT_PATH, DEFAULT_IMAGE, DEFAULT_FRAME, DEFAULT_LAYER, LAYER_COLORS };

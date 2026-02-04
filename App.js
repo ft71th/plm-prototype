@@ -6310,12 +6310,8 @@ function TopHeader({
       background: '#2c3e50',
       borderBottom: '2px solid #34495e',
       height: '50px',
-      boxSizing: 'border-box',
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      zIndex: 1000,
+      position: 'relative',
+      zIndex: 100,
       gap: '15px'
     }}>
       {/* LEFT SECTION - Menu & Project Name */}
@@ -7120,109 +7116,33 @@ function DocumentView({ nodes, edges, onNodeClick, onUpdateNode }) {
 
   const flatItems = flattenHierarchy(hierarchy);
 
-  // Handle paste with image support
-  const handlePaste = (e, nodeId, field) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].type.indexOf('image') !== -1) {
-        e.preventDefault();
-        const blob = items[i].getAsFile();
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const base64 = event.target.result;
-          // Insert image at cursor or append
-          const currentValue = nodes.find(n => n.id === nodeId)?.data?.[field] || '';
-          const imgTag = `<img src="${base64}" style="max-width:100%;margin:8px 0;border-radius:4px;" />`;
-          const newValue = currentValue + '\n' + imgTag;
-          if (onUpdateNode) {
-            onUpdateNode(nodeId, field, newValue);
-          }
-        };
-        reader.readAsDataURL(blob);
-        return;
-      }
-    }
-  };
-
-  // Editable Text/Rich Content Component with Image Support
+  // Editable Text Component
   const EditableText = ({ nodeId, field, value, style, placeholder, multiline = false }) => {
     const isEditing = editingField?.nodeId === nodeId && editingField?.field === field;
-    const hasHtml = value && (value.includes('<img') || value.includes('<br') || value.includes('<p'));
     
-    // Handle blur - get HTML content
-    const handleBlurWithHtml = (e) => {
-      if (!isEditing) return;
-      const newValue = e.target.innerHTML;
-      if (onUpdateNode) {
-        onUpdateNode(nodeId, field, newValue);
-      }
-      setEditingField(null);
-    };
-
-    // Handle key for HTML content
-    const handleKeyWithHtml = (e) => {
-      if (e.key === 'Escape') {
-        // Cancel - restore original
-        e.target.innerHTML = value || '';
-        setEditingField(null);
-        e.target.blur();
-      } else if (e.key === 'Enter' && !e.shiftKey && !multiline) {
-        e.preventDefault();
-        e.target.blur();
-      }
-    };
-
-    const baseStyle = {
-      ...style,
-      cursor: isEditing ? 'text' : 'pointer',
-      outline: isEditing ? '2px solid #3498db' : 'none',
-      borderRadius: '4px',
-      padding: isEditing ? '4px 8px' : '4px',
-      margin: isEditing ? '-4px -8px' : '-4px',
-      background: isEditing ? 'rgba(52, 152, 219, 0.1)' : 'transparent',
-      minHeight: multiline ? '60px' : 'auto',
-      whiteSpace: multiline ? 'pre-wrap' : 'normal',
-      transition: 'all 0.15s ease'
-    };
-
-    const titleText = isEditing 
-      ? 'Ctrl+V för att klistra in bild • Enter för att spara • Escape för att avbryta' 
-      : 'Klicka för att redigera';
-
-    // If has HTML content, use dangerouslySetInnerHTML (no children)
-    if (hasHtml || (isEditing && value)) {
-      return (
-        <div
-          ref={isEditing ? editRef : null}
-          contentEditable={isEditing}
-          suppressContentEditableWarning={true}
-          onClick={(e) => handleEditStart(nodeId, field, e)}
-          onBlur={(e) => isEditing && handleBlurWithHtml(e)}
-          onKeyDown={(e) => isEditing && handleKeyWithHtml(e)}
-          onPaste={(e) => isEditing && handlePaste(e, nodeId, field)}
-          dangerouslySetInnerHTML={{ __html: value || '' }}
-          style={baseStyle}
-          title={titleText}
-        />
-      );
-    }
-    
-    // No HTML content - use children
     return (
       <div
         ref={isEditing ? editRef : null}
         contentEditable={isEditing}
         suppressContentEditableWarning={true}
         onClick={(e) => handleEditStart(nodeId, field, e)}
-        onBlur={(e) => isEditing && handleBlurWithHtml(e)}
-        onKeyDown={(e) => isEditing && handleKeyWithHtml(e)}
-        onPaste={(e) => isEditing && handlePaste(e, nodeId, field)}
-        style={baseStyle}
-        title={titleText}
+        onBlur={(e) => isEditing && handleEditBlur(nodeId, field, e)}
+        onKeyDown={(e) => isEditing && handleEditKeyDown(nodeId, field, e)}
+        style={{
+          ...style,
+          cursor: isEditing ? 'text' : 'pointer',
+          outline: isEditing ? '2px solid #3498db' : 'none',
+          borderRadius: '4px',
+          padding: isEditing ? '4px 8px' : '4px',
+          margin: isEditing ? '-4px -8px' : '-4px',
+          background: isEditing ? 'rgba(52, 152, 219, 0.1)' : 'transparent',
+          minHeight: multiline ? '60px' : 'auto',
+          whiteSpace: multiline ? 'pre-wrap' : 'nowrap',
+          transition: 'all 0.15s ease'
+        }}
+        title={isEditing ? 'Tryck Enter för att spara, Escape för att avbryta' : 'Klicka för att redigera'}
       >
-        {value || <span style={{ color: '#7f8c8d', fontStyle: 'italic' }}>{placeholder}</span>}
+        {value || (isEditing ? '' : <span style={{ color: '#7f8c8d', fontStyle: 'italic' }}>{placeholder}</span>)}
       </div>
     );
   };
@@ -7527,8 +7447,8 @@ function DocumentView({ nodes, edges, onNodeClick, onUpdateNode }) {
   return (
     <div style={{
       display: 'flex',
-      height: 'calc(100vh - 52px)',
-      marginTop: '52px',
+      height: 'calc(100vh - 50px)',
+      marginTop: '50px',
       background: '#1a1a2e'
     }}>
       {/* Outline Navigator */}
@@ -8565,89 +8485,8 @@ export default function App() {
     return () => window.removeEventListener('error', resizeObserverErr);
   }, []);
 
-  const [nodes, setNodes, onNodesChangeOriginal] = useNodesState(initialNodes);
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-  
-  // Custom onNodesChange that handles group movement
-  const onNodesChange = useCallback((changes) => {
-    const positionChanges = changes.filter(c => c.type === 'position' && c.position);
-    
-    if (positionChanges.length > 0) {
-      setNodes(currentNodes => {
-        let updatedNodes = [...currentNodes];
-        
-        positionChanges.forEach(change => {
-          const movedNode = currentNodes.find(n => n.id === change.id);
-          
-          if (movedNode?.data?.isGroup && movedNode?.data?.childIds) {
-            const childIds = movedNode.data.childIds;
-            const childRelPos = movedNode.data.childRelativePositions || {};
-            const newGroupPos = change.position;
-            
-            updatedNodes = updatedNodes.map(n => {
-              if (n.id === change.id) {
-                return { ...n, position: newGroupPos };
-              }
-              if (childIds.includes(n.id) && childRelPos[n.id]) {
-                return {
-                  ...n,
-                  position: {
-                    x: newGroupPos.x + childRelPos[n.id].x,
-                    y: newGroupPos.y + childRelPos[n.id].y
-                  }
-                };
-              }
-              return n;
-            });
-          }
-          else if (movedNode?.data?.groupId) {
-            const groupId = movedNode.data.groupId;
-            const group = currentNodes.find(n => n.id === groupId);
-            
-            if (group?.data?.childRelativePositions) {
-              const childRelPos = group.data.childRelativePositions;
-              const myRelPos = childRelPos[movedNode.id];
-              
-              if (myRelPos) {
-                const newGroupX = change.position.x - myRelPos.x;
-                const newGroupY = change.position.y - myRelPos.y;
-                
-                updatedNodes = updatedNodes.map(n => {
-                  if (n.id === groupId) {
-                    return { ...n, position: { x: newGroupX, y: newGroupY } };
-                  }
-                  if (group.data.childIds.includes(n.id) && childRelPos[n.id]) {
-                    return {
-                      ...n,
-                      position: {
-                        x: newGroupX + childRelPos[n.id].x,
-                        y: newGroupY + childRelPos[n.id].y
-                      }
-                    };
-                  }
-                  return n;
-                });
-              }
-            }
-          }
-          else {
-            updatedNodes = updatedNodes.map(n => 
-              n.id === change.id ? { ...n, position: change.position } : n
-            );
-          }
-        });
-        
-        return updatedNodes;
-      });
-      
-      const otherChanges = changes.filter(c => c.type !== 'position' || !c.position);
-      if (otherChanges.length > 0) {
-        onNodesChangeOriginal(otherChanges);
-      }
-    } else {
-      onNodesChangeOriginal(changes);
-    }
-  }, [onNodesChangeOriginal, setNodes]);
   const [nodeId, setNodeId] = useState(11);
   const [selectedNode, setSelectedNode] = useState(null);
   const [selectedEdge, setSelectedEdge] = useState(null);
@@ -9769,96 +9608,42 @@ export default function App() {
     if (selectedNodes.length === 0) return;
     
     const idMapping = {};
-    const offset = { x: 80, y: 80 };
+    const offset = { x: 30, y: 30 };
     
-    // First, gather all nodes to duplicate (including group children via data.groupId)
-    let nodesToDuplicate = [...selectedNodes];
-    
-    // For each selected group, add its children
-    selectedNodes.forEach(node => {
-      if (node.data?.isGroup && node.data?.childIds) {
-        node.data.childIds.forEach(childId => {
-          const childNode = nodes.find(n => n.id === childId);
-          if (childNode && !nodesToDuplicate.find(nd => nd.id === childId)) {
-            nodesToDuplicate.push(childNode);
-          }
-        });
-      }
-    });
-    
-    // Create ID mapping for all nodes we'll duplicate
-    nodesToDuplicate.forEach((node, index) => {
-      const newId = String(nodeId + index);
+    const newNodes = selectedNodes.map(node => {
+      const newId = String(nodeId + Object.keys(idMapping).length);
       idMapping[node.id] = newId;
-    });
-    
-    const newNodes = nodesToDuplicate.map((node, index) => {
-      const newId = idMapping[node.id];
-      const isGroup = node.data?.isGroup;
-      const hasGroupId = node.data?.groupId;
       
       // Generate new reqId
       let newReqId = node.data.reqId;
       const itemType = node.data.itemType || node.data.type;
-      if (itemType === 'system') newReqId = `SYS-${String(sysIdCounter + index).padStart(3, '0')}`;
-      else if (itemType === 'subsystem') newReqId = `SUB-${String(subIdCounter + index).padStart(3, '0')}`;
-      else if (itemType === 'function') newReqId = `FUN-${String(funIdCounter + index).padStart(3, '0')}`;
-      else if (itemType === 'hardware') newReqId = `HW-${String(hwIdCounter + index).padStart(3, '0')}`;
-      else if (itemType === 'parameter') newReqId = `PAR-${String(parIdCounter + index).padStart(3, '0')}`;
-      else if (itemType === 'testcase') newReqId = `TC-${String(tcIdCounter + index).padStart(3, '0')}`;
-      else if (itemType === 'usecase') newReqId = `UC-${String(ucIdCounter + index).padStart(3, '0')}`;
-      else if (itemType === 'actor') newReqId = `ACT-${String(actIdCounter + index).padStart(3, '0')}`;
-      else if (itemType === 'group') newReqId = `GRP-${String(nodeId + index).padStart(3, '0')}`;
+      if (itemType === 'system') newReqId = `SYS-${String(sysIdCounter + Object.keys(idMapping).length - 1).padStart(3, '0')}`;
+      else if (itemType === 'subsystem') newReqId = `SUB-${String(subIdCounter + Object.keys(idMapping).length - 1).padStart(3, '0')}`;
+      else if (itemType === 'function') newReqId = `FUN-${String(funIdCounter + Object.keys(idMapping).length - 1).padStart(3, '0')}`;
+      else if (itemType === 'hardware') newReqId = `HW-${String(hwIdCounter + Object.keys(idMapping).length - 1).padStart(3, '0')}`;
+      else if (itemType === 'parameter') newReqId = `PAR-${String(parIdCounter + Object.keys(idMapping).length - 1).padStart(3, '0')}`;
+      else if (itemType === 'testcase') newReqId = `TC-${String(tcIdCounter + Object.keys(idMapping).length - 1).padStart(3, '0')}`;
+      else if (itemType === 'usecase') newReqId = `UC-${String(ucIdCounter + Object.keys(idMapping).length - 1).padStart(3, '0')}`;
+      else if (itemType === 'actor') newReqId = `ACT-${String(actIdCounter + Object.keys(idMapping).length - 1).padStart(3, '0')}`;
       
-      // Build new node data
-      const newData = {
-        ...node.data,
-        reqId: newReqId,
-        locked: false,
-        onChange: handleNodeLabelChange
-      };
-      
-      // If this is a group, update childIds to point to new IDs
-      if (isGroup && node.data?.childIds) {
-        newData.childIds = node.data.childIds.map(oldChildId => idMapping[oldChildId] || oldChildId);
-        // Also update childRelativePositions keys
-        if (node.data.childRelativePositions) {
-          const newRelPos = {};
-          Object.keys(node.data.childRelativePositions).forEach(oldId => {
-            const newChildId = idMapping[oldId] || oldId;
-            newRelPos[newChildId] = node.data.childRelativePositions[oldId];
-          });
-          newData.childRelativePositions = newRelPos;
-        }
-      }
-      
-      // If this is a child of a group, update groupId reference
-      if (hasGroupId && idMapping[hasGroupId]) {
-        newData.groupId = idMapping[hasGroupId];
-      }
-      
-      // Build new node
-      const newNode = {
+      return {
         ...node,
         id: newId,
-        selected: selectedNodes.some(sn => sn.id === node.id),
-        data: newData,
-        style: node.style ? { ...node.style } : undefined
+        position: { x: node.position.x + offset.x, y: node.position.y + offset.y },
+        selected: true,
+        data: {
+          ...node.data,
+          reqId: newReqId,
+          locked: false, // Don't copy lock state
+          onChange: handleNodeLabelChange
+        }
       };
-      
-      // Set position with offset
-      newNode.position = { 
-        x: node.position.x + offset.x, 
-        y: node.position.y + offset.y 
-      };
-      
-      return newNode;
     });
     
-    // Duplicate edges between duplicated nodes
-    const duplicatedIds = nodesToDuplicate.map(n => n.id);
+    // Duplicate edges between selected nodes
+    const selectedIds = selectedNodes.map(n => n.id);
     const relatedEdges = edges.filter(e => 
-      duplicatedIds.includes(e.source) && duplicatedIds.includes(e.target)
+      selectedIds.includes(e.source) && selectedIds.includes(e.target)
     );
     const newEdges = relatedEdges.map(edge => ({
       ...edge,
@@ -9881,17 +9666,10 @@ export default function App() {
       else if (itemType === 'actor') setActIdCounter(c => c + 1);
     });
     
-    // Sort so groups come first
-    const sortedNewNodes = [...newNodes].sort((a, b) => {
-      if (a.data?.isGroup && !b.data?.isGroup) return -1;
-      if (!a.data?.isGroup && b.data?.isGroup) return 1;
-      return 0;
-    });
-    
-    setNodes(nds => [...nds.map(n => ({ ...n, selected: false })), ...sortedNewNodes]);
+    setNodes(nds => [...nds.map(n => ({ ...n, selected: false })), ...newNodes]);
     if (newEdges.length > 0) setEdges(eds => [...eds, ...newEdges]);
     
-    console.log(`Duplicated ${newNodes.length} nodes (including group children)`);
+    console.log(`Duplicated ${newNodes.length} nodes`);
   }, [nodes, edges, nodeId, handleNodeLabelChange, setNodes, setEdges,
       sysIdCounter, subIdCounter, funIdCounter, hwIdCounter, parIdCounter, tcIdCounter, ucIdCounter, actIdCounter]);
 
@@ -10029,33 +9807,18 @@ export default function App() {
       return;
     }
     
-    // Calculate bounding box with better size estimation
-    const padding = 50;
-    const nodeWidth = 220;
-    const nodeHeight = 120;
+    // Calculate bounding box
+    const padding = 40;
     const positions = selectedNodes.map(n => n.position);
     const minX = Math.min(...positions.map(p => p.x)) - padding;
     const minY = Math.min(...positions.map(p => p.y)) - padding;
-    const maxX = Math.max(...positions.map(p => p.x)) + nodeWidth + padding;
-    const maxY = Math.max(...positions.map(p => p.y)) + nodeHeight + padding;
-    
-    const groupWidth = maxX - minX;
-    const groupHeight = maxY - minY;
+    const maxX = Math.max(...positions.map(p => p.x)) + 200 + padding;
+    const maxY = Math.max(...positions.map(p => p.y)) + 100 + padding;
     
     const groupName = prompt('Enter group name:', 'Group');
     if (!groupName) return;
     
     const groupId = String(nodeId);
-    const childIds = selectedNodes.map(n => n.id);
-    
-    // Store relative positions for each child
-    const childRelativePositions = {};
-    selectedNodes.forEach(n => {
-      childRelativePositions[n.id] = {
-        x: n.position.x - minX,
-        y: n.position.y - minY
-      };
-    });
     
     // Create group node
     const groupNode = {
@@ -10063,7 +9826,6 @@ export default function App() {
       type: 'custom',
       position: { x: minX, y: minY },
       style: { zIndex: -1 },
-      draggable: true,
       data: {
         label: groupName,
         type: 'group',
@@ -10071,36 +9833,19 @@ export default function App() {
         reqId: `GRP-${String(nodeId).padStart(3, '0')}`,
         version: '1.0',
         isGroup: true,
-        groupWidth: groupWidth,
-        groupHeight: groupHeight,
+        groupWidth: maxX - minX,
+        groupHeight: maxY - minY,
         groupColor: '#3498db',
-        childIds: childIds,
-        childRelativePositions: childRelativePositions,
+        childIds: selectedNodes.map(n => n.id),
         description: `Group containing ${selectedNodes.length} items`,
         onChange: handleNodeLabelChange
       }
     };
     
-    // Update child nodes - mark them as grouped
-    setNodes(nds => {
-      const updatedNodes = nds.map(n => {
-        if (childIds.includes(n.id)) {
-          return {
-            ...n,
-            data: {
-              ...n.data,
-              groupId: groupId // Reference to parent group
-            },
-            selected: false
-          };
-        }
-        return { ...n, selected: false };
-      });
-      
-      // Add group at the beginning (so it renders behind children)
-      return [groupNode, ...updatedNodes];
-    });
+    setNodes(nds => [groupNode, ...nds.map(n => ({ ...n, selected: false }))]);
     setNodeId(prev => prev + 1);
+    
+    console.log(`Created group with ${selectedNodes.length} nodes`);
   }, [nodes, nodeId, handleNodeLabelChange, setNodes]);
 
   // Ungroup - remove group container
@@ -10109,23 +9854,7 @@ export default function App() {
     if (selectedGroups.length === 0) return;
     
     const groupIds = selectedGroups.map(g => g.id);
-    
-    setNodes(nds => {
-      // Remove groupId reference from children
-      const updatedNodes = nds.map(n => {
-        if (n.data?.groupId && groupIds.includes(n.data.groupId)) {
-          const { groupId, ...restData } = n.data;
-          return {
-            ...n,
-            data: restData
-          };
-        }
-        return n;
-      });
-      
-      // Remove the group nodes
-      return updatedNodes.filter(n => !groupIds.includes(n.id));
-    });
+    setNodes(nds => nds.filter(n => !groupIds.includes(n.id)));
     
     console.log(`Removed ${selectedGroups.length} group(s)`);
   }, [nodes, setNodes]);
@@ -10192,6 +9921,7 @@ export default function App() {
       toggleLockSelectedNodes, groupSelectedNodes, ungroupSelectedNodes, setNodes]);
 
   const handleNodeClick = (event, node) => {
+    // Single click just highlights/selects - doesn't open panel
     setSelectedEdge(null);
   };
 
@@ -10417,8 +10147,7 @@ export default function App() {
   }, []);
 
   const processedNodes = useMemo(() => {
-    // First, map all nodes with filter/highlight info
-    const mappedNodes = nodes.map((node) => {
+    return nodes.map((node) => {
       const searchLower = searchText.toLowerCase();
       const matchesSearch = searchText === '' || 
         node.data.label.toLowerCase().includes(searchLower) ||
@@ -10459,13 +10188,6 @@ export default function App() {
           }
         },
       };
-    });
-    
-    // Sort so group nodes come first (they need to render behind their children)
-    return mappedNodes.sort((a, b) => {
-      if (a.data?.isGroup && !b.data?.isGroup) return -1;
-      if (!a.data?.isGroup && b.data?.isGroup) return 1;
-      return 0;
     });
   }, [nodes, searchText, typeFilter, statusFilter, priorityFilter, stateFilter, reqTypeFilter, classificationFilter, handleNodeLabelChange, viewMode, issues]);
 
@@ -12031,8 +11753,8 @@ const createNewObject = (name, version, description) => {
         onChangePassword={() => setShowChangePassword(true)}
       />
       
-      {/* Left Icon Strip - hidden in freeform drawing mode AND document mode */}
-      {viewMode !== 'freeform' && viewMode !== 'document' && <LeftIconStrip
+      {/* Left Icon Strip - hidden in freeform drawing mode */}
+      {viewMode !== 'freeform' && <LeftIconStrip
         onAddSystem={addSystemNode}
         onAddSubSystem={addSubSystemNode}
         onAddFunction={addFunctionNode}
@@ -12247,7 +11969,7 @@ const createNewObject = (name, version, description) => {
           onUpdateNode={updateNodeData}
         />
       ) : viewMode === 'freeform' ? (
-        <Whiteboard style={{ marginTop: '52px', height: 'calc(100vh - 52px)' }} />
+        <Whiteboard style={{ marginTop: '50px', height: 'calc(100vh - 50px)' }} />
       ) : (
       
       <ReactFlow
@@ -12305,8 +12027,8 @@ const createNewObject = (name, version, description) => {
         fitView
         style={{ 
           background: viewMode === 'whiteboard' ? '#f5f5f5' : '#1a1a2e',
-          marginTop: '52px',
-          height: 'calc(100vh - 52px)'
+          marginTop: '50px',
+          height: 'calc(100vh - 50px)'
         }}
       >
         <Controls style={{ bottom: 20, left: 70 }} />

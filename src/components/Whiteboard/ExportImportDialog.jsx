@@ -14,12 +14,16 @@ export default function ExportImportDialog({ canvasRef }) {
   const exportToJSON = useWhiteboardStore((s) => s.exportToJSON);
   const importFromJSON = useWhiteboardStore((s) => s.importFromJSON);
   const clearCanvas = useWhiteboardStore((s) => s.clearCanvas);
+  const selectedIds = useWhiteboardStore((s) => s.selectedIds);
 
   const [activeTab, setActiveTab] = useState('export');
   const [exportFormat, setExportFormat] = useState('png');
+  const [exportScope, setExportScope] = useState('all'); // 'all' | 'selected'
   const [importError, setImportError] = useState(null);
   const [importSuccess, setImportSuccess] = useState(false);
   const fileInputRef = useRef(null);
+
+  const hasSelection = selectedIds && selectedIds.size > 0;
 
   const handleClose = () => {
     setShowExportDialog(false);
@@ -27,16 +31,36 @@ export default function ExportImportDialog({ canvasRef }) {
     setImportSuccess(false);
   };
 
+  // ─── Get elements to export based on scope ────────────
+  const getExportElements = useCallback(() => {
+    const state = useWhiteboardStore.getState();
+    if (exportScope === 'selected' && state.selectedIds.size > 0) {
+      return state.elementOrder
+        .filter((id) => state.selectedIds.has(id))
+        .map((id) => state.elements[id])
+        .filter(Boolean);
+    }
+    return state.elementOrder.map((id) => state.elements[id]).filter(Boolean);
+  }, [exportScope]);
+
+  const getExportElementOrder = useCallback(() => {
+    const state = useWhiteboardStore.getState();
+    if (exportScope === 'selected' && state.selectedIds.size > 0) {
+      return state.elementOrder.filter((id) => state.selectedIds.has(id));
+    }
+    return state.elementOrder;
+  }, [exportScope]);
+
   // ─── Export PNG ─────────────────────────────────────────
   const handleExportPNG = useCallback(() => {
     const canvas = canvasRef?.current;
     if (!canvas) return;
 
-    // Create a temporary canvas at full resolution
     const state = useWhiteboardStore.getState();
     const { getCombinedBoundingBox } = require('../../utils/geometry');
-    const allEls = state.elementOrder.map((id) => state.elements[id]).filter(Boolean);
-    const bb = getCombinedBoundingBox(allEls);
+    const exportEls = getExportElements();
+    const exportOrder = getExportElementOrder();
+    const bb = getCombinedBoundingBox(exportEls);
 
     if (!bb) return;
 
@@ -62,8 +86,8 @@ export default function ExportImportDialog({ canvasRef }) {
     const { renderShape } = require('./renderers/ShapeRenderer');
     const { renderText } = require('./renderers/TextRenderer');
 
-    // Render all elements
-    for (const id of state.elementOrder) {
+    // Render elements based on export scope
+    for (const id of exportOrder) {
       const el = state.elements[id];
       if (!el || !el.visible) continue;
 
@@ -127,14 +151,15 @@ export default function ExportImportDialog({ canvasRef }) {
     }, 'image/png');
 
     handleClose();
-  }, [canvasRef]);
+  }, [canvasRef, getExportElements, getExportElementOrder]);
 
   // ─── Export SVG ─────────────────────────────────────────
   const handleExportSVG = useCallback(() => {
     const state = useWhiteboardStore.getState();
     const { getCombinedBoundingBox } = require('../../utils/geometry');
-    const allEls = state.elementOrder.map((id) => state.elements[id]).filter(Boolean);
-    const bb = getCombinedBoundingBox(allEls);
+    const exportEls = getExportElements();
+    const exportOrder = getExportElementOrder();
+    const bb = getCombinedBoundingBox(exportEls);
 
     if (!bb) return;
 
@@ -147,7 +172,7 @@ export default function ExportImportDialog({ canvasRef }) {
     let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${ox} ${oy} ${w} ${h}">\n`;
     svg += `  <rect x="${ox}" y="${oy}" width="${w}" height="${h}" fill="white"/>\n`;
 
-    for (const id of state.elementOrder) {
+    for (const id of exportOrder) {
       const el = state.elements[id];
       if (!el || !el.visible) continue;
 
@@ -207,7 +232,7 @@ export default function ExportImportDialog({ canvasRef }) {
     URL.revokeObjectURL(url);
 
     handleClose();
-  }, []);
+  }, [getExportElements, getExportElementOrder]);
 
   // ─── Export JSON ────────────────────────────────────────
   const handleExportJSON = useCallback(() => {
@@ -280,6 +305,40 @@ export default function ExportImportDialog({ canvasRef }) {
         <div style={styles.body}>
           {activeTab === 'export' ? (
             <>
+              {/* Scope selector: All vs Selected */}
+              {(exportFormat === 'png' || exportFormat === 'svg') && (
+                <div style={styles.scopeGroup}>
+                  <span style={styles.scopeLabel}>Omfång:</span>
+                  <label style={{ ...styles.scopeOption, ...(exportScope === 'all' ? styles.scopeActive : {}) }}>
+                    <input
+                      type="radio"
+                      name="scope"
+                      value="all"
+                      checked={exportScope === 'all'}
+                      onChange={() => setExportScope('all')}
+                      style={{ display: 'none' }}
+                    />
+                    🌐 Allt
+                  </label>
+                  <label style={{
+                    ...styles.scopeOption,
+                    ...(exportScope === 'selected' ? styles.scopeActive : {}),
+                    ...(hasSelection ? {} : styles.scopeDisabled),
+                  }}>
+                    <input
+                      type="radio"
+                      name="scope"
+                      value="selected"
+                      checked={exportScope === 'selected'}
+                      onChange={() => hasSelection && setExportScope('selected')}
+                      disabled={!hasSelection}
+                      style={{ display: 'none' }}
+                    />
+                    ✅ Markerade ({hasSelection ? selectedIds.size : 0})
+                  </label>
+                </div>
+              )}
+
               <div style={styles.formatGroup}>
                 {[
                   { id: 'png', label: 'PNG (Bild)', desc: 'Bäst för delning och presentationer', icon: '🖼️' },
@@ -398,6 +457,23 @@ const styles = {
   },
   body: { padding: '16px 20px' },
   formatGroup: { display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' },
+  scopeGroup: {
+    display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px',
+    padding: '8px 0', borderBottom: '1px solid #f0f0f0',
+  },
+  scopeLabel: { fontSize: '12px', fontWeight: 600, color: '#555', marginRight: '4px' },
+  scopeOption: {
+    display: 'flex', alignItems: 'center', gap: '4px',
+    padding: '6px 12px', borderRadius: '6px', border: '1.5px solid #e0e0e0',
+    cursor: 'pointer', fontSize: '12px', fontWeight: 500, color: '#555',
+    transition: 'all 0.15s',
+  },
+  scopeActive: {
+    borderColor: '#2196f3', background: '#f0f7ff', color: '#1976d2', fontWeight: 600,
+  },
+  scopeDisabled: {
+    opacity: 0.4, cursor: 'not-allowed',
+  },
   formatOption: {
     display: 'flex', alignItems: 'center', gap: '12px',
     padding: '10px 14px', borderRadius: '8px', border: '2px solid #e0e0e0',

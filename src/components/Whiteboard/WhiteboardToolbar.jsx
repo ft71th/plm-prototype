@@ -129,6 +129,27 @@ export default function WhiteboardToolbar({ className = '' }) {
 
       <div style={styles.separator} />
 
+      {/* ─── Pen Tool ─── */}
+      <ToolButton
+        active={activeTool === 'pen'}
+        onClick={() => setActiveTool('pen')}
+        title="Penna — Fritt ritande (P)"
+      >
+        <span style={styles.icon}>✏️</span>
+      </ToolButton>
+
+      <div style={styles.separator} />
+
+      {/* ─── Frame Tool ─── */}
+      <FrameButton />
+
+      <div style={styles.separator} />
+
+      {/* ─── Sticky Note ─── */}
+      <StickyNoteButton />
+
+      <div style={styles.separator} />
+
       {/* ─── Action Buttons ─── */}
       <ActionButtons />
 
@@ -136,6 +157,19 @@ export default function WhiteboardToolbar({ className = '' }) {
 
       {/* ─── Export / Import / Template ─── */}
       <FileButtons />
+
+      {/* ─── Search ─── */}
+      <ToolButton
+        onClick={() => useWhiteboardStore.getState().setShowSearch(true)}
+        title="Sök (Ctrl+F)"
+      >
+        <span style={{ ...styles.icon, fontSize: '15px' }}>🔍</span>
+      </ToolButton>
+
+      <div style={styles.separator} />
+
+      {/* ─── D5: Layers, Metadata, Presentation, Rulers ─── */}
+      <D5Buttons />
 
       {/* ─── Spacer ─── */}
       <div style={{ flex: 1 }} />
@@ -219,6 +253,70 @@ function FileButtons() {
   );
 }
 
+function StickyNoteButton() {
+  const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setShowMenu(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const { STICKY_COLORS } = require('../../stores/whiteboardStore');
+
+  const addStickyNote = (colorId) => {
+    const s = useWhiteboardStore.getState();
+    const canvasWidth = window.innerWidth - 280;
+    const canvasHeight = window.innerHeight - 100;
+    const worldCenterX = (canvasWidth / 2 - s.panX) / s.zoom;
+    const worldCenterY = (canvasHeight / 2 - s.panY) / s.zoom;
+
+    const sticky = s.createStickyNote(worldCenterX - 75, worldCenterY - 75, colorId);
+    s.addElement(sticky);
+
+    const newState = useWhiteboardStore.getState();
+    const lastId = newState.elementOrder[newState.elementOrder.length - 1];
+    newState.selectElement(lastId);
+    newState.setEditingElementId(lastId);
+    newState.setActiveTool('select');
+    setShowMenu(false);
+  };
+
+  return (
+    <div ref={menuRef} style={styles.dropdownContainer}>
+      <ToolButton
+        onClick={() => addStickyNote('yellow')}
+        title="Klisterlapp (snabbskapa gul)"
+      >
+        <span style={{ ...styles.icon, fontSize: '16px' }}>📝</span>
+      </ToolButton>
+      <button onClick={() => setShowMenu(!showMenu)} style={styles.dropdownArrow} title="Välj färg">▾</button>
+      {showMenu && (
+        <div style={{ ...styles.dropdownMenu, minWidth: '160px' }}>
+          <div style={{ padding: '4px 12px', fontSize: '10px', color: '#999', fontWeight: 'bold', textTransform: 'uppercase' }}>Klisterlapp</div>
+          {STICKY_COLORS.map((color) => (
+            <button
+              key={color.id}
+              onClick={() => addStickyNote(color.id)}
+              style={styles.menuItem}
+            >
+              <span style={{
+                display: 'inline-block', width: '16px', height: '16px',
+                background: color.fill, border: `1px solid ${color.stroke}`,
+                borderRadius: '2px',
+              }} />
+              {color.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ActionButtons() {
   const selectedIds = useWhiteboardStore((s) => s.selectedIds);
   const undo = useWhiteboardStore((s) => s.undo);
@@ -284,9 +382,11 @@ function LineToolSection() {
   const activeTool = useWhiteboardStore((s) => s.activeTool);
   const activeLineStyle = useWhiteboardStore((s) => s.activeLineStyle);
   const activeArrowHead = useWhiteboardStore((s) => s.activeArrowHead);
+  const activeLineRouting = useWhiteboardStore((s) => s.activeLineRouting);
   const setActiveTool = useWhiteboardStore((s) => s.setActiveTool);
   const setActiveLineStyle = useWhiteboardStore((s) => s.setActiveLineStyle);
   const setActiveArrowHead = useWhiteboardStore((s) => s.setActiveArrowHead);
+  const setActiveLineRouting = useWhiteboardStore((s) => s.setActiveLineRouting);
 
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef(null);
@@ -299,6 +399,11 @@ function LineToolSection() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
+  const ROUTING_OPTIONS = [
+    { id: 'straight', label: 'Rak linje', icon: '╱' },
+    { id: 'orthogonal', label: 'Rätvinklig', icon: '⊢' },
+  ];
+
   return (
     <div ref={menuRef} style={styles.dropdownContainer}>
       <ToolButton
@@ -306,7 +411,7 @@ function LineToolSection() {
         onClick={() => setActiveTool('line')}
         title={`Linje (L) — ${LINE_STYLES.find(s => s.id === activeLineStyle)?.label}, ${ARROW_HEADS.find(a => a.id === activeArrowHead)?.label}`}
       >
-        <span style={styles.icon}>╱</span>
+        <span style={styles.icon}>{activeLineRouting === 'orthogonal' ? '⊢' : '╱'}</span>
       </ToolButton>
       <button onClick={() => setShowMenu(!showMenu)} style={styles.dropdownArrow} title="Linjealternativ">▾</button>
 
@@ -335,8 +440,109 @@ function LineToolSection() {
               {ah.label}
             </button>
           ))}
+          <div style={{ borderTop: '1px solid #eee', margin: '4px 0' }} />
+          <div style={{ padding: '4px 12px', fontSize: '10px', color: '#999', fontWeight: 'bold', textTransform: 'uppercase' }}>Routing</div>
+          {ROUTING_OPTIONS.map((ro) => (
+            <button
+              key={ro.id}
+              onClick={() => { setActiveLineRouting(ro.id); setActiveTool('line'); }}
+              style={{ ...styles.menuItem, background: activeLineRouting === ro.id ? '#e3f2fd' : 'transparent' }}
+            >
+              <span style={styles.menuIcon}>{ro.icon}</span>
+              {ro.label}
+            </button>
+          ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function FrameButton() {
+  const addFrame = () => {
+    const s = useWhiteboardStore.getState();
+    const canvasWidth = window.innerWidth - 280;
+    const canvasHeight = window.innerHeight - 100;
+    const worldCenterX = (canvasWidth / 2 - s.panX) / s.zoom;
+    const worldCenterY = (canvasHeight / 2 - s.panY) / s.zoom;
+    const frame = s.createFrame(worldCenterX - 400, worldCenterY - 300, 800, 600);
+    const newState = useWhiteboardStore.getState();
+    const lastId = newState.elementOrder[newState.elementOrder.length - 1];
+    newState.selectElement(lastId || frame.id);
+    newState.setActiveTool('select');
+  };
+
+  return (
+    <ToolButton onClick={addFrame} title="Lägg till ram (Frame) — för presentationer">
+      <span style={{ ...styles.icon, fontSize: '15px' }}>📐</span>
+    </ToolButton>
+  );
+}
+
+function D5Buttons() {
+  const showLayersPanel = useWhiteboardStore((s) => s.showLayersPanel);
+  const showMetadataPanel = useWhiteboardStore((s) => s.showMetadataPanel);
+  const showPropertiesPanel = useWhiteboardStore((s) => s.showPropertiesPanel);
+  const showRulers = useWhiteboardStore((s) => s.showRulers);
+  const showMeasurements = useWhiteboardStore((s) => s.showMeasurements);
+  const frames = useWhiteboardStore((s) => s.frames);
+  const store = useWhiteboardStore;
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '1px' }}>
+      {/* Properties panel toggle */}
+      <ToolButton
+        active={showPropertiesPanel}
+        onClick={() => store.getState().setShowPropertiesPanel(!showPropertiesPanel)}
+        title="Egenskaper-panel (Ctrl+P)"
+      >
+        <span style={{ ...styles.icon, fontSize: '14px' }}>⚙️</span>
+      </ToolButton>
+
+      {/* Layers */}
+      <ToolButton
+        active={showLayersPanel}
+        onClick={() => store.getState().setShowLayersPanel(!showLayersPanel)}
+        title="Lager-panel"
+      >
+        <span style={{ ...styles.icon, fontSize: '14px' }}>📑</span>
+      </ToolButton>
+
+      {/* Metadata */}
+      <ToolButton
+        active={showMetadataPanel}
+        onClick={() => store.getState().setShowMetadataPanel(!showMetadataPanel)}
+        title="Elementdata & PLM-koppling"
+      >
+        <span style={{ ...styles.icon, fontSize: '14px' }}>🏷️</span>
+      </ToolButton>
+
+      {/* Ruler toggle */}
+      <ToolButton
+        active={showRulers}
+        onClick={() => store.getState().setShowRulers(!showRulers)}
+        title="Linjaler"
+      >
+        <span style={{ ...styles.icon, fontSize: '14px' }}>📏</span>
+      </ToolButton>
+
+      {/* Measurement toggle */}
+      <ToolButton
+        active={showMeasurements}
+        onClick={() => store.getState().setShowMeasurements(!showMeasurements)}
+        title="Mätningar"
+      >
+        <span style={{ ...styles.icon, fontSize: '14px' }}>📐</span>
+      </ToolButton>
+
+      {/* Presentation mode */}
+      <ToolButton
+        onClick={() => store.getState().setPresentationMode(true)}
+        title={`Presentationsläge (${frames.length} ramar)`}
+        disabled={frames.length === 0}
+      >
+        <span style={{ ...styles.icon, fontSize: '14px' }}>🎬</span>
+      </ToolButton>
     </div>
   );
 }
@@ -368,7 +574,7 @@ const styles = {
   toolbar: {
     display: 'flex', alignItems: 'center', gap: '2px',
     padding: '4px 8px', background: '#ffffff', borderBottom: '1px solid #e0e0e0',
-    height: '44px', boxSizing: 'border-box', userSelect: 'none',
+    margin: 0, height: '44px', boxSizing: 'border-box', userSelect: 'none',
   },
   toolButton: {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
