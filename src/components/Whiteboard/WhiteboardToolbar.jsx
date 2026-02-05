@@ -27,6 +27,7 @@ export default function WhiteboardToolbar({ className = '' }) {
   const snapToGrid = useWhiteboardStore((s) => s.snapToGrid);
   const showAlignmentGuides = useWhiteboardStore((s) => s.showAlignmentGuides);
   const gridSize = useWhiteboardStore((s) => s.gridSize);
+  const enhanceInkedShapes = useWhiteboardStore((s) => s.enhanceInkedShapes);
 
   const setActiveTool = useWhiteboardStore((s) => s.setActiveTool);
   const setActiveShapeVariant = useWhiteboardStore((s) => s.setActiveShapeVariant);
@@ -34,6 +35,7 @@ export default function WhiteboardToolbar({ className = '' }) {
   const setSnapToGrid = useWhiteboardStore((s) => s.setSnapToGrid);
   const setShowAlignmentGuides = useWhiteboardStore((s) => s.setShowAlignmentGuides);
   const setGridSize = useWhiteboardStore((s) => s.setGridSize);
+  const setEnhanceInkedShapes = useWhiteboardStore((s) => s.setEnhanceInkedShapes);
 
   const [showShapeMenu, setShowShapeMenu] = useState(false);
   const [showGridMenu, setShowGridMenu] = useState(false);
@@ -138,6 +140,15 @@ export default function WhiteboardToolbar({ className = '' }) {
         <span style={styles.icon}>✏️</span>
       </ToolButton>
 
+      {/* ─── Trim Tool ─── */}
+      <ToolButton
+        active={activeTool === 'trim'}
+        onClick={() => setActiveTool('trim')}
+        title="Trimma — Klipp bort delar av former (X)"
+      >
+        <span style={styles.icon}>✂️</span>
+      </ToolButton>
+
       <div style={styles.separator} />
 
       {/* ─── Frame Tool ─── */}
@@ -205,6 +216,15 @@ export default function WhiteboardToolbar({ className = '' }) {
               <input type="checkbox" checked={showAlignmentGuides} onChange={(e) => setShowAlignmentGuides(e.target.checked)} />
               Visa justeringslinjer
             </label>
+            <div style={{ borderTop: '1px solid #eee', marginTop: '4px', paddingTop: '4px' }}>
+              <label style={styles.checkboxItem}>
+                <input type="checkbox" checked={enhanceInkedShapes} onChange={(e) => setEnhanceInkedShapes(e.target.checked)} />
+                ✨ Förbättra ritade former
+              </label>
+              <div style={{ padding: '0 12px 4px', fontSize: '10px', color: '#999', lineHeight: '1.3' }}>
+                Rita fritt med pennan — cirklar, rektanglar, trianglar och linjer konverteras automatiskt till rena former.
+              </div>
+            </div>
             <div style={{ padding: '8px 12px', borderTop: '1px solid #eee' }}>
               <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Rutstorlek: {gridSize}px</div>
               <input
