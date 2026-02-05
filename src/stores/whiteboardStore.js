@@ -319,6 +319,7 @@ const useWhiteboardStore = create((set, get) => ({
   activeShapeVariant: 'rectangle',
   activeLineStyle: 'solid',
   activeArrowHead: 'none',
+  enhanceInkedShapes: true,
 
   // ─── Styling Defaults ─────────────────────────────────
   defaultFill: '#ffffff',
@@ -586,6 +587,7 @@ const useWhiteboardStore = create((set, get) => ({
   // ═══════════════════════════════════════════════════════
 
   setActiveTool: (tool) => set({ activeTool: tool }),
+  setEnhanceInkedShapes: (enabled) => set({ enhanceInkedShapes: enabled }),
   setActiveShapeVariant: (variant) => set({ activeShapeVariant: variant }),
   setActiveLineStyle: (style) => set({ activeLineStyle: style }),
   setActiveArrowHead: (arrowHead) => set({ activeArrowHead: arrowHead }),
