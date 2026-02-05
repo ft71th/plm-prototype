@@ -28,7 +28,7 @@ import * as XLSX from 'xlsx';
 import Whiteboard from './components/Whiteboard/Whiteboard';
 
 // API Base URL - same as api.js
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const defaultEdgeOptions = {
   type: 'custom',

@@ -6,6 +6,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import useWhiteboardStore from '../../stores/whiteboardStore';
+import { STICKY_COLORS } from '../../stores/whiteboardStore';
 
 const SHAPE_VARIANTS = [
   { id: 'rectangle', label: 'Rektangel', icon: '▭' },
@@ -285,8 +286,7 @@ function StickyNoteButton() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  const { STICKY_COLORS } = require('../../stores/whiteboardStore');
-
+  
   const addStickyNote = (colorId) => {
     const s = useWhiteboardStore.getState();
     const canvasWidth = window.innerWidth - 280;
