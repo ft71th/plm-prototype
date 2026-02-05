@@ -26,6 +26,7 @@ import '@reactflow/node-resizer/dist/style.css';
 import 'reactflow/dist/style.css';
 import * as XLSX from 'xlsx';
 import Whiteboard from './components/Whiteboard/Whiteboard';
+import { CollaborationProvider, UserAvatars } from './collaboration';
 
 // API Base URL - same as api.js
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -11595,7 +11596,15 @@ const createNewObject = (name, version, description) => {
   //APP return
 
   return (
-    
+    <CollaborationProvider
+      projectId={currentProject?.id}
+      user={{
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        token: localStorage.getItem('plm_token'),
+      }}
+    >
     <div style={{ width: '100vw', height: '100vh', background: '#1a1a2e',overflow: 'hidden' }}>
       
       {/* Top Header */}
@@ -12440,5 +12449,6 @@ const createNewObject = (name, version, description) => {
       onChange={importProject}
     />
     </div>
+    </CollaborationProvider>
   );
 }

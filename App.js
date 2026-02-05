@@ -26,9 +26,11 @@ import '@reactflow/node-resizer/dist/style.css';
 import 'reactflow/dist/style.css';
 import * as XLSX from 'xlsx';
 import Whiteboard from './components/Whiteboard/Whiteboard';
+import { CollaborationProvider, useCollab, UserAvatars } from './collaboration';
+import { CollaborationProvider, UserAvatars } from './collaboration';
 
 // API Base URL - same as api.js
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const defaultEdgeOptions = {
   type: 'custom',
@@ -6278,6 +6280,7 @@ function SidebarButton({ icon, label, onClick, active }) {
 
 // Top Header Bar Component
 function TopHeader({ 
+  UserAvatars,
   objectName, 
   objectVersion, 
   onMenuClick, 
@@ -6530,7 +6533,9 @@ function TopHeader({
           </select>
         </div>
       )}
-       
+        {/* Online Users */}
+        <UserAvatars />
+        
         {/* User & Logout */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ color: '#bdc3c7', fontSize: '12px' }}>
@@ -11678,6 +11683,7 @@ const createNewObject = (name, version, description) => {
     );
   }
 
+
   // Toolbar button styles
   const toolbarBtnStyle = (bgColor) => ({
     background: bgColor,
@@ -11705,10 +11711,18 @@ const createNewObject = (name, version, description) => {
   };
   
   //APP return
-
   return (
-    
+    <CollaborationProvider
+      projectId={currentProject?.id}
+      user={{
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        token: localStorage.getItem('plm_token'),
+      }}
+    >
     <div style={{ width: '100vw', height: '100vh', background: '#1a1a2e',overflow: 'hidden' }}>
+
       
       {/* Top Header */}
       <TopHeader
@@ -12553,5 +12567,6 @@ const createNewObject = (name, version, description) => {
       onChange={importProject}
     />
     </div>
+  </CollaborationProvider>
   );
 }

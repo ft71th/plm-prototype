@@ -5,19 +5,22 @@ import path from 'path';
 export default defineConfig({
   plugins: [react()],
 
-  // Behåll port 3000 så att befintliga bokmärken/vanor fungerar
+  // Server-konfiguration
   server: {
     port: 3000,
     open: true,
-    // Proxy för backend API (justera port efter din setup)
     proxy: {
       '/api': {
-        target: 'http://localhost:4000',
+        target: 'http://localhost:3001',
         changeOrigin: true,
       },
-      // WebSocket-proxy för framtida Hocuspocus collab-server
       '/collab': {
-        target: 'ws://localhost:1234',
+        target: 'ws://localhost:3001',
+        ws: true,
+        changeOrigin: true,
+      },
+      '/socket.io': {
+        target: 'http://localhost:3001',
         ws: true,
         changeOrigin: true,
       },
@@ -28,7 +31,6 @@ export default defineConfig({
   build: {
     outDir: 'build',
     sourcemap: true,
-    // Optimera chunk-storlekar
     rollupOptions: {
       output: {
         manualChunks: {
@@ -38,7 +40,7 @@ export default defineConfig({
     },
   },
 
-  // Resolve-alias för att matcha eventuella CRA-importer
+  // Resolve-alias
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
@@ -48,10 +50,7 @@ export default defineConfig({
     },
   },
 
-  // Miljövariabler: VITE_ prefix istället för REACT_APP_
-  // Se migrate-env.cjs för automatisk konvertering
   define: {
-    // Polyfill för bibliotek som förväntar sig process.env
     'process.env': {},
   },
 });
