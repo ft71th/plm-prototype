@@ -102,6 +102,27 @@ export const projects = {
     apiFetch(`/projects/${id}`, {
       method: 'DELETE',
     }),
+  // ============== PROJECT MEMBERS ==============
+  
+  getMembers: (projectId) => 
+    apiFetch(`/projects/${projectId}/members`),
+
+  addMember: (projectId, email, role = 'editor') =>
+    apiFetch(`/projects/${projectId}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ email, role }),
+    }),
+
+  removeMember: (projectId, userId) =>
+    apiFetch(`/projects/${projectId}/members/${userId}`, {
+      method: 'DELETE',
+    }),
+
+  updateMemberRole: (projectId, userId, role) =>
+    apiFetch(`/projects/${projectId}/members/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ role }),
+    }),  
 };
 
 // ============== REAL-TIME ==============

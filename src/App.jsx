@@ -27,6 +27,8 @@ import 'reactflow/dist/style.css';
 import * as XLSX from 'xlsx';
 import Whiteboard from './components/Whiteboard/Whiteboard';
 import { CollaborationProvider, UserAvatars } from './collaboration';
+import ShareProjectModal from './components/ShareProjectModal';
+
 
 // API Base URL - same as api.js
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -6300,7 +6302,8 @@ function TopHeader({
   onWhiteboardDropdownToggle,
   onWhiteboardSelect,
   onNewWhiteboard,
-  onDeleteWhiteboard
+  onDeleteWhiteboard,
+  UserAvatarsComponent
 }) {
     return (
     <div style={{
@@ -6534,6 +6537,10 @@ function TopHeader({
        
         {/* User & Logout */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          
+          {/* Online Users */}
+          {UserAvatarsComponent && <UserAvatarsComponent style={{ marginRight: '10px' }} />}
+          
           <span style={{ color: '#bdc3c7', fontSize: '12px' }}>
             👤 {user?.name}
           </span>
@@ -8463,6 +8470,8 @@ export default function App() {
   ];
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  
 
   const reactFlowWrapper = useRef(null);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
@@ -11648,6 +11657,7 @@ const createNewObject = (name, version, description) => {
         user={user}
         onLogout={handleLogout}
         onChangePassword={() => setShowChangePassword(true)}
+        UserAvatarsComponent={UserAvatars}
       />
       
       {/* Left Icon Strip - hidden in freeform drawing mode */}
@@ -11679,6 +11689,14 @@ const createNewObject = (name, version, description) => {
             onClick={() => { 
               saveProjectToDatabase(); 
               setSidebarOpen(false); 
+            }} 
+          />
+          <SidebarButton 
+            icon="🔗" 
+            label="Share Project" 
+            onClick={() => { 
+            setShowShareModal(true); 
+            setSidebarOpen(false); 
             }} 
           />
           <SidebarButton 
@@ -12325,6 +12343,14 @@ const createNewObject = (name, version, description) => {
           onDeleteType={deleteHardwareType}
           onUpdateType={updateHardwareType}
           onRefresh={fetchHardwareTypes}
+        />
+      )}
+
+      {showShareModal && currentProject && (
+        <ShareProjectModal
+        project={currentProject}
+        currentUser={user}
+        onClose={() => setShowShareModal(false)}
         />
       )}
 
