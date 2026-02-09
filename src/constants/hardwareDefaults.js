@@ -1,0 +1,16 @@
+export const defaultHardwareTypes = [
+  { id: 'motor', name: 'Motor', icon: '⚙️' },
+  { id: 'inverter', name: 'Inverter', icon: '🔄' },
+  { id: 'battery', name: 'Battery', icon: '🔋' },
+  { id: 'sensor', name: 'Sensor', icon: '📡' },
+  { id: 'controller', name: 'Controller', icon: '🎛️' },
+  { id: 'pump', name: 'Pump', icon: '💧' },
+  { id: 'fan', name: 'Fan', icon: '🌀' },
+  { id: 'transformer', name: 'Transformer', icon: '⚡' },
+  { id: 'relay', name: 'Relay', icon: '🔌' },
+  { id: 'display', name: 'Display', icon: '🖥️' },
+  { id: 'valve', name: 'Valve', icon: '🚰' },
+  { id: 'heater', name: 'Heater', icon: '🔥' },
+  { id: 'cooler', name: 'Cooler', icon: '❄️' },
+  { id: 'generic', name: 'Generic', icon: '📦' },
+];
