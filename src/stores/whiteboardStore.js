@@ -12,6 +12,7 @@
 
 import { create } from 'zustand';
 import { generateId, clamp, getBoundingBox, isContainedWithin, getCombinedBoundingBox } from '../utils/geometry';
+import { intersectsRect } from '../utils/geometry';
 
 // ============================================================
 // Default values for new elements
@@ -569,7 +570,7 @@ const useWhiteboardStore = create((set, get) => ({
   clearSelection: () => set({ selectedIds: new Set(), selectionBox: null }),
 
   selectByLasso: (box) => set((state) => {
-    const { intersectsRect } = require('../utils/geometry');
+    
     const hits = new Set();
     for (const id of state.elementOrder) {
       const el = state.elements[id];

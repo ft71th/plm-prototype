@@ -28,6 +28,13 @@ import * as XLSX from 'xlsx';
 import Whiteboard from './components/Whiteboard/Whiteboard';
 import { CollaborationProvider, UserAvatars } from './collaboration';
 import ShareProjectModal from './components/ShareProjectModal';
+import DocumentViewEnhanced from './DocumentViewEnhanced';
+import { 
+  useRequirementLinks, 
+  CreateLinkModal, 
+  LinkManagerPanel, 
+  NodeLinkSection 
+} from './RequirementLinks';
 
 
 // API Base URL - same as api.js
@@ -3325,7 +3332,10 @@ function PortEditor({ ports = [], onChange, disabled }) {
 }
 
 // Enhanced Floating Panel for nodes
-function FloatingPanel({ node, onClose, onUpdate, initialPosition, hardwareTypes = [], onManageTypes }) {
+function FloatingPanel({ 
+  node, onClose, onUpdate, initialPosition, hardwareTypes, onManageTypes, requirementLinks, nodes, 
+  onCreateLink, onRemoveLink, onPinLink, onUnpinLink, onUpdateLinkStatus, onUpdateLink,
+}) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [position, setPosition] = useState(initialPosition);
@@ -3337,7 +3347,22 @@ function FloatingPanel({ node, onClose, onUpdate, initialPosition, hardwareTypes
     setPosition(initialPosition);
   }, [initialPosition]);
 
-  const handleMouseDown = (e) => {
+  {/* Requirement Links Section */}
+  <div style={{ marginTop: '15px', borderTop: '1px solid #34495e', paddingTop: '10px' }}>
+    <NodeLinkSection
+      nodeId={node.id}
+      links={requirementLinks}
+      nodes={nodes}
+      onCreateLink={onCreateLink}
+      onRemoveLink={onRemoveLink}
+      onPinLink={onPinLink}
+      onUnpinLink={onUnpinLink}
+      onUpdateLinkStatus={onUpdateLinkStatus}
+      onUpdateLink={onUpdateLink}
+    />
+  </div>
+
+const handleMouseDown = (e) => {
     if (e.target.tagName === 'INPUT' || 
         e.target.tagName === 'TEXTAREA' || 
         e.target.tagName === 'SELECT' ||
@@ -8451,6 +8476,43 @@ export default function App() {
   const [hardwareTypes, setHardwareTypes] = useState([]);
   const [showHardwareTypesModal, setShowHardwareTypesModal] = useState(false);
   
+  // ─── Requirement Links ────────────────────────
+  const {
+    links: requirementLinks,
+    setLinks: setRequirementLinks,
+    addLink,
+    removeLink,
+    updateLink,
+    updateLinkStatus,
+    pinLink,
+    unpinLink,
+    baselineAllLinks,
+    getLinksForNode,
+    runHealthChecks,
+    findOrphans,
+    findCircularDeps,
+    findUncoveredRequirements,
+    getImpactAnalysis,
+  } = useRequirementLinks([]);
+
+  const [showCreateLinkModal, setShowCreateLinkModal] = useState(false);
+  const [createLinkSourceId, setCreateLinkSourceId] = useState(null);
+  const [showLinkManager, setShowLinkManager] = useState(false);
+
+  // Health checks (memoized)
+  const linkHealthIssues = useMemo(() => runHealthChecks(nodes), [nodes, requirementLinks]);
+  const orphanNodes = useMemo(() => findOrphans(nodes, edges), [nodes, edges, requirementLinks]);
+  const uncoveredReqs = useMemo(() => findUncoveredRequirements(nodes), [nodes, requirementLinks]);
+  const circularDeps = useMemo(() => findCircularDeps(), [requirementLinks]);
+
+  // Handler for creating links from doc view or floating panel
+  const handleCreateLinkFromNode = useCallback((nodeId) => {
+    setCreateLinkSourceId(nodeId || null);
+    setShowCreateLinkModal(true);
+  }, []);
+
+
+
   // Default hardware types (fallback if DB empty)
   const defaultHardwareTypes = [
     { id: 'motor', name: 'Motor', icon: '⚙️' },
@@ -8794,11 +8856,19 @@ export default function App() {
       setTcIdCounter(1);
       setUcIdCounter(1);
       setActIdCounter(1);
+      setRequirementLinks([]);
     }
     
     // Load whiteboards if present
     if (projectData.whiteboards) {
       setWhiteboards(projectData.whiteboards);
+    }
+
+    // Load requirement links if present
+    if (projectData.requirementLinks) {
+      setRequirementLinks(projectData.requirementLinks);
+    } else {
+      setRequirementLinks([]);
     }
     
     // Clear selection state
@@ -8869,8 +8939,10 @@ export default function App() {
         edges: edgesToSave,
         whiteboards: whiteboards,
         issues: issues,
-        issueIdCounter: issueIdCounter
+        issueIdCounter: issueIdCounter,
+        requirementLinks: requirementLinks,
       });
+
       // Removed alert - bottom notification will show instead
     } catch (err) {
       console.error('Save error:', err);
@@ -9811,6 +9883,13 @@ export default function App() {
           groupSelectedNodes();
         }
       }
+      // Ctrl+Shift+L - Link Manager
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'l') {
+        e.preventDefault();
+        setShowLinkManager(true);
+        return;
+      }
+
     };
     
     window.addEventListener('keydown', handleKeyDown);
@@ -11756,6 +11835,15 @@ const createNewObject = (name, version, description) => {
           <SidebarButton icon="📊" label="Export to Excel" onClick={() => { exportToExcel(); setSidebarOpen(false); }} />
           <SidebarButton icon="🆕" label="New Object" onClick={() => { setShowNewObjectModal(true); setSidebarOpen(false); }} />
           <SidebarButton 
+            icon="🔗" 
+            label="Link Manager" 
+            onClick={() => { 
+              setShowLinkManager(true); 
+              setSidebarOpen(false); 
+            }} 
+          />
+
+          <SidebarButton 
             icon="🔧" 
             label="Manage HW Types" 
             onClick={() => { 
@@ -11874,14 +11962,47 @@ const createNewObject = (name, version, description) => {
       
       {/* Show Document View, Freeform Whiteboard, OR PLM Canvas */}
       {viewMode === 'document' ? (
-        <DocumentView 
-          nodes={nodes} 
-          edges={edges} 
-          onNodeClick={(node) => {
-            setSelectedNode(node);
-            setFloatingPanelPosition({ x: window.innerWidth - 350, y: 100 });
-          }}
-        />
+      <DocumentViewEnhanced 
+        nodes={nodes} 
+        edges={edges} 
+        onNodeClick={(node) => {
+          setSelectedNode(node);
+          setFloatingPanelPosition({ x: window.innerWidth - 350, y: 100 });
+        }}
+        onUpdateNodeData={updateNodeData}
+        requirementLinks={requirementLinks}
+        onCreateLink={handleCreateLinkFromNode}
+        onRemoveLink={removeLink}
+        onPinLink={pinLink}
+        onUnpinLink={unpinLink}
+        onUpdateLinkStatus={updateLinkStatus}
+        onUpdateLink={updateLink}
+        onBaselineAll={baselineAllLinks}
+        onCreateNode={() => {
+          // Reuse existing createNewObject logic
+          const id = `node-${nodeId}`;
+          setNodeId(prev => prev + 1);
+          const newNode = {
+            id,
+            type: 'custom',
+            position: { x: 100, y: 100 },
+            data: {
+              label: 'New Requirement',
+              reqId: `REQ-${String(nodeId).padStart(3, '0')}`,
+              description: '',
+              status: 'draft',
+              priority: 'medium',
+              state: 'open',
+              version: '1.0',
+              itemType: 'requirement',
+            },
+          };
+          setNodes(nds => [...nds, newNode]);
+          return newNode;
+        }}
+        healthIssues={linkHealthIssues}
+        user={user?.name || 'unknown'}
+      />
       ) : viewMode === 'freeform' ? (
         <Whiteboard style={{ marginTop: '50px', height: 'calc(100vh - 50px)' }} projectId={currentProject?.id || null} />
       ) : (
@@ -12047,7 +12168,7 @@ const createNewObject = (name, version, description) => {
                 📤
               </button>
             </div>
-            
+                                    
             <div style={{ width: '1px', height: '24px', background: '#4a5f7f' }} />
             
             {/* Clear */}
@@ -12316,6 +12437,14 @@ const createNewObject = (name, version, description) => {
           initialPosition={floatingPanelPosition}
           hardwareTypes={hardwareTypes.length > 0 ? hardwareTypes : defaultHardwareTypes}
           onManageTypes={() => setShowHardwareTypesModal(true)}
+          requirementLinks={requirementLinks}
+          nodes={nodes}
+          onCreateLink={handleCreateLinkFromNode}
+          onRemoveLink={removeLink}
+          onPinLink={pinLink}
+          onUnpinLink={unpinLink}
+          onUpdateLinkStatus={updateLinkStatus}
+          onUpdateLink={updateLink}
         />
       )}
 
@@ -12393,7 +12522,7 @@ const createNewObject = (name, version, description) => {
           position={edgePanelPosition}
         />
       )}
-      
+
       {/* New Object Modal */}
       {showNewObjectModal && (
         <NewObjectModal
@@ -12401,6 +12530,8 @@ const createNewObject = (name, version, description) => {
           onCreate={createNewObject}
         />
       )}
+
+      
 
       {/* Issue Manager Modal */}
       {showIssueManagerModal && (
@@ -12473,7 +12604,41 @@ const createNewObject = (name, version, description) => {
       accept=".json"
       style={{ display: 'none' }}
       onChange={importProject}
-    />
+      />
+
+      {/* Requirement Link Modals */}
+      {showCreateLinkModal && (
+        <CreateLinkModal
+          nodes={nodes}
+          onClose={() => setShowCreateLinkModal(false)}
+          onCreate={(linkData) => addLink(linkData)}
+          preselectedSourceId={createLinkSourceId}
+          user={user?.name || 'unknown'}
+        />
+      )}
+
+      {showLinkManager && (
+        <LinkManagerPanel
+          links={requirementLinks}
+          nodes={nodes}
+          edges={edges}
+          onClose={() => setShowLinkManager(false)}
+          onRemoveLink={removeLink}
+          onPinLink={pinLink}
+          onUnpinLink={unpinLink}
+          onUpdateLinkStatus={updateLinkStatus}
+          onUpdateLink={updateLink}
+          onCreateLink={() => {
+            setCreateLinkSourceId(null);
+            setShowCreateLinkModal(true);
+          }}
+          onBaselineAll={() => baselineAllLinks(nodes)}
+          healthIssues={linkHealthIssues}
+          orphanNodes={orphanNodes}
+          uncoveredReqs={uncoveredReqs}
+          circularDeps={circularDeps}
+        />
+      )}
     </div>
     </CollaborationProvider>
   );

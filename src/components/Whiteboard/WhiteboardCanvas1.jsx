@@ -268,6 +268,7 @@ export default function WhiteboardCanvas({ className = '' }) {
   const handleTextChange = useCallback((e) => {
     if (!state.editingElementId) return;
     const el = state.elements[state.editingElementId];
+    console.log('TEXT DEBUG:', { value: e.target.value, elText: el?.text, elContent: el?.content, elType: el?.type });
     if (!el) return;
 
     if (el.type === 'text') {
@@ -297,13 +298,13 @@ export default function WhiteboardCanvas({ className = '' }) {
     e.stopPropagation(); // Don't let keyboard shortcuts fire
   }, []);
 
-  // Focus textarea when editing starts (use ID, not object ref, to avoid re-triggering on every keystroke)
+  // Focus textarea when editing starts
   useEffect(() => {
-    if (state.editingElementId && textareaRef.current) {
+    if (editingElement && textareaRef.current) {
       textareaRef.current.focus();
       textareaRef.current.select();
     }
-  }, [state.editingElementId]);
+  }, [editingElement]);
 
   // ─── Calculate textarea position ────────────────────────────
   const getTextareaStyle = () => {

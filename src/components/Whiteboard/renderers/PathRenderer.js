@@ -11,10 +11,21 @@
  * Rendera en sparad path-element.
  */
 export function renderPath(ctx, element) {
-  const { points, stroke, strokeWidth, x, y } = element;
+  const { points, stroke, strokeWidth, x, y, width, height } = element;
   if (!points || points.length < 2) return;
 
   ctx.save();
+
+  // Apply rotation around center
+  const rotation = element.rotation || 0;
+  if (rotation !== 0 && width && height) {
+    const cx = x + width / 2;
+    const cy = y + height / 2;
+    ctx.translate(cx, cy);
+    ctx.rotate(rotation);
+    ctx.translate(-cx, -cy);
+  }
+
   ctx.strokeStyle = stroke || '#000000';
   ctx.lineWidth = strokeWidth || 2;
   ctx.lineCap = 'round';

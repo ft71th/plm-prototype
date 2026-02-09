@@ -10,6 +10,7 @@
 
 import { snapToGrid } from '../../../utils/geometry';
 import { findNearestConnectionPoint } from '../renderers/LineRenderer';
+import { hitTest } from '../../../utils/geometry';
 
 export class LineTool {
   constructor() {
@@ -140,8 +141,7 @@ export class LineTool {
 
   onDoubleClick(worldX, worldY, store, renderer) {
     const state = store.getState();
-    const { hitTest } = require('../../../utils/geometry');
-
+    
     // Check if double-clicking on existing line
     for (let i = state.elementOrder.length - 1; i >= 0; i--) {
       const id = state.elementOrder[i];

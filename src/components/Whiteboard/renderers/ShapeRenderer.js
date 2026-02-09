@@ -6,8 +6,18 @@
 
 export function renderShape(ctx, shape) {
   const { x, y, width, height, fill, fillOpacity, stroke, strokeWidth, shapeVariant, cornerRadius, shadow } = shape;
+  const rotation = shape.rotation || 0;
 
   ctx.save();
+
+  // Apply rotation around the center of the shape
+  if (rotation !== 0) {
+    const cx = x + width / 2;
+    const cy = y + height / 2;
+    ctx.translate(cx, cy);
+    ctx.rotate(rotation);
+    ctx.translate(-cx, -cy);
+  }
 
   // Shadow (Deliverable 4)
   if (shadow && shadow.blur > 0) {
@@ -89,12 +99,12 @@ export function renderShape(ctx, shape) {
     renderStickyNoteFold(ctx, shape);
   }
 
-  ctx.restore();
-
-  // Render text inside shape (if any)
+  // Render text inside shape (if any) — INSIDE rotation context
   if (shape.text && shape.text.text) {
     renderShapeText(ctx, shape);
   }
+
+  ctx.restore();
 }
 
 function renderShapeText(ctx, shape) {

@@ -147,6 +147,9 @@ function drawGroupOutline(ctx, groupEl, elements) {
   ctx.restore();
 }
 
+const ROTATION_HANDLE_DISTANCE = 25;
+const ROTATION_HANDLE_RADIUS = 6;
+
 function drawSelectionOutline(ctx, element) {
   ctx.save();
   ctx.strokeStyle = HANDLE_COLOR;
@@ -179,6 +182,15 @@ function drawSelectionOutline(ctx, element) {
     ctx.globalAlpha = 1;
   } else {
     const bb = getBoundingBox(element);
+    const rotation = element.rotation || 0;
+    const cx = bb.x + bb.width / 2;
+    const cy = bb.y + bb.height / 2;
+
+    if (rotation !== 0) {
+      ctx.translate(cx, cy);
+      ctx.rotate(rotation);
+      ctx.translate(-cx, -cy);
+    }
     ctx.strokeRect(bb.x - 1, bb.y - 1, bb.width + 2, bb.height + 2);
   }
 
@@ -208,8 +220,21 @@ function drawHandles(ctx, element) {
 
   const handles = getHandlePositions(element);
   const half = HANDLE_SIZE / 2;
+  const rotation = element.rotation || 0;
+  const bb = getBoundingBox(element);
+  const cx = bb.x + bb.width / 2;
+  const cy = bb.y + bb.height / 2;
 
   ctx.save();
+
+  // Apply rotation to handles
+  if (rotation !== 0) {
+    ctx.translate(cx, cy);
+    ctx.rotate(rotation);
+    ctx.translate(-cx, -cy);
+  }
+
+  // Draw resize handles
   for (const pos of Object.values(handles)) {
     ctx.fillStyle = HANDLE_FILL;
     ctx.strokeStyle = HANDLE_COLOR;
@@ -217,7 +242,62 @@ function drawHandles(ctx, element) {
     ctx.fillRect(pos.x - half, pos.y - half, HANDLE_SIZE, HANDLE_SIZE);
     ctx.strokeRect(pos.x - half, pos.y - half, HANDLE_SIZE, HANDLE_SIZE);
   }
+
+  // Draw rotation handle — circle above the top-center with a connecting line
+  const topCenter = handles.n || { x: cx, y: bb.y };
+  const rotHandleY = topCenter.y - ROTATION_HANDLE_DISTANCE;
+
+  // Connecting line
+  ctx.strokeStyle = HANDLE_COLOR;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath();
+  ctx.moveTo(topCenter.x, topCenter.y);
+  ctx.lineTo(topCenter.x, rotHandleY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Rotation handle circle
+  ctx.fillStyle = HANDLE_FILL;
+  ctx.strokeStyle = HANDLE_COLOR;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(topCenter.x, rotHandleY, ROTATION_HANDLE_RADIUS, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Draw rotation icon (↻) inside the handle
+  ctx.fillStyle = HANDLE_COLOR;
+  ctx.font = `${ROTATION_HANDLE_RADIUS * 1.4}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('↻', topCenter.x, rotHandleY);
+
   ctx.restore();
+}
+
+/**
+ * Get the rotation handle position for an element (in world coords, accounting for rotation).
+ */
+export function getRotationHandlePosition(element) {
+  const bb = getBoundingBox(element);
+  const cx = bb.x + bb.width / 2;
+  const cy = bb.y + bb.height / 2;
+  const rotation = element.rotation || 0;
+
+  // The handle is above the top-center in the element's local space
+  let hx = cx;
+  let hy = bb.y - ROTATION_HANDLE_DISTANCE;
+
+  // Rotate the handle position around the center
+  if (rotation !== 0) {
+    const dx = hx - cx;
+    const dy = hy - cy;
+    hx = cx + dx * Math.cos(rotation) - dy * Math.sin(rotation);
+    hy = cy + dx * Math.sin(rotation) + dy * Math.cos(rotation);
+  }
+
+  return { x: hx, y: hy, radius: ROTATION_HANDLE_RADIUS };
 }
 
 function drawLasso(ctx, box) {

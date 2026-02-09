@@ -5,6 +5,7 @@
  */
 
 import { snapToGrid } from '../../../utils/geometry';
+import { hitTest } from '../../../utils/geometry';
 
 export class TextTool {
   constructor() {
@@ -53,7 +54,6 @@ export class TextTool {
 
   onDoubleClick(worldX, worldY, store, renderer) {
     const state = store.getState();
-    const { hitTest } = require('../../../utils/geometry');
 
     // Check if double-clicking on existing element
     for (let i = state.elementOrder.length - 1; i >= 0; i--) {

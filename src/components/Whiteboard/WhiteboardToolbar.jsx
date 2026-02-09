@@ -2,6 +2,7 @@
  * WhiteboardToolbar — Tool selection bar for the whiteboard.
  *
  * Deliverable 4: Added new shapes, export/import, template buttons
+ * Deliverable 7: Added image upload button
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -162,6 +163,11 @@ export default function WhiteboardToolbar({ className = '' }) {
 
       <div style={styles.separator} />
 
+      {/* ─── Image Upload ─── */}
+      <ImageUploadButton />
+
+      <div style={styles.separator} />
+
       {/* ─── Action Buttons ─── */}
       <ActionButtons />
 
@@ -245,17 +251,17 @@ export default function WhiteboardToolbar({ className = '' }) {
 }
 
 const LINE_STYLES = [
-  { id: 'solid', label: 'Solid', icon: '━' },
+  { id: 'solid', label: 'Solid', icon: '─' },
   { id: 'dashed', label: 'Streckad', icon: '╌' },
   { id: 'dotted', label: 'Prickad', icon: '┈' },
 ];
 
 const ARROW_HEADS = [
-  { id: 'none', label: 'Ingen', icon: '━━' },
-  { id: 'arrow', label: 'Pil', icon: '━▶' },
-  { id: 'open-arrow', label: 'Öppen pil', icon: '━>' },
-  { id: 'diamond', label: 'Diamant', icon: '━◇' },
-  { id: 'circle', label: 'Cirkel', icon: '━●' },
+  { id: 'none', label: 'Ingen', icon: '──' },
+  { id: 'arrow', label: 'Pil', icon: '─▶' },
+  { id: 'open-arrow', label: 'Öppen pil', icon: '─>' },
+  { id: 'diamond', label: 'Diamant', icon: '─◇' },
+  { id: 'circle', label: 'Cirkel', icon: '─○' },
 ];
 
 function FileButtons() {
@@ -286,7 +292,7 @@ function StickyNoteButton() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  
+
   const addStickyNote = (colorId) => {
     const s = useWhiteboardStore.getState();
     const canvasWidth = window.innerWidth - 280;
@@ -333,6 +339,79 @@ function StickyNoteButton() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Image Upload Button ─────────────────────────────────────
+function ImageUploadButton() {
+  const fileInputRef = useRef(null);
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target.result;
+      
+      // Skapa en temp-bild för att få dimensioner
+      const img = new Image();
+      img.onload = () => {
+        const s = useWhiteboardStore.getState();
+        const canvasWidth = window.innerWidth - 280;
+        const canvasHeight = window.innerHeight - 100;
+        const worldCenterX = (canvasWidth / 2 - s.panX) / s.zoom;
+        const worldCenterY = (canvasHeight / 2 - s.panY) / s.zoom;
+
+        // Skala ner stora bilder
+        let width = img.width;
+        let height = img.height;
+        const maxSize = 400;
+        if (width > maxSize || height > maxSize) {
+          const ratio = Math.min(maxSize / width, maxSize / height);
+          width = width * ratio;
+          height = height * ratio;
+        }
+
+        const imageElement = s.createImageElement(
+          worldCenterX - width / 2,
+          worldCenterY - height / 2,
+          width,
+          height,
+          dataUrl
+        );
+        s.addElement(imageElement);
+
+        // Välj det nya elementet
+        const newState = useWhiteboardStore.getState();
+        const lastId = newState.elementOrder[newState.elementOrder.length - 1];
+        newState.selectElement(lastId);
+        newState.setActiveTool('select');
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+
+    // Nollställ input så samma fil kan väljas igen
+    e.target.value = '';
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <ToolButton
+        onClick={() => fileInputRef.current?.click()}
+        title="Lägg till bild (I) — Ladda upp, klistra in (Ctrl+V), eller dra och släpp"
+      >
+        <span style={{ fontSize: '16px', lineHeight: 1 }}>🖼️</span>
+      </ToolButton>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileSelect}
+        style={{ display: 'none' }}
+      />
     </div>
   );
 }
@@ -494,7 +573,7 @@ function FrameButton() {
 
   return (
     <ToolButton onClick={addFrame} title="Lägg till ram (Frame) — för presentationer">
-      <span style={{ ...styles.icon, fontSize: '15px' }}>📐</span>
+      <span style={{ ...styles.icon, fontSize: '15px' }}>🔲</span>
     </ToolButton>
   );
 }
@@ -543,7 +622,7 @@ function D5Buttons() {
         onClick={() => store.getState().setShowRulers(!showRulers)}
         title="Linjaler"
       >
-        <span style={{ ...styles.icon, fontSize: '14px' }}>📏</span>
+        <span style={{ ...styles.icon, fontSize: '14px' }}>📐</span>
       </ToolButton>
 
       {/* Measurement toggle */}
@@ -552,7 +631,7 @@ function D5Buttons() {
         onClick={() => store.getState().setShowMeasurements(!showMeasurements)}
         title="Mätningar"
       >
-        <span style={{ ...styles.icon, fontSize: '14px' }}>📐</span>
+        <span style={{ ...styles.icon, fontSize: '14px' }}>📏</span>
       </ToolButton>
 
       {/* Presentation mode */}
@@ -567,7 +646,7 @@ function D5Buttons() {
   );
 }
 
-// ─── Reusable tool button ───────────────────────────────
+// ─── Reusable tool button ───────────────────────────────────
 
 function ToolButton({ active, onClick, title, disabled, children }) {
   return (
@@ -588,7 +667,7 @@ function ToolButton({ active, onClick, title, disabled, children }) {
   );
 }
 
-// ─── Styles ─────────────────────────────────────────────
+// ─── Styles ─────────────────────────────────────────────────
 
 const styles = {
   toolbar: {

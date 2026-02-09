@@ -18,6 +18,7 @@ import { IndexeddbPersistence } from 'y-indexeddb';
 
 // WebSocket URL — använd proxy via Vite i dev
 const COLLAB_URL = import.meta.env.VITE_COLLAB_URL || 'ws://localhost:1235';
+//const COLLAB_URL = import.meta.env.VITE_COLLAB_URL || 'ws://10.37.30.13:1235';
 
 /**
  * Huvudhook för samarbete

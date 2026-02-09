@@ -48,6 +48,16 @@ export function renderImage(ctx, element) {
 
   ctx.save();
 
+  // Apply rotation around center
+  const rotation = element.rotation || 0;
+  if (rotation !== 0) {
+    const cx = x + width / 2;
+    const cy = y + height / 2;
+    ctx.translate(cx, cy);
+    ctx.rotate(rotation);
+    ctx.translate(-cx, -cy);
+  }
+
   if (opacity !== undefined && opacity < 1) {
     ctx.globalAlpha = opacity;
   }

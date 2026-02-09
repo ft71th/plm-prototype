@@ -4,6 +4,9 @@ import { io } from 'socket.io-client';
 const API_URL = 'http://localhost:3001/api';
 const WS_URL = 'http://localhost:3001';
 
+//const API_URL = 'http://10.37.30.13:3001/api';
+//const WS_URL = 'http://10.37.30.13:3001';
+
 // Socket instance
 let socket = null;
 

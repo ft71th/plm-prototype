@@ -11,6 +11,16 @@ export function renderText(ctx, textElement) {
 
   ctx.save();
 
+  // Apply rotation around center
+  const rotation = textElement.rotation || 0;
+  if (rotation !== 0) {
+    const cx = x + width / 2;
+    const cy = y + height / 2;
+    ctx.translate(cx, cy);
+    ctx.rotate(rotation);
+    ctx.translate(-cx, -cy);
+  }
+
   const padding = 8;
   const maxWidth = width - padding * 2;
 

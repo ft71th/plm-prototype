@@ -93,6 +93,41 @@ export default function PropertiesPanel({ className = '' }) {
         </Section>
       )}
 
+      {/* ─── Rotation ─── */}
+      {single && single.type !== 'line' && (
+        <Section title="Rotation">
+          <div style={styles.row}>
+            <NumberInput
+              label="°"
+              value={Math.round(((single.rotation || 0) * 180) / Math.PI)}
+              min={0}
+              max={359}
+              onChange={(v) => {
+                pushHistoryCheckpoint();
+                updateElement(single.id, { rotation: (v * Math.PI) / 180 });
+              }}
+            />
+            <button
+              onClick={() => { pushHistoryCheckpoint(); updateElement(single.id, { rotation: 0 }); }}
+              style={{ ...styles.smallButton, marginLeft: 4 }}
+              title="Återställ rotation"
+            >
+              ↺ Nollställ
+            </button>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={360}
+            value={Math.round(((single.rotation || 0) * 180) / Math.PI)}
+            onChange={(e) => {
+              updateElement(single.id, { rotation: (Number(e.target.value) * Math.PI) / 180 });
+            }}
+            style={{ width: '100%', marginTop: '4px' }}
+          />
+        </Section>
+      )}
+
       {/* ─── Fill (shapes only) ─── */}
       {selectedElements.some((e) => e.type === 'shape') && (
         <Section title="Fyllnad">
@@ -386,4 +421,5 @@ const styles = {
   hint: { color: '#999', fontSize: '12px', fontStyle: 'italic' },
   textInput: { flex: 1, padding: '4px 6px', border: '1px solid #e0e0e0', borderRadius: '4px', fontSize: '12px', boxSizing: 'border-box', outline: 'none' },
   checkboxLabel: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer' },
+  smallButton: { padding: '3px 8px', border: '1px solid #e0e0e0', borderRadius: '4px', background: '#f5f5f5', cursor: 'pointer', fontSize: '11px', whiteSpace: 'nowrap' },
 };

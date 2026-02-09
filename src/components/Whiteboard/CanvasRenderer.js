@@ -12,6 +12,7 @@ import { renderConnectionPoints } from './renderers/LineRenderer';
 import { renderPath, renderPathPreview } from './renderers/PathRenderer';
 import { renderImage } from './renderers/ImageRenderer';
 import { renderSelection, renderAlignmentGuides } from './renderers/SelectionRenderer';
+import { hitTest as elementHitTest } from '../../utils/geometry';
 
 export class CanvasRenderer {
   constructor(canvas) {
@@ -365,7 +366,7 @@ export class CanvasRenderer {
   }
 
   hitTest(state, worldX, worldY) {
-    const { hitTest: elementHitTest } = require('../../utils/geometry');
+    
     for (let i = state.elementOrder.length - 1; i >= 0; i--) {
       const id = state.elementOrder[i];
       const el = state.elements[id];
@@ -374,7 +375,22 @@ export class CanvasRenderer {
       const layerId = el.layerId || 'default';
       const layer = (state.layers || []).find((l) => l.id === layerId);
       if (layer && (!layer.visible || layer.locked)) continue;
-      if (elementHitTest(el, worldX, worldY)) return id;
+
+      // For rotated elements, transform the test point into the element's local space
+      let testX = worldX;
+      let testY = worldY;
+      if (el.rotation && el.rotation !== 0 && el.type !== 'line') {
+        const cx = el.x + (el.width || 0) / 2;
+        const cy = el.y + (el.height || 0) / 2;
+        const cos = Math.cos(-el.rotation);
+        const sin = Math.sin(-el.rotation);
+        const dx = worldX - cx;
+        const dy = worldY - cy;
+        testX = cx + dx * cos - dy * sin;
+        testY = cy + dx * sin + dy * cos;
+      }
+
+      if (elementHitTest(el, testX, testY)) return id;
     }
     return null;
   }

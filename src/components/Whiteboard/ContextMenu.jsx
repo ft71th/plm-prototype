@@ -88,6 +88,46 @@ export default function ContextMenu() {
     });
   }
 
+  // ─── Rotation ─────────────────────────────────────────
+  if (hasSelection && firstEl?.type !== 'line') {
+    actions.push(null); // Separator
+    actions.push({
+      label: 'Rotera 90° medurs', icon: '↻',
+      action: () => {
+        const s = store.getState();
+        for (const id of selectedIds) {
+          const el = s.elements[id];
+          if (el && el.type !== 'line') {
+            s.updateElement(id, { rotation: ((el.rotation || 0) + Math.PI / 2) % (Math.PI * 2) });
+          }
+        }
+      },
+    });
+    actions.push({
+      label: 'Rotera 90° moturs', icon: '↺',
+      action: () => {
+        const s = store.getState();
+        for (const id of selectedIds) {
+          const el = s.elements[id];
+          if (el && el.type !== 'line') {
+            let r = ((el.rotation || 0) - Math.PI / 2);
+            if (r < 0) r += Math.PI * 2;
+            s.updateElement(id, { rotation: r });
+          }
+        }
+      },
+    });
+    actions.push({
+      label: 'Nollställ rotation', icon: '⟲',
+      action: () => {
+        const s = store.getState();
+        for (const id of selectedIds) {
+          s.updateElement(id, { rotation: 0 });
+        }
+      },
+    });
+  }
+
   if (hasSelection || multiSelection) actions.push(null); // Separator
 
   // ─── Ta bort ─────────────────────────────────────────

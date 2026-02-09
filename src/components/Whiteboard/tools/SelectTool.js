@@ -20,11 +20,40 @@ import {
 } from '../../../utils/geometry';
 import { findNearestConnectionPoint } from '../renderers/LineRenderer';
 
+// Rotation handle constants (must match SelectionRenderer)
+const ROTATION_HANDLE_DISTANCE = 25;
+const ROTATION_HANDLE_RADIUS = 6;
+
+/**
+ * Get the rotation handle position for an element (in world coords, accounting for rotation).
+ */
+function getRotationHandlePosition(element) {
+  const bb = getBoundingBox(element);
+  const cx = bb.x + bb.width / 2;
+  const cy = bb.y + bb.height / 2;
+  const rotation = element.rotation || 0;
+
+  let hx = cx;
+  let hy = bb.y - ROTATION_HANDLE_DISTANCE;
+
+  if (rotation !== 0) {
+    const dx = hx - cx;
+    const dy = hy - cy;
+    hx = cx + dx * Math.cos(rotation) - dy * Math.sin(rotation);
+    hy = cy + dx * Math.sin(rotation) + dy * Math.cos(rotation);
+  }
+
+  return { x: hx, y: hy, radius: ROTATION_HANDLE_RADIUS };
+}
+
 export class SelectTool {
   constructor() {
     this.isDragging = false;
     this.isResizing = false;
     this.isLassoing = false;
+    this.isRotating = false;
+    this.rotatingElementId = null;
+    this.rotationStart = null;
     this.dragStartWorld = null;
     this.dragStartPositions = null; // Map: id → { x, y }
     this.resizeHandle = null;
@@ -36,7 +65,26 @@ export class SelectTool {
   onMouseDown(worldX, worldY, shiftKey, store, renderer) {
     const state = store.getState();
 
-    // Check for resize handle on selected elements first
+    // Check for rotation handle on selected elements first
+    for (const id of state.selectedIds) {
+      const el = state.elements[id];
+      if (!el || el.type === 'line') continue;
+      const rotHandle = getRotationHandlePosition(el);
+      const dist = Math.hypot(worldX - rotHandle.x, worldY - rotHandle.y);
+      if (dist <= rotHandle.radius + 4) {
+        this.isRotating = true;
+        this.rotatingElementId = id;
+        const bb = getBoundingBox(el);
+        const cx = bb.x + bb.width / 2;
+        const cy = bb.y + bb.height / 2;
+        this.rotationCenter = { x: cx, y: cy };
+        this.rotationStart = Math.atan2(worldY - cy, worldX - cx);
+        this.rotationOriginal = el.rotation || 0;
+        return;
+      }
+    }
+
+    // Check for resize handle on selected elements
     for (const id of state.selectedIds) {
       const el = state.elements[id];
       if (!el) continue;
@@ -112,6 +160,11 @@ export class SelectTool {
   }
 
   onMouseMove(worldX, worldY, shiftKey, store, renderer) {
+    if (this.isRotating) {
+      this._handleRotation(worldX, worldY, shiftKey, store, renderer);
+      return;
+    }
+
     if (this.isResizing) {
       this._handleResize(worldX, worldY, shiftKey, store, renderer);
       return;
@@ -159,6 +212,11 @@ export class SelectTool {
     this.isDragging = false;
     this.isResizing = false;
     this.isLassoing = false;
+    this.isRotating = false;
+    this.rotatingElementId = null;
+    this.rotationStart = null;
+    this.rotationCenter = null;
+    this.rotationOriginal = null;
     this.dragStartWorld = null;
     this.dragStartPositions = null;
     this.resizeHandle = null;
@@ -183,6 +241,28 @@ export class SelectTool {
   }
 
   // ─── Private helpers ──────────────────────────────────
+
+  _handleRotation(worldX, worldY, shiftKey, store, renderer) {
+    const state = store.getState();
+    const cx = this.rotationCenter.x;
+    const cy = this.rotationCenter.y;
+
+    const currentAngle = Math.atan2(worldY - cy, worldX - cx);
+    let newRotation = this.rotationOriginal + (currentAngle - this.rotationStart);
+
+    // Normalize to 0..2π
+    while (newRotation < 0) newRotation += Math.PI * 2;
+    while (newRotation >= Math.PI * 2) newRotation -= Math.PI * 2;
+
+    // Shift: snap to 15° increments
+    if (shiftKey) {
+      const snap = Math.PI / 12; // 15 degrees
+      newRotation = Math.round(newRotation / snap) * snap;
+    }
+
+    state.updateElement(this.rotatingElementId, { rotation: newRotation });
+    renderer.markDirty();
+  }
 
   _handleMove(worldX, worldY, store, renderer) {
     const dx = worldX - this.dragStartWorld.x;
@@ -387,6 +467,17 @@ export class SelectTool {
    * Get the cursor style based on current hover position.
    */
   getCursor(worldX, worldY, state) {
+    // Check for rotation handle on selected elements
+    for (const id of state.selectedIds) {
+      const el = state.elements[id];
+      if (!el || el.type === 'line') continue;
+      const rotHandle = getRotationHandlePosition(el);
+      const dist = Math.hypot(worldX - rotHandle.x, worldY - rotHandle.y);
+      if (dist <= rotHandle.radius + 4) {
+        return 'grab';
+      }
+    }
+
     // Check for resize handles on selected elements
     for (const id of state.selectedIds) {
       const el = state.elements[id];
