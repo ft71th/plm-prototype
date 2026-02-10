@@ -7,6 +7,9 @@
 
 import React, { useState, useRef, useCallback } from 'react';
 import useWhiteboardStore from '../../stores/whiteboardStore';
+import { getCombinedBoundingBox } from '../../utils/geometry';
+import { renderShape } from './renderers/ShapeRenderer';
+import { renderText } from './renderers/TextRenderer';
 
 export default function ExportImportDialog({ canvasRef }) {
   const showExportDialog = useWhiteboardStore((s) => s.showExportDialog);
@@ -53,11 +56,9 @@ export default function ExportImportDialog({ canvasRef }) {
 
   // ─── Export PNG ─────────────────────────────────────────
   const handleExportPNG = useCallback(() => {
-    const canvas = canvasRef?.current;
-    if (!canvas) return;
 
     const state = useWhiteboardStore.getState();
-    const { getCombinedBoundingBox } = require('../../utils/geometry');
+    
     const exportEls = getExportElements();
     const exportOrder = getExportElementOrder();
     const bb = getCombinedBoundingBox(exportEls);
@@ -81,10 +82,6 @@ export default function ExportImportDialog({ canvasRef }) {
 
     // Translate so elements start at padding
     ctx.translate(padding - bb.x, padding - bb.y);
-
-    // Import renderers
-    const { renderShape } = require('./renderers/ShapeRenderer');
-    const { renderText } = require('./renderers/TextRenderer');
 
     // Render elements based on export scope
     for (const id of exportOrder) {
@@ -151,12 +148,12 @@ export default function ExportImportDialog({ canvasRef }) {
     }, 'image/png');
 
     handleClose();
-  }, [canvasRef, getExportElements, getExportElementOrder]);
+  }, [getExportElements, getExportElementOrder]);
 
   // ─── Export SVG ─────────────────────────────────────────
   const handleExportSVG = useCallback(() => {
     const state = useWhiteboardStore.getState();
-    const { getCombinedBoundingBox } = require('../../utils/geometry');
+    
     const exportEls = getExportElements();
     const exportOrder = getExportElementOrder();
     const bb = getCombinedBoundingBox(exportEls);

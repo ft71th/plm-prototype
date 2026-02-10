@@ -202,21 +202,30 @@ export default function WhiteboardCanvas({ className = '' }) {
   // ─── Image Paste Handler (Ctrl+V) ───────────────────────────
   const handlePaste = useCallback((e) => {
     const items = e.clipboardData?.items;
-    if (!items) return;
+    
+    // 1. Check for image in system clipboard first
+    if (items) {
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (!file) continue;
 
-    for (const item of items) {
-      if (item.type.startsWith('image/')) {
-        e.preventDefault();
-        const file = item.getAsFile();
-        if (!file) continue;
-
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          addImageToCanvas(event.target.result, store);
-        };
-        reader.readAsDataURL(file);
-        break; // Bara första bilden
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            addImageToCanvas(event.target.result, store);
+          };
+          reader.readAsDataURL(file);
+          return; // Image found — don't paste internal elements
+        }
       }
+    }
+
+    // 2. No image in clipboard — paste internal elements if available
+    const state = store.getState();
+    if (state.clipboard && state.clipboard.length > 0) {
+      e.preventDefault();
+      state.pasteElements();
     }
   }, []);
 
@@ -259,6 +268,14 @@ export default function WhiteboardCanvas({ className = '' }) {
     document.addEventListener('paste', onPaste);
     return () => document.removeEventListener('paste', onPaste);
   }, [handlePaste]);
+
+  // ─── Wheel event (native, non-passive to allow preventDefault) ──
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.addEventListener('wheel', handleWheel, { passive: false });
+    return () => canvas.removeEventListener('wheel', handleWheel);
+  }, [handleWheel]);
 
   // ─── Inline text editing ────────────────────────────────────
   const editingElement = state.editingElementId
@@ -379,7 +396,6 @@ export default function WhiteboardCanvas({ className = '' }) {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onDoubleClick={handleDoubleClick}
-        onWheel={handleWheel}
         onContextMenu={(e) => e.preventDefault()}
       />
 

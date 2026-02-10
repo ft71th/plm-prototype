@@ -206,17 +206,17 @@ export default function App(): React.ReactElement {
 
 
    // Handle login
-  const handleLogin = (userData: any) => {
-    useStore.getState().setUser(userData);
+  const handleLogin = (userData) => {
+    setUser(userData);
     realtime.connect();
-    fetchHardwareTypes();
+    fetchHardwareTypes();  // Load hardware types from database
   };
 
   // Handle logout
   const handleLogout = () => {
     auth.logout();
-    useStore.getState().setUser(null);
-    useStore.getState().setCurrentProjectId(null);
+    setUser(null);
+    setCurrentProjectId(null);
   };
 
   // Handle project selection
@@ -224,11 +224,10 @@ export default function App(): React.ReactElement {
     console.log('Opening project:', projectData);
     
     // Set project info
-    useStore.getState().setCurrentProject(projectData.project || projectData);
-    useStore.getState().setObjectName(projectData.project?.name || projectData.name || 'New Project');
-    useStore.getState().setObjectVersion(projectData.project?.version || projectData.version || '1.0');
+    setCurrentProject(projectData.project || projectData);
+    setObjectName(projectData.project?.name || projectData.name || 'New Project');
+    setObjectVersion(projectData.project?.version || projectData.version || '1.0');
     
-        
     // Load nodes and edges if present
     if (projectData.nodes) {
       const loadedNodes = projectData.nodes.map(node => ({
@@ -614,7 +613,6 @@ const createNewObject = (name, version, description) => {
 
   // Check if user is already logged in
   useEffect(() => {
-    let cancelled = false;
     const checkAuth = async () => {
       const token = localStorage.getItem('plm_token');
       const savedUser = localStorage.getItem('plm_user');
@@ -624,27 +622,22 @@ const createNewObject = (name, version, description) => {
       if (token && savedUser) {
         try {
           const userData = await auth.me();
-          if (!cancelled) {
-            useStore.getState().setUser(userData);
-            realtime.connect();
-            fetchHardwareTypes();
-          }
+          useStore.getState().setUser(userData);
+          realtime.connect();
+          fetchHardwareTypes();
         } catch (err) {
           console.error('Auth check failed:', err);
-          if (!cancelled) {
-            localStorage.removeItem('plm_token');
-            localStorage.removeItem('plm_user');
-            useStore.getState().setUser(null);
-          }
+          localStorage.removeItem('plm_token');
+          localStorage.removeItem('plm_user');
+          useStore.getState().setUser(null);
         }
       } else {
-        if (!cancelled) useStore.getState().setUser(null);
+        useStore.getState().setUser(null);
       }
       
-      if (!cancelled) useStore.getState().setIsAuthChecking(false);
+      useStore.getState().setIsAuthChecking(false);
     };
     checkAuth();
-    return () => { cancelled = true; };
   }, []);
 
  // Expose duplicateNode and generateFATProtocol to window for FloatingPanel buttons
@@ -812,9 +805,8 @@ const createNewObject = (name, version, description) => {
         voiceStatus={voiceStatus}
       />}
       
-      {/* Sidebar - hidden in freeform drawing mode */}
-      {viewMode !== 'freeform' && (
-        <ProjectSidebar
+      {/* Sidebar */}
+      <ProjectSidebar
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
           saveProjectToDatabase={saveProjectToDatabase}
@@ -830,7 +822,6 @@ const createNewObject = (name, version, description) => {
           canUndo={canUndo}
           canRedo={canRedo}
         />
-      )}
       
       {/* Show Document View, Freeform Whiteboard, OR PLM Canvas */}
       {viewMode === 'document' ? (

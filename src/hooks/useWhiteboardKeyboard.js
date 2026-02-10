@@ -42,14 +42,8 @@ export function useWhiteboardKeyboard(store) {
         }
       }
 
-      // Ctrl+V — paste elements (images handled separately in WhiteboardCanvas)
-      if (isCtrl && e.key === 'v') {
-        if (state.clipboard && state.clipboard.length > 0) {
-          // Only paste elements if we have elements in clipboard
-          // Image paste is handled by the paste event listener
-          store.getState().pasteElements();
-        }
-      }
+      // Ctrl+V — handled by paste event in WhiteboardCanvas
+      // (checks for clipboard images first, then falls back to internal paste)
 
       // Ctrl+D — duplicate
       if (isCtrl && e.key === 'd') {

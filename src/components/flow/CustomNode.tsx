@@ -979,13 +979,44 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
                 color: '#fff',
                 textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
                 cursor: 'text',
-                wordBreak: 'break-word'
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                maxWidth: '100%'
               }}
             >
               {data.label}
             </div>
           )}
         </div>
+
+        {/* Issue indicator in whiteboard mode */}
+        {data.issueCount > 0 && (
+          <div 
+            style={{
+              position: 'absolute',
+              top: '4px',
+              right: '4px',
+              background: data.criticalIssueCount > 0 ? '#e74c3c' : '#f39c12',
+              color: 'white',
+              borderRadius: '50%',
+              width: '22px',
+              height: '22px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+              cursor: 'pointer',
+              zIndex: 10
+            }}
+            title={`${data.issueCount} open issue${data.issueCount > 1 ? 's' : ''}`}
+            onClick={() => data.onShowIssues && data.onShowIssues({ id })}
+          >
+            {data.issueCount > 9 ? '9+' : data.issueCount}
+          </div>
+        )}
       </div>
       </>
     );
@@ -1364,21 +1395,13 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
       )}
 
       {/* Issue Indicator */}
-      {(() => {
-        const issues = data.issues || [];
-        const openIssues = issues.filter(i => i.status !== 'closed' && i.status !== 'resolved');
-        const criticalHighCount = openIssues.filter(i => i.priority === 'critical' || i.priority === 'high').length;
-        const issueCount = openIssues.length;
-        
-        if (issueCount === 0) return null;
-        
-        return (
+      {data.issueCount > 0 && (
           <div 
             style={{
               position: 'absolute',
               top: '4px',
               right: data.locked ? '32px' : '4px',
-              background: criticalHighCount > 0 ? '#e74c3c' : '#f39c12',
+              background: data.criticalIssueCount > 0 ? '#e74c3c' : '#f39c12',
               color: 'white',
               borderRadius: '50%',
               width: '22px',
@@ -1392,12 +1415,12 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
               cursor: 'pointer',
               zIndex: 10
             }}
-            title={`${issueCount} open issue${issueCount > 1 ? 's' : ''}${criticalHighCount > 0 ? ` (${criticalHighCount} critical/high)` : ''}`}
+            title={`${data.issueCount} open issue${data.issueCount > 1 ? 's' : ''}`}
+            onClick={() => data.onShowIssues && data.onShowIssues({ id })}
           >
-            {issueCount > 9 ? '9+' : issueCount}
+            {data.issueCount > 9 ? '9+' : data.issueCount}
           </div>
-        );
-      })()}
+      )}
 
       {data.attachment && (
         <div style={{

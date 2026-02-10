@@ -55,24 +55,23 @@ function TextAnnotationNode({ data, id, selected }: { data: NodeData; id: string
       onDoubleClick={handleDoubleClick}
     >
       {/* Resize Handle */}
-      {selected && (
-        <NodeResizer
-          color="#3498db"
-          isVisible={selected}
-          minWidth={80}
-          minHeight={30}
-          onResize={(event, { width, height }) => {
-            if (data.onResize) {
-              data.onResize(id, width, height);
-            }
-          }}
-          handleStyle={{
-            width: '8px',
-            height: '8px',
-            borderRadius: '2px',
-          }}
-        />
-      )}
+      <NodeResizer
+        color="#3498db"
+        isVisible={selected}
+        minWidth={80}
+        minHeight={30}
+        onResizeEnd={(event, { width, height }) => {
+          if (data.onChange) {
+            data.onChange(id, 'nodeWidth', width);
+            data.onChange(id, 'nodeHeight', height);
+          }
+        }}
+        handleStyle={{
+          width: '8px',
+          height: '8px',
+          borderRadius: '2px',
+        }}
+      />
 
       {isEditing ? (
         <textarea

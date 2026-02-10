@@ -40,23 +40,33 @@ export default function useKeyboardShortcuts({
   const setSelectedNode = useStore(s => s.setSelectedNode);
   const setSelectedEdge = useStore(s => s.setSelectedEdge);
   const setShowLinkManager = useStore(s => s.setShowLinkManager);
+  const viewMode = useStore(s => s.viewMode);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const isInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable;
-      const isSelect = e.target.tagName === 'SELECT';
+      const isInput = (e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA' || (e.target as HTMLElement).isContentEditable;
+      const isSelect = (e.target as HTMLElement).tagName === 'SELECT';
       const mod = e.ctrlKey || e.metaKey;
 
       // Escape always works
       if (e.key === 'Escape') {
         setSelectedNode(null);
         setSelectedEdge(null);
-        if (isInput || isSelect) e.target.blur();
+        if (isInput || isSelect) (e.target as HTMLElement).blur();
         return;
       }
 
       // Don't trigger shortcuts when typing in input fields
       if (isInput || isSelect) return;
+
+      // In freeform/draw mode, only handle save (Ctrl+S) — let whiteboard handle the rest
+      if (viewMode === 'freeform') {
+        if (mod && e.key === 's') {
+          e.preventDefault();
+          saveProjectToDatabase();
+        }
+        return;
+      }
 
       // ─── Clipboard shortcuts ───
       if (mod && e.key === 'c') {
@@ -173,6 +183,6 @@ export default function useKeyboardShortcuts({
     saveProjectToDatabase, exportProject,
     duplicateNode, undo, redo,
     nodes, selectedNode, setNodes, setSelectedNode, setSelectedEdge,
-    setShowLinkManager,
+    setShowLinkManager, viewMode,
   ]);
 }
