@@ -740,8 +740,10 @@ function CustomNode({ data, id, selected }) {
         />
         <div 
           style={{
-            width: data.width || `${nodeWidth}px`,
-            minHeight: data.height || `${nodeHeight}px`,
+            width: '100%',
+            height: '100%',
+            minWidth: `${nodeWidth}px`,
+            minHeight: `${nodeHeight}px`,
             backgroundColor: getWhiteboardColor(),
             borderRadius: getNodeShape().borderRadius || '8px',
             borderStyle: getNodeShape().borderStyle || 'solid',
