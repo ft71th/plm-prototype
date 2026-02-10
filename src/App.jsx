@@ -2,6 +2,7 @@ import Login from './Login';
 import { auth, projects, realtime } from './api';
 import { NorthlightSplash, NorthlightLogo } from './NorthlightLogo';
 import React, { useCallback, useState, useEffect, useMemo, useRef } from 'react';
+import useStore from './store';
 import ProjectSelector from './ProjectSelector';
 import ReactFlow, {
   MiniMap,
@@ -92,12 +93,35 @@ export default function App() {
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-  const [selectedNode, setSelectedNode] = useState(null);
-  const [selectedEdge, setSelectedEdge] = useState(null);
-  const [floatingPanelPosition, setFloatingPanelPosition] = useState({ x: 0, y: 0 });
-  const [edgePanelPosition, setEdgePanelPosition] = useState({ x: 0, y: 0 });
-  const [showRelationshipLabels, setShowRelationshipLabels] = useState(true);
-  const [viewMode, setViewMode] = useState('plm');
+  
+  // ─── Zustand Store (UI, filters, project, auth, selection) ───
+  const {
+    // Selection
+    selectedNode, setSelectedNode, selectedEdge, setSelectedEdge,
+    floatingPanelPosition, setFloatingPanelPosition,
+    edgePanelPosition, setEdgePanelPosition,
+    createLinkSourceId, setCreateLinkSourceId,
+    // UI
+    sidebarOpen, setSidebarOpen, filtersOpen, setFiltersOpen,
+    showShareModal, setShowShareModal, showNewObjectModal, setShowNewObjectModal,
+    showChangePassword, setShowChangePassword, showSaveToast, setShowSaveToast,
+    showEdgePanel, setShowEdgePanel, showCreateLinkModal, setShowCreateLinkModal,
+    showLinkManager, setShowLinkManager, showSplash, setShowSplash,
+    showRelationshipLabels, setShowRelationshipLabels,
+    viewMode, setViewMode,
+    // Filters
+    searchText, setSearchText,
+    typeFilter, setTypeFilter, statusFilter, setStatusFilter,
+    priorityFilter, setPriorityFilter, stateFilter, setStateFilter,
+    reqTypeFilter, setReqTypeFilter, classificationFilter, setClassificationFilter,
+    clearFilters,
+    // Project
+    objectName, setObjectName, objectVersion, setObjectVersion,
+    objectDescription, setObjectDescription,
+    currentProject, setCurrentProject, currentProjectId, setCurrentProjectId,
+    // Auth
+    user, setUser, isAuthChecking, setIsAuthChecking,
+  } = useStore();
 
   // ─── Custom Hooks ───
   const {
@@ -137,18 +161,7 @@ export default function App() {
     undo, redo, isUndoRedo, resetHistory, canUndo, canRedo,
   } = useUndoRedo({ nodes, edges, setNodes, setEdges });
 
-  const [searchText, setSearchText] = useState('');
-  const [typeFilter, setTypeFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [priorityFilter, setPriorityFilter] = useState('all');
-  const [stateFilter, setStateFilter] = useState('all');
-  const [reqTypeFilter, setReqTypeFilter] = useState('all');
-  const [classificationFilter, setClassificationFilter] = useState('all');
 
-  const [objectName, setObjectName] = useState('MPV Propulsion System');
-  const [objectVersion, setObjectVersion] = useState('1.0');
-  const [objectDescription, setObjectDescription] = useState('Multi-Purpose Vessel propulsion control system');
-  const [showNewObjectModal, setShowNewObjectModal] = useState(false);
   
   // ─── Requirement Links ────────────────────────
   const {
@@ -169,9 +182,7 @@ export default function App() {
     getImpactAnalysis,
   } = useRequirementLinks([]);
 
-  const [showCreateLinkModal, setShowCreateLinkModal] = useState(false);
-  const [createLinkSourceId, setCreateLinkSourceId] = useState(null);
-  const [showLinkManager, setShowLinkManager] = useState(false);
+
 
   // Health checks (memoized)
   const linkHealthIssues = useMemo(() => runHealthChecks(nodes), [nodes, requirementLinks]);
@@ -187,24 +198,10 @@ export default function App() {
 
 
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [showShareModal, setShowShareModal] = useState(false);
-  
+
 
   const reactFlowWrapper = useRef(null);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
-  const [showSplash, setShowSplash] = useState(true);
-
-  const [showEdgePanel, setShowEdgePanel] = useState(false);
-
-  // Auth state
-  const [user, setUser] = useState(null);
-  const [isAuthChecking, setIsAuthChecking] = useState(true);
-  const [currentProject, setCurrentProject] = useState(null);
-  const [currentProjectId, setCurrentProjectId] = useState(null);
-  const [showChangePassword, setShowChangePassword] = useState(false);
-  const [showSaveToast, setShowSaveToast] = useState(false);
 
 
    // Handle login
@@ -677,16 +674,6 @@ const createNewObject = (name, version, description) => {
     setShowLinkManager,
   });
 
-  const clearFilters = () => {
-    setSearchText('');
-    setTypeFilter('all');
-    setStatusFilter('all');
-    setPriorityFilter('all');
-    setStateFilter('all');
-    setReqTypeFilter('all');
-    setClassificationFilter('all');
-  };
-  
   if (showSplash) {
       return <NorthlightSplash onComplete={() => setShowSplash(false)} duration={5000} />;
     }
