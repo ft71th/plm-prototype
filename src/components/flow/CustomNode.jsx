@@ -732,6 +732,13 @@ function CustomNode({ data, id, selected }) {
           isVisible={selected}
           minWidth={120}
           minHeight={60}
+          onResizeEnd={(event, params) => {
+            // Persist resized dimensions in node.data so they survive save/load
+            if (data.onChange) {
+              data.onChange(id, 'nodeWidth', params.width);
+              data.onChange(id, 'nodeHeight', params.height);
+            }
+          }}
           handleStyle={{
             width: '10px',
             height: '10px',

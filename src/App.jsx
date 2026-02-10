@@ -2,7 +2,6 @@ import Login from './Login';
 import { auth, projects, realtime } from './api';
 import { NorthlightSplash, NorthlightLogo } from './NorthlightLogo';
 import React, { useCallback, useState, useEffect, useMemo, useRef } from 'react';
-import dagre from 'dagre';
 import ProjectSelector from './ProjectSelector';
 import ReactFlow, {
   MiniMap,
@@ -38,7 +37,7 @@ import {
   useIdCounters, useIssueManager, useHardwareTypes, useWhiteboards,
   useUndoRedo, useClipboard, useNodeFactory, useNodeOperations,
   useEdgeHandlers, useFATProtocol, useVoiceRecognition, useLibrary,
-  useProjectIO,
+  useProjectIO, useKeyboardShortcuts,
 } from './hooks';
 
 // ─── Extracted Flow Components ───
@@ -64,7 +63,8 @@ import ManageHardwareTypesModal from './components/hardware/ManageHardwareTypesM
 // ─── Extracted Layout Components ───
 import TopHeader from './components/layout/TopHeader';
 import LeftIconStrip from './components/layout/LeftIconStrip';
-import { Sidebar, SidebarSection, SidebarButton } from './components/layout/Sidebar';
+import ProjectSidebar from './components/layout/ProjectSidebar';
+import SelectionToolbar from './components/layout/SelectionToolbar';
 
 // ─── Extracted Modal Components ───
 import NewObjectModal from './components/modals/NewObjectModal';
@@ -234,6 +234,12 @@ export default function App() {
     if (projectData.nodes) {
       const loadedNodes = projectData.nodes.map(node => ({
         ...node,
+        // Restore resized dimensions as style so ReactFlow renders at saved size
+        style: {
+          ...(node.style || {}),
+          ...(node.data?.nodeWidth ? { width: node.data.nodeWidth } : {}),
+          ...(node.data?.nodeHeight ? { height: node.data.nodeHeight } : {}),
+        },
         data: {
           ...node.data,
           // Preserve reqType - don't override it!
@@ -321,118 +327,6 @@ export default function App() {
   };
 
   // Save project to database
-  const saveProjectToDatabase = async () => {
-    if (!currentProject) {
-      alert('No project open');
-      return;
-      
-    }
-    setShowSaveToast(true);
-    setTimeout(() => setShowSaveToast(false), 1000);
-    
-    try {
-      // Prepare nodes - remove non-serializable functions and floating connectors
-      const nodesToSave = nodes
-        .filter(node => !node.data?.isFloatingConnector) // Remove floating connectors
-        .map(node => ({
-          ...node,
-          data: {
-            ...node.data,
-            // Remove non-serializable functions
-            onChange: undefined,
-            onLabelChange: undefined,
-          }
-        }));
-      
-      // Remove edges connected to floating connectors
-      const connectorIds = nodes
-        .filter(n => n.data?.isFloatingConnector)
-        .map(n => n.id);
-      
-      const edgesToSave = edges
-        .filter(e => !connectorIds.includes(e.source) && !connectorIds.includes(e.target))
-        .map(edge => ({
-          ...edge,
-          data: {
-            ...edge.data,
-            // Remove non-serializable functions
-            onLabelChange: undefined,
-            onEdgeDoubleClick: undefined,
-          }
-        }));
-      
-      await projects.save(currentProject.id, {
-        name: objectName,
-        description: objectDescription,
-        version: objectVersion,
-        nodes: nodesToSave,
-        edges: edgesToSave,
-        whiteboards: whiteboards,
-        issues: issues,
-        issueIdCounter: issueIdCounter,
-        requirementLinks: requirementLinks,
-      });
-
-      // Removed alert - bottom notification will show instead
-    } catch (err) {
-      console.error('Save error:', err);
-      alert('Failed to save project: ' + err.message);
-    }
-  };
-
-  // Auto-layout function
-  const autoLayoutNodes = useCallback(() => {
-    if (nodes.length === 0) return;
-
-    const dagreGraph = new dagre.graphlib.Graph();
-    dagreGraph.setDefaultEdgeLabel(() => ({}));
-    
-    // Layout settings
-    dagreGraph.setGraph({ 
-      rankdir: 'LR',      // Left to Right layout
-      nodesep: 80,        // Horizontal spacing between nodes
-      ranksep: 150,       // Vertical spacing between ranks
-      marginx: 50,
-      marginy: 50
-    });
-
-    // Add nodes to dagre
-    nodes.forEach((node) => {
-      dagreGraph.setNode(node.id, { 
-        width: node.width || 200, 
-        height: node.height || 100 
-      });
-    });
-
-    // Add edges to dagre
-    edges.forEach((edge) => {
-      dagreGraph.setEdge(edge.source, edge.target);
-    });
-
-    // Run the layout
-    dagre.layout(dagreGraph);
-
-    // Update node positions
-    const newNodes = nodes.map((node) => {
-      const nodeWithPosition = dagreGraph.node(node.id);
-      return {
-        ...node,
-        position: {
-          x: nodeWithPosition.x - (node.width || 200) / 2,
-          y: nodeWithPosition.y - (node.height || 100) / 2,
-        },
-      };
-    });
-
-    setNodes(newNodes);
-    
-    // Fit view after layout
-    setTimeout(() => {
-      if (reactFlowInstance) {
-        reactFlowInstance.fitView({ padding: 0.2 });
-      }
-    }, 50);
-  }, [nodes, edges, setNodes, reactFlowInstance]);
 
   const stats = useMemo(() => {
     const floatingConnectors = nodes.filter(n => n.data?.isFloatingConnector).length;  // ADD THIS
@@ -496,78 +390,12 @@ export default function App() {
 
   const {
     alignSelectedNodes, toggleLockSelectedNodes, exportSelectedNodes,
-    groupSelectedNodes, ungroupSelectedNodes,
+    groupSelectedNodes, ungroupSelectedNodes, autoLayoutNodes,
   } = useNodeOperations({
     nodes, edges, setNodes, nodeId, setNodeId, handleNodeLabelChange,
+    reactFlowInstance,
   });
 
-  // Keyboard shortcuts for copy/paste/delete
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      // Don't trigger if user is typing in an input
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
-        return;
-      }
-      
-      // Ctrl+C or Cmd+C - Copy
-      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-        e.preventDefault();
-        copySelectedNodes();
-      }
-      
-      // Ctrl+V or Cmd+V - Paste
-      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
-        e.preventDefault();
-        pasteNodes();
-      }
-      
-      // Ctrl+X or Cmd+X - Cut
-      if ((e.ctrlKey || e.metaKey) && e.key === 'x') {
-        e.preventDefault();
-        copySelectedNodes();
-        deleteSelectedNodes();
-      }
-      
-      // Ctrl+A or Cmd+A - Select All
-      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
-        e.preventDefault();
-        setNodes(nds => nds.map(n => ({ ...n, selected: true })));
-      }
-      
-      // Ctrl+D or Cmd+D - Duplicate
-      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
-        e.preventDefault();
-        duplicateSelectedNodes();
-      }
-      
-      // Ctrl+L or Cmd+L - Lock/Unlock
-      if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
-        e.preventDefault();
-        toggleLockSelectedNodes();
-      }
-      
-      // Ctrl+G or Cmd+G - Group
-      if ((e.ctrlKey || e.metaKey) && e.key === 'g') {
-        e.preventDefault();
-        if (e.shiftKey) {
-          ungroupSelectedNodes();
-        } else {
-          groupSelectedNodes();
-        }
-      }
-      // Ctrl+Shift+L - Link Manager
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'l') {
-        e.preventDefault();
-        setShowLinkManager(true);
-        return;
-      }
-
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [copySelectedNodes, pasteNodes, deleteSelectedNodes, duplicateSelectedNodes, 
-      toggleLockSelectedNodes, groupSelectedNodes, ungroupSelectedNodes, setNodes]);
 
   const handleNodeClick = (event, node) => {
     // Single click just highlights/selects - doesn't open panel
@@ -665,15 +493,6 @@ export default function App() {
     fetchLibraryItems, saveNodeToLibrary, addLibraryItemToCanvas,
   } = useLibrary({ nodeId, setNodeId, setNodes });
 
-  // Node resize handler
-  const handleNodeResize = useCallback((nodeId, width, height) => {
-    setNodes(nds => nds.map(node => 
-      node.id === nodeId 
-        ? { ...node, data: { ...node.data, nodeWidth: width, nodeHeight: height } }
-        : node
-    ));
-  }, []);
-
   const processedNodes = useMemo(() => {
     return nodes.map((node) => {
       const searchLower = searchText.toLowerCase();
@@ -721,92 +540,13 @@ export default function App() {
 
   const filteredCount = processedNodes.filter(n => n.data.isFiltered).length;
 
-const addPlatformNode = useCallback(() => {
-    setSelectedNode(null);
-    setNodes((nds) => nds.map(n => ({ ...n, selected: false })));
-    
-    const reqId = generateItemId ('platform');
-    
-    setTimeout(() => {
-      const newNode = {
-        id: String(nodeId),
-        type: 'custom',
-        position: { x: Math.random() * 400, y: Math.random() * 400 },
-        selected: false,
-        data: { 
-          label: 'New Platform Component', 
-          type: 'platform',
-          reqType: 'platform',
-          reqId: reqId,
-          version: '1.0',
-          classification: 'capability',
-          description: '',
-          priority: 'medium',
-          status: 'new',
-          state: 'open',
-          owner: '',
-          attachment: null,
-          onChange: handleNodeLabelChange
-        },
-      };
-      setNodes((nds) => [...nds, newNode]);
-      setNodeId((id) => id + 1);
-    }, 0);
-  }, [nodeId, handleNodeLabelChange, setNodes, setSelectedNode, generateItemId ]);
-
- const addRequirementNode = useCallback(() => {
-    setSelectedNode(null);
-    setNodes((nds) => nds.map(n => ({ ...n, selected: false })));
-    
-    let position = { x: Math.random() * 300 + 100, y: Math.random() * 200 + 100 };
-    
-    if (reactFlowInstance) {
-      const viewport = reactFlowInstance.getViewport();
-      const centerX = (-viewport.x + window.innerWidth / 2) / viewport.zoom;
-      const centerY = (-viewport.y + window.innerHeight / 2) / viewport.zoom;
-      position = { 
-        x: centerX + (Math.random() * 100 - 50), 
-        y: centerY + (Math.random() * 100 - 50) 
-      };
-    }
-    const itemId = generateItemId('project');
-    
-    setTimeout(() => {
-      const newNode = {
-        id: String(nodeId),
-        type: 'custom',
-        position: position,
-        selected: false,
-        data: { 
-          label: 'New Requirement',
-          type: 'requirement',
-          itemType: 'requirement',
-          reqId: itemId,
-          version: '1.0',
-          reqType: 'project',
-          origin: 'internal',
-          classification: 'requirement',
-          description: '',
-          rationale: '',
-          priority: 'medium',
-          status: 'new',
-          state: 'open',
-          owner: '',
-          attachment: null,
-          onChange: handleNodeLabelChange
-        },
-      };
-      setNodes((nds) => [...nds, newNode]);
-      setNodeId((id) => id + 1);
-    }, 0);
-  }, [nodeId, handleNodeLabelChange, setNodes, setSelectedNode, generateItemId, reactFlowInstance]);
-
   // ─── Node Factory Hook (replaces 10 add*Node functions) ───
   const {
     addNode,
     addSystemNode, addSubSystemNode, addFunctionNode, addTestCaseNode,
     addUseCaseNode, addActorNode,
     addParameterNode, addHardwareNode, addTextAnnotationNode,
+    addPlatformNode, addRequirementNode,
   } = useNodeFactory({
     nodeId, setNodeId, generateItemId, handleNodeLabelChange,
     setNodes, setSelectedNode, reactFlowInstance, hardwareTypes,
@@ -814,8 +554,8 @@ const addPlatformNode = useCallback(() => {
 
 
 
-  // ─── Project I/O Hook (export/import) ───
-  const { exportProject, exportToExcel, importProject } = useProjectIO({
+  // ─── Project I/O Hook (save/export/import) ───
+  const { saveProjectToDatabase, exportProject, exportToExcel, importProject } = useProjectIO({
     objectName, objectVersion, objectDescription,
     setObjectName, setObjectVersion, setObjectDescription,
     nodes, edges, setNodes, setEdges,
@@ -824,6 +564,7 @@ const addPlatformNode = useCallback(() => {
     handleNodeLabelChange,
     setCountersFromNodes, loadIssues, resetHistory,
     setSelectedNode, setSelectedEdge,
+    currentProject, setShowSaveToast, requirementLinks,
   });
 
   // ─── FAT Protocol Hook ───
@@ -922,114 +663,19 @@ const createNewObject = (name, version, description) => {
     };
   }, [duplicateNode, generateFATProtocol, startVoiceDictation]);
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      // Don't trigger shortcuts when typing in input fields
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
-        if (e.key === 'Escape') {
-          setSelectedNode(null);
-          setSelectedEdge(null);
-          e.target.blur();
-        }
-        return;
-      }
-
-      // Auto-layout with 'A'
-      if (e.key === 'a' && !e.ctrlKey && !e.metaKey) {
-        // Don't trigger if typing in input
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-        e.preventDefault();
-        autoLayoutNodes();
-      }
-
-      // P = New Platform
-      if (e.key === 'p' || e.key === 'P') {
-        e.preventDefault();
-        addPlatformNode();
-      }
-
-      // R = New Requirement
-      if (e.key === 'r' || e.key === 'R') {
-        e.preventDefault();
-        addRequirementNode();
-      }
-
-      // Escape = Close panels
-      if (e.key === 'Escape') {
-        setSelectedNode(null);
-        setSelectedEdge(null);
-      }
-
-      // Ctrl+D = Duplicate selected node
-      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
-        e.preventDefault();
-        // Find selected nodes from ReactFlow's selection
-        const selectedNodes = nodes.filter(n => n.selected);
-        if (selectedNodes.length > 0) {
-          duplicateNode(selectedNodes[0]);
-        } else if (selectedNode) {
-          // Fallback to panel's selected node
-          duplicateNode(selectedNode);
-        }
-      }
-
-      // Ctrl+Z = Undo
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        undo();
-      }
-
-      // Ctrl+Y or Ctrl+Shift+Z = Redo
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
-        e.preventDefault();
-        redo();
-      }
-
-      // Ctrl+S = Save to Database
-      if (e.ctrlKey && !e.shiftKey && e.key === 's') {
-        e.preventDefault();
-        saveProjectToDatabase();
-        return;
-      }
-      
-      // Ctrl+Shift+S = Export to File
-      if (e.ctrlKey && e.shiftKey && e.key === 'S') {
-        e.preventDefault();
-        exportProject();
-        return;
-      }
-      
-      // Ctrl+O = Import from File
-      if (e.ctrlKey && e.key === 'o') {
-        e.preventDefault();
-        document.getElementById('file-import-input')?.click();
-        return;
-      }
-
-      // Ctrl+F = Focus search
-      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-        e.preventDefault();
-        const searchInput = document.querySelector('input[placeholder="🔍 Search..."]');
-        if (searchInput) {
-          searchInput.focus();
-        }
-      }
-
-      // F = Fit view (only if not Ctrl+F)
-      if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.metaKey) {
-        e.preventDefault();
-        const fitViewButton = document.querySelector('.react-flow__controls-fitview');
-        if (fitViewButton) {
-          fitViewButton.click();
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [addPlatformNode, addRequirementNode, exportProject, duplicateNode, selectedNode, undo, redo]);
-    
+  // ─── Keyboard Shortcuts Hook ───
+  useKeyboardShortcuts({
+    copySelectedNodes, pasteNodes, deleteSelectedNodes, duplicateSelectedNodes,
+    toggleLockSelectedNodes, groupSelectedNodes, ungroupSelectedNodes,
+    addPlatformNode, addRequirementNode,
+    autoLayoutNodes,
+    saveProjectToDatabase, exportProject, importProject,
+    undo, redo,
+    duplicateNode,
+    nodes, selectedNode, setNodes,
+    setSelectedNode, setSelectedEdge,
+    setShowLinkManager,
+  });
 
   const clearFilters = () => {
     setSearchText('');
@@ -1183,205 +829,30 @@ const createNewObject = (name, version, description) => {
       />}
       
       {/* Sidebar - hidden in freeform drawing mode */}
-      {viewMode !== 'freeform' && <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)}>
-        <SidebarSection title="📁 Project">
-          <SidebarButton 
-            icon="💾" 
-            label="Save Project" 
-            onClick={() => { 
-              saveProjectToDatabase(); 
-              setSidebarOpen(false); 
-            }} 
-          />
-          <SidebarButton 
-            icon="🔗" 
-            label="Share Project" 
-            onClick={() => { 
-            setShowShareModal(true); 
-            setSidebarOpen(false); 
-            }} 
-          />
-          <SidebarButton 
-            icon="📂" 
-            label="Open Project" 
-            onClick={() => {
-              if (window.confirm('Save current project before opening another?')) {
-                saveProjectToDatabase();
-              }
-              handleCloseProject();
-              setSidebarOpen(false);
-            }} 
-          />
-
-          <SidebarButton 
-            icon="📁" 
-            label="Close Project" 
-            onClick={() => {
-              if (window.confirm('Save before closing?')) {
-                saveProjectToDatabase().then(() => handleCloseProject());
-              } else {
-                handleCloseProject();
-              }
-              setSidebarOpen(false);
-            }} 
-          />
-          <div style={{ 
-              borderTop: '1px solid #34495e', 
-              margin: '10px 0',
-              paddingTop: '10px'
-            }}>
-              <div style={{ 
-                fontSize: '10px', 
-                color: '#7f8c8d', 
-                marginBottom: '6px',
-                paddingLeft: '10px'
-              }}>
-                FILE OPERATIONS
-              </div>
-              <SidebarButton 
-                icon="📤" 
-                label="Export to File (Ctrl+Shift+S)" 
-                onClick={() => {
-                  exportProject();
-                  setSidebarOpen(false);
-                }} 
-              />
-              <SidebarButton 
-                icon="📥" 
-                label="Import from File (Ctrl+O)" 
-                onClick={() => {
-                  document.getElementById('file-import-input')?.click();
-                  setSidebarOpen(false);
-                }} 
-              />
-            </div>
-          <SidebarButton icon="📊" label="Export to Excel" onClick={() => { exportToExcel(); setSidebarOpen(false); }} />
-          <SidebarButton icon="🆕" label="New Object" onClick={() => { setShowNewObjectModal(true); setSidebarOpen(false); }} />
-          <SidebarButton 
-            icon="🔗" 
-            label="Link Manager" 
-            onClick={() => { 
-              setShowLinkManager(true); 
-              setSidebarOpen(false); 
-            }} 
-          />
-
-          <SidebarButton 
-            icon="🔧" 
-            label="Manage HW Types" 
-            onClick={() => { 
-              setShowHardwareTypesModal(true); 
-              setSidebarOpen(false); 
-            }} 
-          />
-        </SidebarSection>
-        
-        <SidebarSection title="👁️ View">
-          <SidebarButton 
-            icon="🏷️" 
-            label={showRelationshipLabels ? 'Labels: ON' : 'Labels: OFF'} 
-            onClick={() => setShowRelationshipLabels(!showRelationshipLabels)}
-            active={showRelationshipLabels}
-          />
-          <SidebarButton 
-            icon="📐" 
-            label="Auto-Arrange (A)" 
-            onClick={() => {
-              autoLayoutNodes();
-              setSidebarOpen(false);
-            }} 
-          />
-        </SidebarSection>
-        
-        <SidebarSection title="📊 Statistics">
-          <div style={{ 
-            padding: '10px', 
-            background: '#2c3e50', 
-            borderRadius: '6px',
-            fontSize: '12px'
-          }}>
-            <div style={{ marginBottom: '6px' }}>
-              <span style={{ color: '#7f8c8d' }}>Total Items:</span>
-              <span style={{ float: 'right', fontWeight: 'bold' }}>{stats.total}</span>
-            </div>
-            <div style={{ marginBottom: '6px' }}>
-              <span style={{ color: '#7f8c8d' }}>Filtered:</span>
-              <span style={{ float: 'right', fontWeight: 'bold' }}>{filteredCount}</span>
-            </div>
-            <div style={{ marginBottom: '6px' }}>
-              <span style={{ color: '#7f8c8d' }}>Relationships:</span>
-              <span style={{ float: 'right', fontWeight: 'bold' }}>{edges.length}</span>
-            </div>
-            {stats.floatingConnectors > 0 && (
-              <div style={{ 
-                marginTop: '8px',
-                paddingTop: '8px',
-                borderTop: '1px solid #34495e'
-              }}>
-                <span style={{ color: '#e74c3c' }}>⚠️ Unconnected:</span>
-                <span style={{ float: 'right', fontWeight: 'bold', color: '#e74c3c' }}>
-                  {stats.floatingConnectors}
-                </span>
-              </div>
-            )}
-          </div>
-        </SidebarSection>
-        
-        <SidebarSection title="↩️ History">
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              onClick={undo}
-              disabled={!canUndo}
-              style={{
-                flex: 1,
-                padding: '8px',
-                background: !canUndo ? '#34495e' : '#3498db',
-                color: !canUndo ? '#666' : 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: !canUndo ? 'not-allowed' : 'pointer',
-                fontWeight: 'bold'
-              }}
-            >
-              ⏪ Undo
-            </button>
-            <button
-              onClick={redo}
-              disabled={!canRedo}
-              style={{
-                flex: 1,
-                padding: '8px',
-                background: !canRedo ? '#34495e' : '#3498db',
-                color: !canRedo ? '#666' : 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: !canRedo ? 'not-allowed' : 'pointer',
-                fontWeight: 'bold'
-              }}
-            >
-              Redo ⏩
-            </button>
-          </div>
-          <div style={{ fontSize: '10px', color: '#7f8c8d', marginTop: '6px', textAlign: 'center' }}>
-            Ctrl+Z / Ctrl+Y
-          </div>
-        </SidebarSection>
-        
-        <SidebarSection title="💡 Help">
-          <div style={{ 
-            padding: '10px', 
-            background: '#2c3e50', 
-            borderRadius: '6px',
-            fontSize: '11px',
-            color: '#bdc3c7'
-          }}>
-            <div><strong>Double-click:</strong> Edit node</div>
-            <div><strong>Connect:</strong> Drag from handle</div>
-            <div><strong>Delete:</strong> Select + Del</div>
-            <div><strong>Duplicate:</strong> Ctrl+D</div>
-          </div>
-        </SidebarSection>
-      </Sidebar>}
+      {viewMode !== 'freeform' && (
+        <ProjectSidebar
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          saveProjectToDatabase={saveProjectToDatabase}
+          handleCloseProject={handleCloseProject}
+          exportProject={exportProject}
+          exportToExcel={exportToExcel}
+          setShowShareModal={setShowShareModal}
+          setShowNewObjectModal={setShowNewObjectModal}
+          setShowLinkManager={setShowLinkManager}
+          setShowHardwareTypesModal={setShowHardwareTypesModal}
+          showRelationshipLabels={showRelationshipLabels}
+          setShowRelationshipLabels={setShowRelationshipLabels}
+          autoLayoutNodes={autoLayoutNodes}
+          stats={stats}
+          filteredCount={filteredCount}
+          edges={edges}
+          undo={undo}
+          redo={redo}
+          canUndo={canUndo}
+          canRedo={canRedo}
+        />
+      )}
       
       {/* Show Document View, Freeform Whiteboard, OR PLM Canvas */}
       {viewMode === 'document' ? (
@@ -1504,152 +975,22 @@ const createNewObject = (name, version, description) => {
           maskColor="rgba(0,0,0,0.2)"
         />
         
-        {/* Selection Toolbar - shows when multiple nodes selected */}
-        {nodes.filter(n => n.selected).length > 0 && (
-          <div style={{
-            position: 'absolute',
-            bottom: 20,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            background: '#2c3e50',
-            borderRadius: '8px',
-            padding: '8px 12px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-            zIndex: 1000,
-            flexWrap: 'wrap',
-            maxWidth: '90vw'
-          }}>
-            {/* Selection count */}
-            <span style={{ color: '#3498db', fontWeight: 'bold', fontSize: '12px', whiteSpace: 'nowrap' }}>
-              {nodes.filter(n => n.selected).length} selected
-              {nodes.filter(n => n.selected && n.data?.locked).length > 0 && (
-                <span style={{ color: '#e74c3c', marginLeft: '4px' }}>
-                  ({nodes.filter(n => n.selected && n.data?.locked).length} 🔒)
-                </span>
-              )}
-            </span>
-            
-            <div style={{ width: '1px', height: '24px', background: '#4a5f7f' }} />
-            
-            {/* Copy/Cut/Paste/Delete Group */}
-            <div style={{ display: 'flex', gap: '4px' }}>
-              <button onClick={copySelectedNodes} style={toolbarBtnStyle('#3498db')} title="Copy (Ctrl+C)">
-                📋
-              </button>
-              <button onClick={() => { copySelectedNodes(); deleteSelectedNodes(); }} style={toolbarBtnStyle('#e67e22')} title="Cut (Ctrl+X)">
-                ✂️
-              </button>
-              <button onClick={duplicateSelectedNodes} style={toolbarBtnStyle('#9b59b6')} title="Duplicate (Ctrl+D)">
-                ⧉
-              </button>
-              <button onClick={deleteSelectedNodes} style={toolbarBtnStyle('#e74c3c')} title="Delete (Del)">
-                🗑️
-              </button>
-            </div>
-            
-            <div style={{ width: '1px', height: '24px', background: '#4a5f7f' }} />
-            
-            {/* Align Group */}
-            <div style={{ display: 'flex', gap: '2px' }}>
-              <button onClick={() => alignSelectedNodes('left')} style={toolbarBtnSmall} title="Align Left">⬅</button>
-              <button onClick={() => alignSelectedNodes('centerH')} style={toolbarBtnSmall} title="Align Center H">⬌</button>
-              <button onClick={() => alignSelectedNodes('right')} style={toolbarBtnSmall} title="Align Right">➡</button>
-              <button onClick={() => alignSelectedNodes('top')} style={toolbarBtnSmall} title="Align Top">⬆</button>
-              <button onClick={() => alignSelectedNodes('centerV')} style={toolbarBtnSmall} title="Align Center V">⬍</button>
-              <button onClick={() => alignSelectedNodes('bottom')} style={toolbarBtnSmall} title="Align Bottom">⬇</button>
-            </div>
-            
-            {/* Distribute */}
-            <div style={{ display: 'flex', gap: '2px' }}>
-              <button onClick={() => alignSelectedNodes('distributeH')} style={toolbarBtnSmall} title="Distribute Horizontally">↔</button>
-              <button onClick={() => alignSelectedNodes('distributeV')} style={toolbarBtnSmall} title="Distribute Vertically">↕</button>
-            </div>
-            
-            <div style={{ width: '1px', height: '24px', background: '#4a5f7f' }} />
-            
-            {/* Lock/Group/Export */}
-            <div style={{ display: 'flex', gap: '4px' }}>
-              <button 
-                onClick={toggleLockSelectedNodes} 
-                style={toolbarBtnStyle(nodes.filter(n => n.selected).some(n => n.data?.locked) ? '#e74c3c' : '#27ae60')} 
-                title={nodes.filter(n => n.selected).some(n => !n.data?.locked) ? "Lock (Ctrl+L)" : "Unlock (Ctrl+L)"}
-              >
-                {nodes.filter(n => n.selected).some(n => !n.data?.locked) ? '🔒' : '🔓'}
-              </button>
-              <button onClick={groupSelectedNodes} style={toolbarBtnStyle('#1abc9c')} title="Group (Ctrl+G)">
-                📁
-              </button>
-              {nodes.filter(n => n.selected && n.data?.isGroup).length > 0 && (
-                <button onClick={ungroupSelectedNodes} style={toolbarBtnStyle('#95a5a6')} title="Ungroup (Ctrl+Shift+G)">
-                  📂
-                </button>
-              )}
-              <button onClick={exportSelectedNodes} style={toolbarBtnStyle('#f39c12')} title="Export Selection">
-                📤
-              </button>
-            </div>
-                                    
-            <div style={{ width: '1px', height: '24px', background: '#4a5f7f' }} />
-            
-            {/* Clear */}
-            <button
-              onClick={() => setNodes(nds => nds.map(n => ({ ...n, selected: false })))}
-              style={{
-                background: 'transparent',
-                border: '1px solid #7f8c8d',
-                color: '#bdc3c7',
-                padding: '4px 8px',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '11px'
-              }}
-              title="Clear selection (Esc)"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-        
-        {/* Paste indicator - shows if clipboard has content */}
-        {clipboard.nodes.length > 0 && nodes.filter(n => n.selected).length === 0 && (
-          <div style={{
-            position: 'absolute',
-            bottom: 20,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            background: '#27ae60',
-            borderRadius: '8px',
-            padding: '8px 16px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-            zIndex: 1000
-          }}>
-            <span style={{ color: 'white', fontSize: '13px' }}>
-              📋 {clipboard.nodes.length} item{clipboard.nodes.length > 1 ? 's' : ''} in clipboard
-            </span>
-            <button
-              onClick={pasteNodes}
-              style={{
-                background: 'white',
-                border: 'none',
-                color: '#27ae60',
-                padding: '6px 12px',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '12px',
-                fontWeight: 'bold'
-              }}
-              title="Paste (Ctrl+V)"
-            >
-              📥 Paste
-            </button>
-          </div>
-        )}
+        <SelectionToolbar
+          nodes={nodes}
+          setNodes={setNodes}
+          clipboard={clipboard}
+          copySelectedNodes={copySelectedNodes}
+          deleteSelectedNodes={deleteSelectedNodes}
+          duplicateSelectedNodes={duplicateSelectedNodes}
+          pasteNodes={pasteNodes}
+          alignSelectedNodes={alignSelectedNodes}
+          toggleLockSelectedNodes={toggleLockSelectedNodes}
+          groupSelectedNodes={groupSelectedNodes}
+          ungroupSelectedNodes={ungroupSelectedNodes}
+          exportSelectedNodes={exportSelectedNodes}
+          toolbarBtnStyle={toolbarBtnStyle}
+          toolbarBtnSmall={toolbarBtnSmall}
+        />
         
         <Background 
           variant="dots" 

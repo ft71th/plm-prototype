@@ -1,9 +1,10 @@
 import { useCallback } from 'react';
 import { MarkerType } from 'reactflow';
 import * as XLSX from 'xlsx';
+import { projects } from '../api';
 
 /**
- * Handles project export (JSON + Excel) and import.
+ * Handles project save, export (JSON + Excel) and import.
  */
 export default function useProjectIO({
   objectName, objectVersion, objectDescription,
@@ -14,7 +15,64 @@ export default function useProjectIO({
   handleNodeLabelChange,
   setCountersFromNodes, loadIssues, resetHistory,
   setSelectedNode, setSelectedEdge,
+  // Save to database
+  currentProject, setShowSaveToast, requirementLinks,
 }) {
+  const saveProjectToDatabase = useCallback(async () => {
+    if (!currentProject) {
+      alert('No project open');
+      return;
+    }
+    setShowSaveToast(true);
+    setTimeout(() => setShowSaveToast(false), 1000);
+
+    try {
+      // Prepare nodes - remove non-serializable functions and floating connectors
+      const nodesToSave = nodes
+        .filter(node => !node.data?.isFloatingConnector)
+        .map(node => ({
+          ...node,
+          data: {
+            ...node.data,
+            onChange: undefined,
+            onLabelChange: undefined,
+          }
+        }));
+
+      // Remove edges connected to floating connectors
+      const connectorIds = nodes
+        .filter(n => n.data?.isFloatingConnector)
+        .map(n => n.id);
+
+      const edgesToSave = edges
+        .filter(e => !connectorIds.includes(e.source) && !connectorIds.includes(e.target))
+        .map(edge => ({
+          ...edge,
+          data: {
+            ...edge.data,
+            onLabelChange: undefined,
+            onEdgeDoubleClick: undefined,
+          }
+        }));
+
+      await projects.save(currentProject.id, {
+        name: objectName,
+        description: objectDescription,
+        version: objectVersion,
+        nodes: nodesToSave,
+        edges: edgesToSave,
+        whiteboards: whiteboards,
+        issues: issues,
+        issueIdCounter: issueIdCounter,
+        requirementLinks: requirementLinks,
+      });
+    } catch (err) {
+      console.error('Save error:', err);
+      alert('Failed to save project: ' + err.message);
+    }
+  }, [currentProject, objectName, objectDescription, objectVersion, nodes, edges, whiteboards, issues, issueIdCounter, requirementLinks, setShowSaveToast]);
+
+
   const exportProject = useCallback(() => {
     const defaultName = objectName.replace(/[^a-z0-9]/gi, '_') || 'project';
     const filename = prompt('Save project as:', defaultName);
@@ -101,6 +159,12 @@ export default function useProjectIO({
 
             return {
               ...node,
+              // Restore resized dimensions as style so ReactFlow renders at saved size
+              style: {
+                ...(node.style || {}),
+                ...(node.data?.nodeWidth ? { width: node.data.nodeWidth } : {}),
+                ...(node.data?.nodeHeight ? { height: node.data.nodeHeight } : {}),
+              },
               data: {
                 ...node.data,
                 itemType: itemType,
@@ -155,5 +219,5 @@ export default function useProjectIO({
   }, [handleNodeLabelChange, setNodes, setEdges, setObjectName, setObjectVersion, setObjectDescription,
       setCountersFromNodes, loadIssues, resetHistory, setSelectedNode, setSelectedEdge]);
 
-  return { exportProject, exportToExcel, importProject };
+  return { saveProjectToDatabase, exportProject, exportToExcel, importProject };
 }
