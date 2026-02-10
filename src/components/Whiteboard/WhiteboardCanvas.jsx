@@ -130,9 +130,24 @@ export default function WhiteboardCanvas({ className = '' }) {
     return tools[state.activeTool] || tools.select;
   }, [state.activeTool]);
 
+  // ─── Right-click pan state ──────────────────────────────────
+  const isPanningRef = useRef(false);
+  const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+  const panRAFRef = useRef(null);
+
   // ─── Mouse handlers ─────────────────────────────────────────
   const handleMouseDown = useCallback((e) => {
-    if (e.button !== 0) return; // Only left click
+    // Right-click or middle-click → start panning
+    if (e.button === 2 || e.button === 1) {
+      e.preventDefault();
+      isPanningRef.current = true;
+      const s = store.getState();
+      panStartRef.current = { x: e.clientX, y: e.clientY, panX: s.panX, panY: s.panY };
+      if (canvasRef.current) canvasRef.current.style.cursor = 'grabbing';
+      return;
+    }
+
+    if (e.button !== 0) return; // Only left click for tools
 
     // Close inline editor if clicking outside
     if (state.editingElementId) {
@@ -145,6 +160,19 @@ export default function WhiteboardCanvas({ className = '' }) {
   }, [state.editingElementId, getWorldCoords, getActiveTool]);
 
   const handleMouseMove = useCallback((e) => {
+    // Right-click panning (throttled with rAF)
+    if (isPanningRef.current) {
+      if (panRAFRef.current) return; // Skip if frame already pending
+      panRAFRef.current = requestAnimationFrame(() => {
+        panRAFRef.current = null;
+        const dx = e.clientX - panStartRef.current.x;
+        const dy = e.clientY - panStartRef.current.y;
+        store.getState().setPan(panStartRef.current.panX + dx, panStartRef.current.panY + dy);
+        rendererRef.current?.markDirty();
+      });
+      return;
+    }
+
     const world = getWorldCoords(e);
     const tool = getActiveTool();
 
@@ -160,6 +188,22 @@ export default function WhiteboardCanvas({ className = '' }) {
   }, [getWorldCoords, getActiveTool]);
 
   const handleMouseUp = useCallback((e) => {
+    // End right-click pan
+    if (isPanningRef.current) {
+      isPanningRef.current = false;
+      if (panRAFRef.current) {
+        cancelAnimationFrame(panRAFRef.current);
+        panRAFRef.current = null;
+      }
+      // Commit final position
+      const dx = e.clientX - panStartRef.current.x;
+      const dy = e.clientY - panStartRef.current.y;
+      store.getState().setPan(panStartRef.current.panX + dx, panStartRef.current.panY + dy);
+      rendererRef.current?.markDirty();
+      if (canvasRef.current) canvasRef.current.style.cursor = 'default';
+      return;
+    }
+
     const world = getWorldCoords(e);
     getActiveTool().onMouseUp(world.x, world.y, e.shiftKey, store, rendererRef.current);
     rendererRef.current?.markDirty();
