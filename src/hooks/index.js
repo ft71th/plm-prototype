@@ -6,3 +6,8 @@ export { default as useUndoRedo } from './useUndoRedo';
 export { default as useClipboard } from './useClipboard';
 export { default as useNodeFactory } from './useNodeFactory';
 export { default as useNodeOperations } from './useNodeOperations';
+export { default as useEdgeHandlers } from './useEdgeHandlers';
+export { default as useFATProtocol } from './useFATProtocol';
+export { default as useVoiceRecognition } from './useVoiceRecognition';
+export { default as useLibrary } from './useLibrary';
+export { default as useProjectIO } from './useProjectIO';

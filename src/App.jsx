@@ -10,15 +10,12 @@ import ReactFlow, {
   Background,
   useNodesState,
   useEdgesState,
-  addEdge,
-  updateEdge,
   Panel,
   MarkerType,
   SelectionMode,
 } from 'reactflow';
 import '@reactflow/node-resizer/dist/style.css';
 import 'reactflow/dist/style.css';
-import * as XLSX from 'xlsx';
 import Whiteboard from './components/Whiteboard/Whiteboard';
 import { CollaborationProvider, UserAvatars } from './collaboration';
 import ShareProjectModal from './components/ShareProjectModal';
@@ -40,6 +37,8 @@ import { initialNodes, initialEdges } from './constants/initialData';
 import {
   useIdCounters, useIssueManager, useHardwareTypes, useWhiteboards,
   useUndoRedo, useClipboard, useNodeFactory, useNodeOperations,
+  useEdgeHandlers, useFATProtocol, useVoiceRecognition, useLibrary,
+  useProjectIO,
 } from './hooks';
 
 // ─── Extracted Flow Components ───
@@ -97,8 +96,6 @@ export default function App() {
   const [selectedEdge, setSelectedEdge] = useState(null);
   const [floatingPanelPosition, setFloatingPanelPosition] = useState({ x: 0, y: 0 });
   const [edgePanelPosition, setEdgePanelPosition] = useState({ x: 0, y: 0 });
-  const [isListening, setIsListening] = useState(false);
-  const [voiceStatus, setVoiceStatus] = useState('');
   const [showRelationshipLabels, setShowRelationshipLabels] = useState(true);
   const [viewMode, setViewMode] = useState('plm');
 
@@ -139,10 +136,6 @@ export default function App() {
   const {
     undo, redo, isUndoRedo, resetHistory, canUndo, canRedo,
   } = useUndoRedo({ nodes, edges, setNodes, setEdges });
-
-  // Component Library State
-  const [showLibraryPanel, setShowLibraryPanel] = useState(false);
-  const [libraryItems, setLibraryItems] = useState([]);
 
   const [searchText, setSearchText] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -203,7 +196,6 @@ export default function App() {
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
   const [showSplash, setShowSplash] = useState(true);
 
-  const edgeUpdateSuccessful = useRef(true);
   const [showEdgePanel, setShowEdgePanel] = useState(false);
 
   // Auth state
@@ -459,254 +451,14 @@ export default function App() {
     return { total, stateOpen, stateFrozen, stateReleased, connections, relationshipCounts, floatingConnectors };  // ADD floatingConnectors
   }, [nodes, edges]);
 
-  // Edge update handlers - allow moving connections
-  const onEdgeUpdateStart = useCallback(() => {
-    console.log('🔵 Edge drag STARTED');
-    edgeUpdateSuccessful.current = false;  // Use .current for refs
-  }, []);
 
-  const onEdgeUpdate = useCallback((oldEdge, newConnection) => {
-    edgeUpdateSuccessful.current = true;
-    
-    // Check if we're reconnecting FROM a floating connector
-    const oldTargetNode = nodes.find(n => n.id === oldEdge.target);
-    const oldSourceNode = nodes.find(n => n.id === oldEdge.source);
-    
-    // Remove floating connector if edge was connected to one
-    if (oldTargetNode?.data?.isFloatingConnector) {
-      setNodes((nds) => nds.filter(n => n.id !== oldEdge.target));
-    }
-    if (oldSourceNode?.data?.isFloatingConnector) {
-      setNodes((nds) => nds.filter(n => n.id !== oldEdge.source));
-    }
-    
-    // Get port info for the new connection
-    const sourceNode = nodes.find(n => n.id === newConnection.source);
-    const targetNode = nodes.find(n => n.id === newConnection.target);
-    const sourcePort = sourceNode?.data?.ports?.find(p => p.id === newConnection.sourceHandle);
-    const targetPort = targetNode?.data?.ports?.find(p => p.id === newConnection.targetHandle);
-    
-    // Update signal name
-    let signalName = '';
-    if (sourcePort && targetPort) {
-      const sourceName = sourcePort.name.replace(/\[\d+:\d+\]/, '').trim();
-      const targetName = targetPort.name.replace(/\[\d+:\d+\]/, '').trim();
-      if (sourceName.toLowerCase() === targetName.toLowerCase()) {
-        signalName = sourceName;
-      } else {
-        signalName = `${sourceName} → ${targetName}`;
-      }
-    } else if (sourcePort) {
-      signalName = sourcePort.name.replace(/\[\d+:\d+\]/, '').trim();
-    } else if (targetPort) {
-      signalName = targetPort.name.replace(/\[\d+:\d+\]/, '').trim();
-    }
-    
-    setEdges((els) => updateEdge(oldEdge, {
-      ...newConnection,
-      data: {
-        ...oldEdge.data,
-        sourcePortId: newConnection.sourceHandle || null,
-        targetPortId: newConnection.targetHandle || null,
-        sourcePortName: sourcePort?.name || null,
-        targetPortName: targetPort?.name || null,
-        signalName: signalName,
-      }
-    }, els));
-  }, [nodes, setEdges, setNodes]);
+  // ─── Edge Handlers Hook ───
+  const {
+    edgeUpdateSuccessful,
+    onEdgeUpdateStart, onEdgeUpdate, onEdgeUpdateEnd,
+    onNodeDragStop, onConnect,
+  } = useEdgeHandlers({ nodes, setNodes, setEdges, reactFlowInstance });
 
-  const onEdgeUpdateEnd = useCallback((event, edge) => {
-    if (!edgeUpdateSuccessful.current) {
-      // Only create floating connector if this is a real user drag event
-      // Check if event has valid coordinates (not triggered by loading)
-      if (!event || !event.clientX || !event.clientY || !reactFlowInstance) {
-        // Just delete the edge if we can't create a floating connector
-        setEdges((eds) => eds.filter((e) => e.id !== edge.id));
-        edgeUpdateSuccessful.current = true;
-        return;
-      }
-      
-      // Get drop position using reactFlowInstance directly
-      const position = reactFlowInstance.screenToFlowPosition({
-        x: event.clientX,
-        y: event.clientY,
-      });
-      
-      if (!position) {
-        // Fallback: just delete the edge if we can't get position
-        setEdges((eds) => eds.filter((e) => e.id !== edge.id));
-        edgeUpdateSuccessful.current = true;
-        return;
-      }
-      
-      // Create a floating connector node
-      const connectorId = `connector-${Date.now()}`;
-      const newConnectorNode = {
-        id: connectorId,
-        type: 'custom',
-        position: position,
-        data: {
-          label: '⚡',
-          itemType: 'connector',
-          type: 'connector',
-          isFloatingConnector: true,
-        }
-      };
-      
-      // Add the connector node
-      setNodes((nds) => [...nds, newConnectorNode]);
-      
-      // Update the edge to point to the connector
-      setEdges((eds) => eds.map((e) => {
-        if (e.id === edge.id) {
-          return {
-            ...e,
-            target: connectorId,
-            targetHandle: null,
-          };
-        }
-        return e;
-      }));
-    }
-    
-    edgeUpdateSuccessful.current = true;
-  }, [setEdges, setNodes, reactFlowInstance]);
-
-  const onNodeDragStop = useCallback((event, node) => {
-    // Only handle floating connectors
-    if (!node.data?.isFloatingConnector) return;
-    
-    // Get the connector's position
-    const connectorPos = node.position;
-    
-    // Find nearby nodes (excluding connectors)
-    const nearbyThreshold = 50; // pixels
-    
-    for (const otherNode of nodes) {
-      if (otherNode.id === node.id) continue;
-      if (otherNode.data?.isFloatingConnector) continue;
-      
-      // Check if connector is dropped near this node
-      const nodeWidth = 200; // approximate
-      const nodeHeight = 100; // approximate
-      
-      const isNearNode = 
-        connectorPos.x >= otherNode.position.x - nearbyThreshold &&
-        connectorPos.x <= otherNode.position.x + nodeWidth + nearbyThreshold &&
-        connectorPos.y >= otherNode.position.y - nearbyThreshold &&
-        connectorPos.y <= otherNode.position.y + nodeHeight + nearbyThreshold;
-      
-      if (isNearNode) {
-        // Find the edge connected to this connector
-        const connectedEdge = edges.find(e => 
-          e.target === node.id || e.source === node.id
-        );
-        
-        if (connectedEdge) {
-          // Determine which port to connect to (find nearest)
-          const ports = otherNode.data?.ports || [];
-          let targetHandle = null;
-          
-          // If node has ports, find the nearest input port
-          if (ports.length > 0) {
-            const inputPorts = ports.filter(p => p.direction === 'input' || p.type === 'input');
-            if (inputPorts.length > 0) {
-              targetHandle = inputPorts[0].id;
-            }
-          }
-          
-          // Update the edge to connect to the real node
-          setEdges((eds) => eds.map((e) => {
-            if (e.id === connectedEdge.id) {
-              if (e.target === node.id) {
-                // Connector was the target, update target
-                return {
-                  ...e,
-                  target: otherNode.id,
-                  targetHandle: targetHandle,
-                };
-              } else {
-                // Connector was the source, update source
-                const outputPorts = ports.filter(p => p.direction === 'output' || p.type === 'output');
-                const sourceHandle = outputPorts.length > 0 ? outputPorts[0].id : null;
-                return {
-                  ...e,
-                  source: otherNode.id,
-                  sourceHandle: sourceHandle,
-                };
-              }
-            }
-            return e;
-          }));
-          
-          // Remove the connector node
-          setNodes((nds) => nds.filter((n) => n.id !== node.id));
-          
-          return; // Done!
-        }
-      }
-    }
-  }, [nodes, edges, setNodes, setEdges]);
-
-  const onConnect = useCallback((params) => {
-    const sourceNode = nodes.find(n => n.id === params.source);
-    const targetNode = nodes.find(n => n.id === params.target);
-    const relationType = inferRelationshipType(sourceNode, targetNode);
-    
-    // Get port info if connecting to specific handles
-    const sourcePort = sourceNode?.data?.ports?.find(p => p.id === params.sourceHandle);
-    const targetPort = targetNode?.data?.ports?.find(p => p.id === params.targetHandle);
-    
-    // Smart signal name generation
-    let signalName = '';
-    if (sourcePort && targetPort) {
-      // Both ports exist
-      const sourceName = sourcePort.name.replace(/\[\d+:\d+\]/, '').trim();
-      const targetName = targetPort.name.replace(/\[\d+:\d+\]/, '').trim();
-      
-      if (sourceName.toLowerCase() === targetName.toLowerCase()) {
-        // Same name - just use it
-        signalName = sourceName;
-      } else {
-        // Different names - show connection
-        signalName = `${sourceName} → ${targetName}`;
-      }
-    } else if (sourcePort) {
-      signalName = sourcePort.name.replace(/\[\d+:\d+\]/, '').trim();
-    } else if (targetPort) {
-      signalName = targetPort.name.replace(/\[\d+:\d+\]/, '').trim();
-    }
-    
-    // Use larger bus width if different
-    const busWidth = Math.max(sourcePort?.width || 0, targetPort?.width || 0) || null;
-    
-    const newEdge = {
-      ...params,
-      sourceHandle: params.sourceHandle || null,
-      targetHandle: params.targetHandle || null,
-      type: 'custom',
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-        width: 20,
-        height: 20,
-        color: '#95a5a6'
-      },
-      data: { 
-        relationType, 
-        notes: '',
-        customLabel: signalName,
-        sourcePortId: params.sourceHandle || null,
-        targetPortId: params.targetHandle || null,
-        sourcePortName: sourcePort?.name || null,
-        targetPortName: targetPort?.name || null,
-        signalName: signalName,
-        signalType: sourcePort?.type || targetPort?.type || null,
-        busWidth: busWidth,
-      },
-    };
-    
-    setEdges((eds) => addEdge(newEdge, eds));
-  }, [nodes, setEdges]);
 
   const handleNodeLabelChange = useCallback((nodeId, field, value) => {
   // Support both old format (nodeId, labelValue) and new format (nodeId, field, value)
@@ -906,76 +658,12 @@ export default function App() {
     }
   };
 
-  // Library management callbacks
-  const fetchLibraryItems = useCallback(async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/library`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('plm_token')}`
-        }
-      });
-      if (response.ok) {
-        const items = await response.json();
-        setLibraryItems(items);
-      } else {
-        console.log('Library API not available, using empty library');
-        setLibraryItems([]);
-      }
-    } catch (error) {
-      console.log('Library fetch error:', error);
-      setLibraryItems([]);
-    }
-  }, []);
-
-  const saveNodeToLibrary = useCallback(async (node) => {
-    const libraryItem = {
-      name: node.data.label,
-      type: node.data.type || node.data.itemType,
-      itemType: node.data.itemType || node.data.type,
-      description: node.data.description || '',
-      version: '1.0',
-      nodeData: { ...node.data },
-      createdAt: new Date().toISOString()
-    };
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/library`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('plm_token')}`
-        },
-        body: JSON.stringify(libraryItem)
-      });
-      if (response.ok) {
-        const saved = await response.json();
-        setLibraryItems(prev => [...prev, saved]);
-        return saved;
-      }
-    } catch (error) {
-      console.log('Save to library error:', error);
-    }
-    // Fallback: save locally
-    const localItem = { ...libraryItem, id: `lib-${Date.now()}` };
-    setLibraryItems(prev => [...prev, localItem]);
-    return localItem;
-  }, []);
-
-  const addLibraryItemToCanvas = useCallback((libraryItem) => {
-    const newNode = {
-      id: String(nodeId),
-      type: 'custom',
-      position: { x: Math.random() * 400 + 100, y: Math.random() * 400 + 100 },
-      data: {
-        ...libraryItem.nodeData,
-        label: libraryItem.name,
-        libraryRef: libraryItem.id,
-        libraryVersion: libraryItem.version,
-      }
-    };
-    setNodes(nds => [...nds, newNode]);
-    setNodeId(prev => prev + 1);
-  }, [nodeId]);
+  // ─── Library Hook ───
+  const {
+    showLibraryPanel, setShowLibraryPanel,
+    libraryItems, setLibraryItems,
+    fetchLibraryItems, saveNodeToLibrary, addLibraryItemToCanvas,
+  } = useLibrary({ nodeId, setNodeId, setNodes });
 
   // Node resize handler
   const handleNodeResize = useCallback((nodeId, width, height) => {
@@ -1125,471 +813,37 @@ const addPlatformNode = useCallback(() => {
   });
 
 
-  const exportProject = useCallback(() => {
-  // Ask user for filename
-  const defaultName = objectName.replace(/[^a-z0-9]/gi, '_') || 'project';
-  const filename = prompt('Save project as:', defaultName);
-  
-  if (!filename) return;  // User cancelled
-  
-  const data = {
-    objectName,
-    objectVersion,
-    nodes,
-    edges,
-    whiteboards,
-    whiteboardNodes,
-    whiteboardEdges,
-    issues,
-    issueIdCounter,
-    savedAt: new Date().toISOString()
-  };
-  
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `${filename}.json`;
-  link.click();
-  URL.revokeObjectURL(url);
-}, [objectName, objectVersion, nodes, edges, whiteboards, whiteboardNodes, whiteboardEdges, issues, issueIdCounter]);
 
- const exportToExcel = useCallback(() => {
-    // Prepare data for Excel
-    const excelData = nodes.map(node => ({
-      'Requirement ID': node.data.reqId || '',
-      'Title': node.data.label || '',
-      'Version': node.data.version || '1.0',
-      'Type': node.data.reqType || '',
-      'Classification': node.data.classification || '',
-      'State': node.data.state || 'open',
-      'Priority': node.data.priority || 'medium',
-      'Status': node.data.status || 'new',
-      'Owner': node.data.owner || '',
-      'Description': node.data.description || ''
-    }));
+  // ─── Project I/O Hook (export/import) ───
+  const { exportProject, exportToExcel, importProject } = useProjectIO({
+    objectName, objectVersion, objectDescription,
+    setObjectName, setObjectVersion, setObjectDescription,
+    nodes, edges, setNodes, setEdges,
+    whiteboards, whiteboardNodes, whiteboardEdges,
+    issues, issueIdCounter,
+    handleNodeLabelChange,
+    setCountersFromNodes, loadIssues, resetHistory,
+    setSelectedNode, setSelectedEdge,
+  });
 
-    // Create workbook and worksheet
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(excelData);
+  // ─── FAT Protocol Hook ───
+  const { generateFATProtocol } = useFATProtocol({
+    nodes, edges, objectName, objectVersion,
+  });
 
-    // Set column widths
-    ws['!cols'] = [
-      { wch: 12 },  // Requirement ID
-      { wch: 30 },  // Title
-      { wch: 8 },   // Version
-      { wch: 15 },  // Type
-      { wch: 15 },  // Classification
-      { wch: 10 },  // State
-      { wch: 10 },  // Priority
-      { wch: 12 },  // Status
-      { wch: 15 },  // Owner
-      { wch: 50 },  // Description
-    ];
+  // ─── Voice Recognition Hook ───
+  const {
+    isListening, voiceStatus,
+    startVoiceRecognition, startVoiceDictation,
+  } = useVoiceRecognition({
+    addSystemNode, addSubSystemNode, addFunctionNode,
+    addRequirementNode, addTestCaseNode, addPlatformNode,
+    addUseCaseNode, addActorNode,
+    exportProject, exportToExcel,
+    undo, redo,
+    setShowNewObjectModal,
+  });
 
-    // Add worksheet to workbook
-    XLSX.utils.book_append_sheet(wb, ws, 'Requirements');
-
-    // Generate filename with date
-    const date = new Date().toISOString().split('T')[0];
-    const filename = `PLM-Requirements-${date}.xlsx`;
-
-    // Download file
-    XLSX.writeFile(wb, filename);
-  }, [nodes]);
-
-  const generateFATProtocol = useCallback(async (testCaseNode) => {
-    // Dynamic import of docx library
-    const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, 
-            Header, Footer, AlignmentType, BorderStyle, WidthType, 
-            ShadingType, PageNumber, HeadingLevel } = await import('docx');
-    
-    const tc = testCaseNode.data;
-    const steps = (tc.testSteps || '').split('\n').filter(s => s.trim());
-    const expected = (tc.expectedResults || '').split('\n').filter(s => s.trim());
-    const preconditions = (tc.preconditions || '').split('\n').filter(s => s.trim());
-    
-    // Find linked requirements
-    const linkedReqs = edges
-      .filter(e => e.source === testCaseNode.id || e.target === testCaseNode.id)
-      .map(e => {
-        const otherId = e.source === testCaseNode.id ? e.target : e.source;
-        return nodes.find(n => n.id === otherId);
-      })
-      .filter(n => n && !['testcase', 'testrun', 'testresult'].includes(n.data.itemType));
-
-    const tableBorder = { style: BorderStyle.SINGLE, size: 1, color: "000000" };
-    const cellBorders = { top: tableBorder, bottom: tableBorder, left: tableBorder, right: tableBorder };
-    
-    // Build test steps rows
-    const stepRows = steps.map((step, index) => {
-      return new TableRow({
-        children: [
-          new TableCell({
-            borders: cellBorders,
-            width: { size: 600, type: WidthType.DXA },
-            children: [new Paragraph({ 
-              alignment: AlignmentType.CENTER,
-              children: [new TextRun({ text: String(index + 1), bold: true })]
-            })]
-          }),
-          new TableCell({
-            borders: cellBorders,
-            width: { size: 4000, type: WidthType.DXA },
-            children: [new Paragraph({ children: [new TextRun(step.trim())] })]
-          }),
-          new TableCell({
-            borders: cellBorders,
-            width: { size: 3000, type: WidthType.DXA },
-            children: [new Paragraph({ children: [new TextRun(expected[index]?.trim() || '')] })]
-          }),
-          new TableCell({
-            borders: cellBorders,
-            width: { size: 800, type: WidthType.DXA },
-            children: [new Paragraph({ 
-              alignment: AlignmentType.CENTER,
-              children: [new TextRun({ text: '☐', size: 28 })]
-            })]
-          }),
-          new TableCell({
-            borders: cellBorders,
-            width: { size: 800, type: WidthType.DXA },
-            children: [new Paragraph({ 
-              alignment: AlignmentType.CENTER,
-              children: [new TextRun({ text: '☐', size: 28 })]
-            })]
-          }),
-          new TableCell({
-            borders: cellBorders,
-            width: { size: 1800, type: WidthType.DXA },
-            children: [new Paragraph({ children: [new TextRun('')] })]
-          }),
-        ]
-      });
-    });
-
-    const doc = new Document({
-      styles: {
-        default: { document: { run: { font: "Arial", size: 22 } } },
-        paragraphStyles: [
-          { id: "Title", name: "Title", basedOn: "Normal",
-            run: { size: 48, bold: true, color: "1a5276" },
-            paragraph: { spacing: { before: 0, after: 200 }, alignment: AlignmentType.CENTER } },
-          { id: "Heading1", name: "Heading 1", basedOn: "Normal",
-            run: { size: 28, bold: true, color: "2c3e50" },
-            paragraph: { spacing: { before: 300, after: 120 } } },
-        ]
-      },
-      sections: [{
-        properties: {
-          page: { margin: { top: 1000, right: 1000, bottom: 1000, left: 1000 } }
-        },
-        headers: {
-          default: new Header({
-            children: [new Paragraph({
-              alignment: AlignmentType.RIGHT,
-              children: [
-                new TextRun({ text: objectName + ' | ', size: 18, color: "666666" }),
-                new TextRun({ text: 'FAT Protocol', size: 18, color: "666666", bold: true })
-              ]
-            })]
-          })
-        },
-        footers: {
-          default: new Footer({
-            children: [new Paragraph({
-              alignment: AlignmentType.CENTER,
-              children: [
-                new TextRun({ text: 'Page ', size: 18 }),
-                new TextRun({ children: [PageNumber.CURRENT], size: 18 }),
-                new TextRun({ text: ' of ', size: 18 }),
-                new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 18 })
-              ]
-            })]
-          })
-        },
-        children: [
-          new Paragraph({
-            heading: HeadingLevel.TITLE,
-            children: [new TextRun({ text: 'FACTORY ACCEPTANCE TEST PROTOCOL', bold: true })]
-          }),
-          
-          new Table({
-            columnWidths: [2500, 8500],
-            rows: [
-              new TableRow({
-                children: [
-                  new TableCell({ borders: cellBorders, shading: { fill: "ecf0f1", type: ShadingType.CLEAR },
-                    children: [new Paragraph({ children: [new TextRun({ text: 'Project:', bold: true })] })] }),
-                  new TableCell({ borders: cellBorders,
-                    children: [new Paragraph({ children: [new TextRun(objectName)] })] })
-                ]
-              }),
-              new TableRow({
-                children: [
-                  new TableCell({ borders: cellBorders, shading: { fill: "ecf0f1", type: ShadingType.CLEAR },
-                    children: [new Paragraph({ children: [new TextRun({ text: 'Version:', bold: true })] })] }),
-                  new TableCell({ borders: cellBorders,
-                    children: [new Paragraph({ children: [new TextRun(objectVersion)] })] })
-                ]
-              }),
-              new TableRow({
-                children: [
-                  new TableCell({ borders: cellBorders, shading: { fill: "ecf0f1", type: ShadingType.CLEAR },
-                    children: [new Paragraph({ children: [new TextRun({ text: 'Date:', bold: true })] })] }),
-                  new TableCell({ borders: cellBorders,
-                    children: [new Paragraph({ children: [new TextRun(new Date().toISOString().split('T')[0])] })] })
-                ]
-              }),
-              new TableRow({
-                children: [
-                  new TableCell({ borders: cellBorders, shading: { fill: "ecf0f1", type: ShadingType.CLEAR },
-                    children: [new Paragraph({ children: [new TextRun({ text: 'Test Case ID:', bold: true })] })] }),
-                  new TableCell({ borders: cellBorders,
-                    children: [new Paragraph({ children: [new TextRun({ text: tc.reqId || 'N/A', bold: true, color: "2980b9" })] })] })
-                ]
-              }),
-            ]
-          }),
-          
-          new Paragraph({ children: [] }),
-          
-          new Paragraph({
-            heading: HeadingLevel.HEADING_1,
-            children: [new TextRun({ text: tc.label || 'Test Case' })]
-          }),
-          
-          new Paragraph({
-            spacing: { before: 200 },
-            children: [
-              new TextRun({ text: 'Verifies: ', bold: true }),
-              new TextRun(linkedReqs.map(r => `${r.data.reqId} - ${r.data.label}`).join(', ') || 'No linked requirements')
-            ]
-          }),
-          
-          new Paragraph({
-            spacing: { before: 300 },
-            children: [new TextRun({ text: 'PURPOSE', bold: true, size: 24 })]
-          }),
-          new Paragraph({
-            children: [new TextRun(tc.purpose || 'Not specified')]
-          }),
-          
-          new Paragraph({
-            spacing: { before: 300 },
-            children: [new TextRun({ text: 'PRECONDITIONS', bold: true, size: 24 })]
-          }),
-          ...(preconditions.length > 0 
-            ? preconditions.map(p => new Paragraph({
-                children: [new TextRun({ text: '• ' + p })]
-              }))
-            : [new Paragraph({ children: [new TextRun('None specified')] })]
-          ),
-          
-          new Paragraph({
-            spacing: { before: 400 },
-            children: [new TextRun({ text: 'TEST PROCEDURE', bold: true, size: 24 })]
-          }),
-          new Paragraph({ children: [] }),
-          
-          new Table({
-            columnWidths: [600, 4000, 3000, 800, 800, 1800],
-            rows: [
-              new TableRow({
-                tableHeader: true,
-                children: [
-                  new TableCell({ borders: cellBorders, shading: { fill: "2c3e50", type: ShadingType.CLEAR },
-                    children: [new Paragraph({ alignment: AlignmentType.CENTER, 
-                      children: [new TextRun({ text: '#', bold: true, color: "ffffff" })] })] }),
-                  new TableCell({ borders: cellBorders, shading: { fill: "2c3e50", type: ShadingType.CLEAR },
-                    children: [new Paragraph({ alignment: AlignmentType.CENTER,
-                      children: [new TextRun({ text: 'Step', bold: true, color: "ffffff" })] })] }),
-                  new TableCell({ borders: cellBorders, shading: { fill: "2c3e50", type: ShadingType.CLEAR },
-                    children: [new Paragraph({ alignment: AlignmentType.CENTER,
-                      children: [new TextRun({ text: 'Expected Result', bold: true, color: "ffffff" })] })] }),
-                  new TableCell({ borders: cellBorders, shading: { fill: "27ae60", type: ShadingType.CLEAR },
-                    children: [new Paragraph({ alignment: AlignmentType.CENTER,
-                      children: [new TextRun({ text: 'Pass', bold: true, color: "ffffff" })] })] }),
-                  new TableCell({ borders: cellBorders, shading: { fill: "e74c3c", type: ShadingType.CLEAR },
-                    children: [new Paragraph({ alignment: AlignmentType.CENTER,
-                      children: [new TextRun({ text: 'Fail', bold: true, color: "ffffff" })] })] }),
-                  new TableCell({ borders: cellBorders, shading: { fill: "2c3e50", type: ShadingType.CLEAR },
-                    children: [new Paragraph({ alignment: AlignmentType.CENTER,
-                      children: [new TextRun({ text: 'Comments', bold: true, color: "ffffff" })] })] }),
-                ]
-              }),
-              ...stepRows
-            ]
-          }),
-          
-          new Paragraph({
-            spacing: { before: 400 },
-            children: [new TextRun({ text: 'OVERALL RESULT', bold: true, size: 24 })]
-          }),
-          new Paragraph({
-            spacing: { before: 100 },
-            children: [new TextRun({ text: '☐ PASS     ☐ FAIL     ☐ BLOCKED', size: 28 })]
-          }),
-          
-          new Paragraph({
-            spacing: { before: 300 },
-            children: [new TextRun({ text: 'COMMENTS / OBSERVATIONS', bold: true, size: 24 })]
-          }),
-          new Paragraph({ borders: { bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" } }, spacing: { before: 200 }, children: [new TextRun('')] }),
-          new Paragraph({ borders: { bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" } }, spacing: { before: 400 }, children: [new TextRun('')] }),
-          new Paragraph({ borders: { bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" } }, spacing: { before: 400 }, children: [new TextRun('')] }),
-          
-          new Paragraph({
-            spacing: { before: 500 },
-            children: [new TextRun({ text: 'SIGN-OFF', bold: true, size: 24 })]
-          }),
-          new Table({
-            columnWidths: [2750, 2750, 2750, 2750],
-            rows: [
-              new TableRow({
-                children: [
-                  new TableCell({ borders: cellBorders, shading: { fill: "ecf0f1", type: ShadingType.CLEAR },
-                    children: [new Paragraph({ children: [new TextRun({ text: 'Tested by:', bold: true })] })] }),
-                  new TableCell({ borders: cellBorders, children: [new Paragraph({ children: [new TextRun('')] })] }),
-                  new TableCell({ borders: cellBorders, shading: { fill: "ecf0f1", type: ShadingType.CLEAR },
-                    children: [new Paragraph({ children: [new TextRun({ text: 'Date:', bold: true })] })] }),
-                  new TableCell({ borders: cellBorders, children: [new Paragraph({ children: [new TextRun('')] })] }),
-                ]
-              }),
-              new TableRow({
-                children: [
-                  new TableCell({ borders: cellBorders, shading: { fill: "ecf0f1", type: ShadingType.CLEAR },
-                    children: [new Paragraph({ children: [new TextRun({ text: 'Signature:', bold: true })] })] }),
-                  new TableCell({ borders: cellBorders, children: [new Paragraph({ spacing: { before: 400 }, children: [new TextRun('')] })] }),
-                  new TableCell({ borders: cellBorders, shading: { fill: "ecf0f1", type: ShadingType.CLEAR },
-                    children: [new Paragraph({ children: [new TextRun({ text: 'Witness:', bold: true })] })] }),
-                  new TableCell({ borders: cellBorders, children: [new Paragraph({ spacing: { before: 400 }, children: [new TextRun('')] })] }),
-                ]
-              }),
-            ]
-          }),
-        ]
-      }]
-    });
-
-    // Generate and download
-    const blob = await Packer.toBlob(doc);
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `FAT-${tc.reqId || 'TestCase'}-${new Date().toISOString().split('T')[0]}.docx`;
-    link.click();
-    URL.revokeObjectURL(url);
-  }, [nodes, edges, objectName, objectVersion]);
-
-  // Voice Recognition Setup
-  const startVoiceRecognition = useCallback(() => {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      alert('Voice recognition not supported in this browser. Please use Chrome or Edge.');
-      return;
-    }
-
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = 'en-US';
-
-    recognition.onstart = () => {
-      setIsListening(true);
-      setVoiceStatus('🎤 Listening...');
-    };
-
-    recognition.onresult = (event) => {
-      const command = event.results[0][0].transcript.toLowerCase();
-      setVoiceStatus(`Heard: "${command}"`);
-      
-      // Process commands
-      if (command.includes('create system') || command.includes('add system')) {
-        addSystemNode();
-        setVoiceStatus('✅ Created System node');
-      } else if (command.includes('create subsystem') || command.includes('add subsystem') || command.includes('create sub system') || command.includes('add sub system')) {
-        addSubSystemNode();
-        setVoiceStatus('✅ Created Sub-System node');
-      } else if (command.includes('create function') || command.includes('add function')) {
-        addFunctionNode();
-        setVoiceStatus('✅ Created Function node');
-      } else if (command.includes('create requirement') || command.includes('add requirement')) {
-        addRequirementNode();
-        setVoiceStatus('✅ Created Requirement node');
-      } else if (command.includes('create test') || command.includes('add test')) {
-        addTestCaseNode();
-        setVoiceStatus('✅ Created Test Case node');
-      } else if (command.includes('create platform') || command.includes('add platform')) {
-        addPlatformNode();
-        setVoiceStatus('✅ Created Platform node');
-      } else if (command.includes('save project') || command.includes('save')) {
-        exportProject();
-        setVoiceStatus('✅ Project saved');
-      } else if (command.includes('export excel') || command.includes('excel export')) {
-        exportToExcel();
-        setVoiceStatus('✅ Exported to Excel');
-      } else if (command.includes('fit view') || command.includes('fit screen') || command.includes('zoom fit')) {
-        // We'll need to expose fitView - for now just show message
-        setVoiceStatus('💡 Press F to fit view');
-      } else if (command.includes('new object') || command.includes('new project')) {
-        setShowNewObjectModal(true);
-        setVoiceStatus('✅ Opening New Object dialog');
-      } else if (command.includes('undo')) {
-        undo();
-        setVoiceStatus('✅ Undo');
-      } else if (command.includes('redo')) {
-        redo();
-        setVoiceStatus('✅ Redo');
-      } else if (command.includes('help') || command.includes('commands')) {
-        setVoiceStatus('💡 Say: create system/requirement/test, save, undo, redo');
-      } else {
-        setVoiceStatus(`❓ Unknown: "${command}"`);
-      }
-
-      // Clear status after 3 seconds
-      setTimeout(() => setVoiceStatus(''), 3000);
-    };
-
-    recognition.onerror = (event) => {
-      setIsListening(false);
-      setVoiceStatus(`❌ Error: ${event.error}`);
-      setTimeout(() => setVoiceStatus(''), 3000);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    recognition.start();
-  }, [addSystemNode, addSubSystemNode, addFunctionNode, addRequirementNode, addTestCaseNode, addPlatformNode, addUseCaseNode, addActorNode, exportProject, exportToExcel, undo, redo]);
-
-// Voice Dictation for text fields
-  const startVoiceDictation = useCallback((callback) => {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      alert('Voice recognition not supported. Please use Chrome or Edge.');
-      return;
-    }
-
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = 'en-US';
-
-    recognition.onresult = (event) => {
-      const text = event.results[0][0].transcript;
-      callback(text);
-    };
-
-    recognition.onerror = (event) => {
-      console.error('Voice error:', event.error);
-    };
-
-    recognition.start();
-  }, []);
 const createNewObject = (name, version, description) => {
     setObjectName(name);
     setObjectVersion(version);
@@ -1776,98 +1030,6 @@ const createNewObject = (name, version, description) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [addPlatformNode, addRequirementNode, exportProject, duplicateNode, selectedNode, undo, redo]);
     
-  const importProject = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const project = JSON.parse(e.target.result);
-          
-          // Load object definition
-          if (project.objectName) setObjectName(project.objectName);
-          if (project.objectVersion) setObjectVersion(project.objectVersion);
-          if (project.objectDescription) setObjectDescription(project.objectDescription);
-          
-           // Load nodes and edges (add missing fields for backwards compatibility)
-          const updatedNodes = (project.nodes || []).map(node => {
-            // Determine correct itemType
-            let itemType = node.data.itemType || node.data.type;
-            
-            // Normalize: project/customer/platform/implementation are all "requirement" itemType
-            if (['project', 'customer', 'platform', 'implementation'].includes(itemType)) {
-              itemType = 'requirement';
-            }
-            
-            // Detect from reqId prefix if still not set
-            if (!itemType || itemType === 'requirement') {
-              if (node.data.reqId?.startsWith('SYS')) itemType = 'system';
-              else if (node.data.reqId?.startsWith('SUB')) itemType = 'subsystem';
-              else if (node.data.reqId?.startsWith('FUN')) itemType = 'function';
-              else if (node.data.reqId?.startsWith('TC')) itemType = 'testcase';
-              else itemType = 'requirement';
-            }
-            
-            return {
-              ...node,
-              data: {
-                ...node.data,
-                itemType: itemType,
-                origin: node.data.origin || 'internal',
-                classification: node.data.classification || 'requirement',
-                onChange: handleNodeLabelChange
-              }
-            };
-          });
-          setNodes(updatedNodes);
-          
-          // Process edges - validate handles and add arrows
-          const edgesWithArrows = (project.edges || []).map(edge => {
-            const sourceNode = updatedNodes.find(n => n.id === edge.source);
-            const targetNode = updatedNodes.find(n => n.id === edge.target);
-            
-            // Check if handles exist on the nodes
-            const sourcePorts = sourceNode?.data?.ports || [];
-            const targetPorts = targetNode?.data?.ports || [];
-            
-            const validSourceHandle = !edge.sourceHandle || 
-              edge.sourceHandle === 'default-source' ||
-              sourcePorts.some(p => p.id === edge.sourceHandle);
-            const validTargetHandle = !edge.targetHandle || 
-              edge.targetHandle === 'default-target' ||
-              targetPorts.some(p => p.id === edge.targetHandle);
-            
-            return {
-              ...edge,
-              // Convert invalid or null handles to undefined (use default)
-              sourceHandle: validSourceHandle ? (edge.sourceHandle === null ? undefined : edge.sourceHandle) : undefined,
-              targetHandle: validTargetHandle ? (edge.targetHandle === null ? undefined : edge.targetHandle) : undefined,
-              markerEnd: {
-                type: MarkerType.ArrowClosed,
-                width: 20,
-                height: 20,
-                color: '#95a5a6'
-              }
-            };
-          });
-          setEdges(edgesWithArrows);
-          
-          // Update all ID counters via hook
-          setCountersFromNodes(project.nodes);
-          
-          // Load issues via hook
-          loadIssues(project.issues);
-          
-          setSelectedNode(null);
-          setSelectedEdge(null);
-          resetHistory();
-        } catch (error) {
-          alert('Error loading project file!');
-        }
-      };
-      reader.readAsText(file);
-    }
-  };
 
   const clearFilters = () => {
     setSearchText('');
