@@ -1,12 +1,42 @@
 /**
  * ShapeRenderer — Draws shape elements on Canvas 2D context.
  * Supports: rectangle, rounded-rectangle, ellipse, diamond, triangle, hexagon,
- *           cylinder, cloud, star, parallelogram, sticky-note
+ *           cylinder, cloud, star, parallelogram, sticky-note, symbol-*
  */
+
+import { getSymbolById } from '../symbols/SymbolRegistry';
 
 export function renderShape(ctx, shape) {
   const { x, y, width, height, fill, fillOpacity, stroke, strokeWidth, shapeVariant, cornerRadius, shadow } = shape;
   const rotation = shape.rotation || 0;
+
+  // ─── Symbol variant: delegate to symbol renderer ──
+  if (shapeVariant && shapeVariant.startsWith('symbol-')) {
+    const symbolId = shapeVariant.slice(7); // remove 'symbol-' prefix
+    const symbolDef = getSymbolById(symbolId);
+    if (symbolDef) {
+      ctx.save();
+      if (rotation !== 0) {
+        const cx = x + width / 2, cy = y + height / 2;
+        ctx.translate(cx, cy); ctx.rotate(rotation); ctx.translate(-cx, -cy);
+      }
+      if (shadow && shadow.blur > 0) {
+        ctx.shadowColor = shadow.color || 'rgba(0,0,0,0.3)';
+        ctx.shadowBlur = shadow.blur || 8;
+        ctx.shadowOffsetX = shadow.offsetX || 2;
+        ctx.shadowOffsetY = shadow.offsetY || 2;
+      }
+      symbolDef.render(ctx, x, y, width, height, stroke || '#000000', fill);
+      // Reset shadow
+      ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+      // Render text inside if any
+      if (shape.text && shape.text.text) {
+        renderShapeText(ctx, shape);
+      }
+      ctx.restore();
+      return;
+    }
+  }
 
   ctx.save();
 

@@ -1305,3 +1305,122 @@
   color: var(--task-danger);
   font-weight: 600;
 }
+
+/* ─── Filters section ──────────────────────────────────── */
+
+.my-tasks-panel__filters {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--task-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.my-tasks-panel__search-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.my-tasks-panel__search-input {
+  width: 100%;
+  padding: 7px 28px 7px 10px;
+  border: 1px solid var(--task-border);
+  border-radius: var(--task-radius, 6px);
+  font-size: 13px;
+  background: var(--task-bg-card, #fff);
+  color: var(--task-text-primary);
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color var(--task-transition);
+}
+
+.my-tasks-panel__search-input:focus {
+  border-color: var(--task-accent, #3b82f6);
+}
+
+.my-tasks-panel__search-input::placeholder {
+  color: var(--task-text-muted);
+}
+
+.my-tasks-panel__search-clear {
+  position: absolute;
+  right: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--task-text-muted);
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.my-tasks-panel__search-clear:hover {
+  color: var(--task-text-primary);
+  background: var(--task-bg-hover);
+}
+
+.my-tasks-panel__filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ─── Toggle group (Alla / Mina) ─────────────────────── */
+
+.my-tasks-panel__toggle-group {
+  display: flex;
+  border: 1px solid var(--task-border);
+  border-radius: var(--task-radius, 6px);
+  overflow: hidden;
+}
+
+.my-tasks-panel__toggle-btn {
+  padding: 5px 14px;
+  border: none;
+  background: var(--task-bg-card, #fff);
+  color: var(--task-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--task-transition);
+}
+
+.my-tasks-panel__toggle-btn:not(:last-child) {
+  border-right: 1px solid var(--task-border);
+}
+
+.my-tasks-panel__toggle-btn--active {
+  background: var(--task-accent, #3b82f6);
+  color: #fff;
+  font-weight: 600;
+}
+
+.my-tasks-panel__toggle-btn:hover:not(.my-tasks-panel__toggle-btn--active) {
+  background: var(--task-bg-hover);
+}
+
+/* ─── Priority select ────────────────────────────────── */
+
+.my-tasks-panel__priority-select {
+  padding: 5px 8px;
+  border: 1px solid var(--task-border);
+  border-radius: var(--task-radius, 6px);
+  font-size: 12px;
+  background: var(--task-bg-card, #fff);
+  color: var(--task-text-primary);
+  cursor: pointer;
+  outline: none;
+}
+
+.my-tasks-panel__priority-select:focus {
+  border-color: var(--task-accent, #3b82f6);
+}
+
+/* ─── Assignee badge ─────────────────────────────────── */
+
+.my-tasks-panel__assignee {
+  font-size: 11px;
+  color: var(--task-text-secondary);
+}

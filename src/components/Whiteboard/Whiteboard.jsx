@@ -27,6 +27,7 @@ import AlignDistributeBar from './AlignDistributeBar';
 import PresentationMode from './PresentationMode';
 import ElementMetadataPanel from './ElementMetadataPanel';
 import RulerOverlay from './RulerOverlay';
+import SymbolLibraryPanel from './SymbolLibraryPanel';
 import useWhiteboardStore from '../../stores/whiteboardStore';
 
 // Save notification component
@@ -234,6 +235,7 @@ export default function Whiteboard({ className = '', style = {}, projectId = nul
         <AlignDistributeBar />
         <ElementMetadataPanel />
         <RulerOverlay />
+        <SymbolLibraryPanel />
 
         {/* Properties panel (fixed width, right side) */}
         <PropertiesPanel />

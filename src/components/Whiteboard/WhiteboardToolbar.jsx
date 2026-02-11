@@ -163,6 +163,11 @@ export default function WhiteboardToolbar({ className = '' }) {
 
       <div style={styles.separator} />
 
+      {/* ─── Symbol Library ─── */}
+      <SymbolLibraryButton />
+
+      <div style={styles.separator} />
+
       {/* ─── Image Upload ─── */}
       <ImageUploadButton />
 
@@ -574,6 +579,21 @@ function FrameButton() {
   return (
     <ToolButton onClick={addFrame} title="Lägg till ram (Frame) — för presentationer">
       <span style={{ ...styles.icon, fontSize: '15px' }}>🔲</span>
+    </ToolButton>
+  );
+}
+
+function SymbolLibraryButton() {
+  const showSymbolLibrary = useWhiteboardStore((s) => s.showSymbolLibrary);
+  const store = useWhiteboardStore;
+
+  return (
+    <ToolButton
+      active={showSymbolLibrary}
+      onClick={() => store.setState({ showSymbolLibrary: !showSymbolLibrary })}
+      title="Symbolbibliotek"
+    >
+      <span style={{ ...styles.icon, fontSize: '15px' }}>⚡</span>
     </ToolButton>
   );
 }

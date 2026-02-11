@@ -39,6 +39,24 @@ const TASKS_KEY = (projectId: string) => `northlight-tasks-${projectId}`;
 const TASK_INDEX_KEY = (userId: string) => `northlight-task-index-${userId}`;
 
 // ---------------------------------------------------------------------------
+// Discovery — find all project IDs that have task data in localStorage
+// ---------------------------------------------------------------------------
+
+export function discoverProjectIds(): string[] {
+  const ids = new Set<string>();
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+    if (key.startsWith('northlight-tasks-')) {
+      ids.add(key.slice('northlight-tasks-'.length));
+    } else if (key.startsWith('northlight-boards-')) {
+      ids.add(key.slice('northlight-boards-'.length));
+    }
+  }
+  return Array.from(ids);
+}
+
+// ---------------------------------------------------------------------------
 // Board CRUD
 // ---------------------------------------------------------------------------
 

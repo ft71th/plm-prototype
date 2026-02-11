@@ -140,14 +140,26 @@ export function TaskProvider({ projectId, currentUser, children }: TaskProviderP
     }
   }, [projectId]);
 
+  // ── Theme state (must be before Board ops so createBoard can reference it) ──
+  const PROJECT_THEME_KEY = `northlight-theme-${projectId}`;
+  const [projectThemeFallback, setProjectThemeFallback] = useState(() => {
+    try { return localStorage.getItem(PROJECT_THEME_KEY) || 'dark'; } catch { return 'dark'; }
+  });
+  const themeKey: string = activeBoard?.themeKey || projectThemeFallback;
+
   // Board ops
   const handleCreateBoard = useCallback((name: string) => {
     const board = store.createBoard(projectId, name);
+    // Inherit project-level theme preference
+    if (projectThemeFallback !== 'dark') {
+      board.themeKey = projectThemeFallback;
+      store.updateBoard(projectId, board);
+    }
     setBoards(store.getBoards(projectId));
     setActiveBoard(board);
     setTasks([]);
     return board;
-  }, [projectId]);
+  }, [projectId, projectThemeFallback]);
 
   const handleUpdateBoard = useCallback((board: TaskBoard) => {
     store.updateBoard(projectId, board);
@@ -250,17 +262,19 @@ export function TaskProvider({ projectId, currentUser, children }: TaskProviderP
     if (activeBoard) setTasks(store.getTasksForBoard(projectId, activeBoard.id));
   }, [projectId, activeBoard?.id]);
 
-  // ── Theme ──
-  const themeKey: string = activeBoard?.themeKey || 'dark';
-
+  // ── Theme (handleSetThemeKey) ──
   const handleSetThemeKey = useCallback((key: string) => {
+    // Always save project-level fallback and update state
+    try { localStorage.setItem(PROJECT_THEME_KEY, key); } catch {}
+    setProjectThemeFallback(key);
+
     if (!activeBoard) return;
     const updated = { ...activeBoard, themeKey: key };
     store.updateBoard(projectId, updated);
     const b = store.getBoards(projectId);
     setBoards(b);
     setActiveBoard(b.find((x) => x.id === activeBoard.id) || null);
-  }, [projectId, activeBoard?.id]);
+  }, [projectId, activeBoard?.id, PROJECT_THEME_KEY]);
 
   // ── Filters ──
   const [categoryFilter, setCategoryFilter] = useState<string>('all');

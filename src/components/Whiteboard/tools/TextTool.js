@@ -41,6 +41,9 @@ export class TextTool {
     // Enter editing mode immediately
     store.getState().setEditingElementId(textEl.id);
 
+    // Switch to select tool (same behavior as other shape tools)
+    store.getState().setActiveTool('select');
+
     renderer.markDirty();
   }
 

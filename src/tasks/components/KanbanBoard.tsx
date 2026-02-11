@@ -83,6 +83,11 @@ export default function KanbanBoard({
           <h3>No board selected</h3>
           <p>Create a new board to get started.</p>
         </div>
+        {showMyTasks && (
+          <MyTasksPanel projectIds={allProjectIds || [projectId]}
+            currentUser={currentUser} getProjectName={getProjectName}
+            onClose={() => setShowMyTasks(false)} />
+        )}
       </div>
     );
   }
