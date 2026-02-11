@@ -29,6 +29,7 @@ const COMMANDS = [
   { cmd: '/impact',   type: 'impact',  label: 'Impact Analysis',  icon: '💥', description: 'Show what changes if node version changes' },
   { cmd: '/baseline', type: 'baseline',label: 'Baseline Links',   icon: '📌', description: 'Pin all floating links in document' },
   { cmd: '/divider',  type: 'divider', label: 'Divider',          icon: '—',  description: 'Horizontal line' },
+  { cmd: '/postit',   type: 'postit',  label: 'Post-it',          icon: '📌', description: 'Add a sticky note' },
   { cmd: '/health',   type: 'health',  label: 'Health Check',     icon: '🏥', description: 'Show link health issues' },
 ];
 
@@ -55,6 +56,7 @@ export default function DocumentViewEnhanced({
   onUpdateLink,
   onBaselineAll,
   onCreateNode,
+  onCreatePostIt,
   healthIssues = [],
   user = 'unknown',
 }) {
@@ -75,6 +77,42 @@ export default function DocumentViewEnhanced({
     // Only auto-rebuild if there are no custom blocks yet (initial state)
     if (blocks.length <= 1 && nodeCount > 0) {
       setBlocks(buildInitialBlocks(nodes, edges));
+      return;
+    }
+
+    // Auto-add blocks for newly created nodes not yet in any block
+    const existingNodeIds = new Set();
+    blocks.forEach(b => {
+      if (b.type === 'node' && b.data.nodeId) existingNodeIds.add(b.data.nodeId);
+      if (b.type === 'postit' && b.data.nodeId) existingNodeIds.add(b.data.nodeId);
+    });
+
+    const newNodes = nodes.filter(n => 
+      !existingNodeIds.has(n.id) && 
+      !n.data?.isFloatingConnector &&
+      n.type !== 'imageNode' // skip images in doc view
+    );
+
+    if (newNodes.length > 0) {
+      setBlocks(prev => {
+        const additions = [];
+        newNodes.forEach(node => {
+          if (node.data?.itemType === 'postIt') {
+            additions.push({
+              id: newBlockId(),
+              type: 'postit',
+              data: { nodeId: node.id },
+            });
+          } else {
+            additions.push({
+              id: newBlockId(),
+              type: 'node',
+              data: { nodeId: node.id, expanded: false },
+            });
+          }
+        });
+        return [...prev, ...additions];
+      });
     }
   }, [nodeCount]);
 
@@ -181,6 +219,12 @@ export default function DocumentViewEnhanced({
       case 'divider':
         addBlock('divider', {}, idx);
         break;
+      case 'postit':
+        if (onCreatePostIt) {
+          onCreatePostIt();
+          // The useEffect for nodeCount will auto-add the block
+        }
+        break;
       case 'health':
         addBlock('table', {
           filters: { type: 'all', status: 'all' },
@@ -190,7 +234,7 @@ export default function DocumentViewEnhanced({
       default:
         break;
     }
-  }, [commandInsertIdx, blocks.length, addBlock, nodes, onCreateNode, onBaselineAll]);
+  }, [commandInsertIdx, blocks.length, addBlock, nodes, onCreateNode, onCreatePostIt, onBaselineAll]);
 
   const filteredCommands = COMMANDS.filter(c =>
     !commandSearch || 
@@ -468,6 +512,19 @@ function buildInitialBlocks(nodes, edges) {
   };
 
   const addNodeBlocks = (node, level) => {
+    // Skip images in doc view
+    if (node.type === 'imageNode' || node.data?.itemType === 'image') return;
+
+    // Post-it notes get their own block type
+    if (node.type === 'postIt' || node.data?.itemType === 'postIt') {
+      blocks.push({
+        id: newBlockId(),
+        type: 'postit',
+        data: { nodeId: node.id },
+      });
+      return;
+    }
+
     // Add heading for systems/subsystems/functions
     if (['system', 'subsystem', 'function'].includes(node.data?.itemType)) {
       blocks.push({
@@ -603,6 +660,13 @@ function BlockWrapper({
       {block.type === 'divider' && (
         <div style={{ borderTop: '1px solid #34495e', margin: '16px 0' }} />
       )}
+      {block.type === 'postit' && (
+        <PostItBlock
+          block={block}
+          nodes={nodes}
+          onUpdateNodeData={onUpdateNodeData}
+        />
+      )}
     </div>
   );
 }
@@ -729,6 +793,131 @@ function HeadingBlock({ block, onUpdate }) {
       <Tag style={{ color: '#ecf0f1', fontSize, fontWeight: 'bold', margin: '8px 0 4px 0' }}>
         {block.data.content || <span style={{ color: '#555', fontStyle: 'italic' }}>Untitled heading</span>}
       </Tag>
+    </div>
+  );
+}
+
+
+// ─────────────────────────────────────────────────
+// POST-IT BLOCK (sticky note in doc view)
+// ─────────────────────────────────────────────────
+const DOC_POSTIT_COLORS = {
+  yellow: { bg: '#fff9c4', border: '#f9e547' },
+  pink:   { bg: '#f8bbd0', border: '#e91e63' },
+  green:  { bg: '#c8e6c9', border: '#4caf50' },
+  blue:   { bg: '#bbdefb', border: '#2196f3' },
+  orange: { bg: '#ffe0b2', border: '#ff9800' },
+  purple: { bg: '#e1bee7', border: '#9c27b0' },
+};
+
+function PostItBlock({ block, nodes, onUpdateNodeData }) {
+  const node = nodes.find(n => n.id === block.data.nodeId);
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState('');
+  const textRef = useRef(null);
+
+  if (!node) {
+    return (
+      <div style={{
+        padding: '10px',
+        background: '#e74c3c22',
+        border: '1px solid #e74c3c44',
+        borderRadius: '6px',
+        color: '#e74c3c',
+        fontSize: '12px',
+      }}>
+        ⚠️ Post-it not found: {block.data.nodeId}
+      </div>
+    );
+  }
+
+  const d = node.data || {};
+  const colorId = d.postItColor || 'yellow';
+  const color = DOC_POSTIT_COLORS[colorId] || DOC_POSTIT_COLORS.yellow;
+  const noteText = d.text || '';
+
+  const handleStartEdit = () => {
+    setText(noteText);
+    setEditing(true);
+  };
+
+  const handleSave = () => {
+    setEditing(false);
+    if (onUpdateNodeData) {
+      onUpdateNodeData(node.id, 'text', text);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        background: color.bg,
+        border: `1px solid ${color.border}`,
+        borderLeft: `4px solid ${color.border}`,
+        borderRadius: '4px',
+        padding: '14px 16px',
+        marginBottom: '8px',
+        maxWidth: '400px',
+        position: 'relative',
+        boxShadow: '2px 2px 6px rgba(0,0,0,0.08)',
+        fontFamily: "'Segoe UI', sans-serif",
+      }}
+      onDoubleClick={handleStartEdit}
+    >
+      {/* Badge */}
+      <div style={{
+        position: 'absolute',
+        top: '-8px',
+        left: '12px',
+        background: color.border,
+        color: 'white',
+        padding: '1px 8px',
+        borderRadius: '4px',
+        fontSize: '9px',
+        fontWeight: 'bold',
+      }}>
+        📌 POST-IT
+      </div>
+
+      {editing ? (
+        <textarea
+          ref={textRef}
+          autoFocus
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={e => {
+            if (e.key === 'Escape') handleSave();
+          }}
+          style={{
+            width: '100%',
+            minHeight: '60px',
+            background: 'transparent',
+            border: 'none',
+            outline: 'none',
+            resize: 'vertical',
+            fontSize: '13px',
+            color: '#333',
+            lineHeight: '1.6',
+            fontFamily: 'inherit',
+          }}
+        />
+      ) : (
+        <div
+          style={{
+            fontSize: '13px',
+            color: '#333',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            lineHeight: '1.6',
+            minHeight: '20px',
+            cursor: 'text',
+            opacity: noteText ? 1 : 0.4,
+          }}
+        >
+          {noteText || 'Dubbelklicka för att skriva...'}
+        </div>
+      )}
     </div>
   );
 }
@@ -1410,6 +1599,7 @@ function getTypeColor(itemType) {
     system: '#1abc9c', subsystem: '#3498db', function: '#00bcd4',
     requirement: '#e67e22', testcase: '#27ae60', parameter: '#00bcd4',
     hardware: '#795548', usecase: '#f39c12', actor: '#2ecc71',
+    postIt: '#f9e547', image: '#607d8b',
   };
   return map[itemType] || '#9b59b6';
 }
@@ -1419,6 +1609,7 @@ function getTypeLabel(itemType) {
     system: 'SYSTEM', subsystem: 'SUB-SYSTEM', function: 'FUNCTION',
     requirement: 'REQ', testcase: 'TEST', parameter: 'PARAM',
     hardware: 'HW', usecase: 'UC', actor: 'ACTOR',
+    postIt: 'POST-IT', image: 'IMAGE',
   };
   return map[itemType] || 'ITEM';
 }

@@ -59,10 +59,13 @@ export class CanvasRenderer {
     const displayWidth = canvas.clientWidth;
     const displayHeight = canvas.clientHeight;
 
-    if (canvas.width !== displayWidth * dpr || canvas.height !== displayHeight * dpr) {
-      canvas.width = displayWidth * dpr;
-      canvas.height = displayHeight * dpr;
-      ctx.scale(dpr, dpr);
+    // Only resize canvas buffer when dimensions actually change
+    const targetW = displayWidth * dpr;
+    const targetH = displayHeight * dpr;
+    if (canvas.width !== targetW || canvas.height !== targetH) {
+      canvas.width = targetW;
+      canvas.height = targetH;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
 
     ctx.clearRect(0, 0, displayWidth, displayHeight);
@@ -78,20 +81,58 @@ export class CanvasRenderer {
       canvasWidth: displayWidth, canvasHeight: displayHeight,
     });
 
-    // Elements in z-order (respecting layer visibility)
-    for (const id of state.elementOrder) {
-      const el = state.elements[id];
+    // ─── Pre-compute layer visibility map (avoid .find() per element) ──
+    const layerVisMap = new Map();
+    const layers = state.layers || [];
+    for (let i = 0; i < layers.length; i++) {
+      layerVisMap.set(layers[i].id, layers[i].visible);
+    }
+
+    // ─── Compute viewport bounds in world coords for culling ──
+    const vpLeft = -state.panX / state.zoom;
+    const vpTop = -state.panY / state.zoom;
+    const vpRight = vpLeft + displayWidth / state.zoom;
+    const vpBottom = vpTop + displayHeight / state.zoom;
+    // Add margin for elements partially visible or with large strokes
+    const cullMargin = 50;
+    const cLeft = vpLeft - cullMargin;
+    const cTop = vpTop - cullMargin;
+    const cRight = vpRight + cullMargin;
+    const cBottom = vpBottom + cullMargin;
+
+    // Elements in z-order
+    const elOrder = state.elementOrder;
+    const elements = state.elements;
+    const editId = state.editingElementId;
+
+    for (let i = 0; i < elOrder.length; i++) {
+      const id = elOrder[i];
+      const el = elements[id];
       if (!el || !el.visible) continue;
-      if (el.id === state.editingElementId) continue;
-      // Layer visibility check
+
+      // Layer visibility (O(1) map lookup instead of O(n) find)
       const layerId = el.layerId || 'default';
-      const layer = (state.layers || []).find((l) => l.id === layerId);
-      if (layer && !layer.visible) continue;
+      const layerVis = layerVisMap.get(layerId);
+      if (layerVis === false) continue;
+
+      // Viewport culling — skip elements fully outside view
+      // Lines use x/x2/y/y2, others use x/y/width/height
+      if (el.type === 'line') {
+        const lx1 = Math.min(el.x, el.x2), ly1 = Math.min(el.y, el.y2);
+        const lx2 = Math.max(el.x, el.x2), ly2 = Math.max(el.y, el.y2);
+        if (lx2 < cLeft || lx1 > cRight || ly2 < cTop || ly1 > cBottom) continue;
+      } else if (el.width && el.height) {
+        const ex2 = el.x + el.width;
+        const ey2 = el.y + el.height;
+        if (ex2 < cLeft || el.x > cRight || ey2 < cTop || el.y > cBottom) continue;
+      }
+
       // Render frame elements specially
       if (el.type === 'frame') {
-        this._renderFrame(ctx, el, state.zoom);
+        this._renderFrame(ctx, el, state.zoom, id === editId);
         continue;
       }
+      if (id === editId) continue;
       this.renderElement(ctx, el);
       // PLM badge
       if (el.plmNodeId) {
@@ -321,9 +362,21 @@ export class CanvasRenderer {
   }
 
   // ─── Frame rendering ──────────────────────────────────
-  _renderFrame(ctx, frame, zoom) {
+  _renderFrame(ctx, frame, zoom, hideLabel = false) {
     const { x, y, width, height, label, stroke } = frame;
     ctx.save();
+
+    // Background fill (custom or default light tint)
+    if (frame.fill && frame.fill !== 'transparent') {
+      ctx.fillStyle = frame.fill;
+      ctx.globalAlpha = frame.fillOpacity ?? 0.15;
+      ctx.fillRect(x, y, width, height);
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.fillStyle = 'rgba(99, 102, 241, 0.02)';
+      ctx.fillRect(x, y, width, height);
+    }
+
     ctx.strokeStyle = stroke || '#6366f1';
     ctx.lineWidth = 2 / zoom;
     ctx.setLineDash([8 / zoom, 4 / zoom]);
@@ -331,7 +384,7 @@ export class CanvasRenderer {
     ctx.setLineDash([]);
 
     // Frame label
-    if (label) {
+    if (label && !hideLabel) {
       const fontSize = Math.max(12, 14 / zoom);
       ctx.font = `bold ${fontSize}px Inter, system-ui, sans-serif`;
       ctx.fillStyle = stroke || '#6366f1';
@@ -340,9 +393,6 @@ export class CanvasRenderer {
       ctx.fillText(label, x + 4, y - 4);
     }
 
-    // Light background
-    ctx.fillStyle = 'rgba(99, 102, 241, 0.02)';
-    ctx.fillRect(x, y, width, height);
     ctx.restore();
   }
 
@@ -366,14 +416,20 @@ export class CanvasRenderer {
   }
 
   hitTest(state, worldX, worldY) {
-    
+    // Pre-build layer visibility+lock map
+    const layerMap = new Map();
+    const layers = state.layers || [];
+    for (let i = 0; i < layers.length; i++) {
+      layerMap.set(layers[i].id, layers[i]);
+    }
+
     for (let i = state.elementOrder.length - 1; i >= 0; i--) {
       const id = state.elementOrder[i];
       const el = state.elements[id];
       if (!el || !el.visible) continue;
-      // Layer visibility check
+      // Layer visibility check (O(1))
       const layerId = el.layerId || 'default';
-      const layer = (state.layers || []).find((l) => l.id === layerId);
+      const layer = layerMap.get(layerId);
       if (layer && (!layer.visible || layer.locked)) continue;
 
       // For rotated elements, transform the test point into the element's local space

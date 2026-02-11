@@ -28,6 +28,10 @@ import {
   NodeLinkSection 
 } from './RequirementLinks';
 
+// ─── Task Management ───
+import { TaskProvider, KanbanBoard } from './tasks';
+import './tasks/taskManagement.css';
+
 // ─── Extracted Constants ───
 import { RELATIONSHIP_TYPES, defaultEdgeOptions, inferRelationshipType } from './constants/relationships';
 import { ISSUE_CATEGORIES, ISSUE_PRIORITIES, ISSUE_STATUSES } from './constants/issues';
@@ -544,6 +548,8 @@ export default function App(): React.ReactElement {
     addUseCaseNode, addActorNode,
     addParameterNode, addHardwareNode, addTextAnnotationNode,
     addPlatformNode, addRequirementNode,
+    addImageNode,
+    addPostItNode,
   } = useNodeFactory({
     nodeId, setNodeId, generateItemId, handleNodeLabelChange,
     setNodes, reactFlowInstance, hardwareTypes,
@@ -662,6 +668,7 @@ const createNewObject = (name, version, description) => {
     undo, redo,
     duplicateNode,
     nodes, setNodes,
+    addImageNode,
   });
 
   if (showSplash) {
@@ -786,7 +793,7 @@ const createNewObject = (name, version, description) => {
       />
       
       {/* Left Icon Strip - hidden in freeform drawing mode */}
-      {viewMode !== 'freeform' && <LeftIconStrip
+      {viewMode !== 'freeform' && viewMode !== 'tasks' && <LeftIconStrip
         onAddSystem={addSystemNode}
         onAddSubSystem={addSubSystemNode}
         onAddFunction={addFunctionNode}
@@ -798,6 +805,7 @@ const createNewObject = (name, version, description) => {
         onAddUseCase={addUseCaseNode}
         onAddActor={addActorNode}
         onAddTextAnnotation={addTextAnnotationNode}
+        onAddPostIt={addPostItNode}
         onOpenLibrary={() => setShowLibraryPanel(true)}
         onOpenIssueManager={() => setShowIssueManagerModal(true)}
         onVoice={startVoiceRecognition}
@@ -823,7 +831,7 @@ const createNewObject = (name, version, description) => {
           canRedo={canRedo}
         />
       
-      {/* Show Document View, Freeform Whiteboard, OR PLM Canvas */}
+      {/* Show Document View, Tasks Board, Freeform Whiteboard, OR PLM Canvas */}
       {viewMode === 'document' ? (
       <DocumentViewEnhanced 
         nodes={nodes} 
@@ -863,9 +871,23 @@ const createNewObject = (name, version, description) => {
           setNodes(nds => [...nds, newNode]);
           return newNode;
         }}
+        onCreatePostIt={() => addPostItNode('yellow')}
         healthIssues={linkHealthIssues}
         user={user?.name || 'unknown'}
       />
+      ) : viewMode === 'tasks' ? (
+        <TaskProvider projectId={currentProject?.id || 'default'} currentUser={user?.name || 'user'}>
+          <div style={{ 
+            marginTop: '50px', 
+            height: 'calc(100vh - 50px)',
+            overflow: 'hidden'
+          }}>
+            <KanbanBoard
+              allProjectIds={[currentProject?.id || 'default']}
+              getProjectName={() => currentProject?.name || objectName || 'Project'}
+            />
+          </div>
+        </TaskProvider>
       ) : viewMode === 'freeform' ? (
         <Whiteboard style={{ marginTop: '50px', height: 'calc(100vh - 50px)' }} projectId={currentProject?.id || null} />
       ) : (
@@ -923,6 +945,36 @@ const createNewObject = (name, version, description) => {
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          const files = e.dataTransfer?.files;
+          if (!files || files.length === 0) return;
+          const file = files[0];
+          if (!file.type.startsWith('image/')) return;
+
+          const reader = new FileReader();
+          reader.onload = (evt) => {
+            const dataUrl = evt.target?.result as string;
+            const img = new Image();
+            img.onload = () => {
+              // Convert screen coords to flow position
+              let position = { x: 200, y: 200 };
+              if (reactFlowInstance) {
+                position = reactFlowInstance.screenToFlowPosition({
+                  x: e.clientX,
+                  y: e.clientY,
+                });
+              }
+              addImageNode(dataUrl, img.width, img.height, position);
+            };
+            img.src = dataUrl;
+          };
+          reader.readAsDataURL(file);
+        }}
         style={{ 
           background: viewMode === 'whiteboard' ? '#f5f5f5' : '#1a1a2e',
           marginTop: '50px',

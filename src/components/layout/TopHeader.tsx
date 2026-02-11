@@ -156,7 +156,7 @@ function TopHeader({
             background: viewMode === 'document' ? '#3498db' : '#2c3e50',
             color: 'white',
             border: '1px solid #4a5f7f',
-            borderRadius: '0 6px 6px 0',
+            borderRadius: '0',
             cursor: 'pointer',
             fontSize: '11px',
             fontWeight: 'bold'
@@ -164,6 +164,22 @@ function TopHeader({
           title="Document View"
         >
           📄 Doc
+        </button>
+        <button
+          onClick={() => onViewModeChange('tasks')}
+          style={{
+            padding: '6px 10px',
+            background: viewMode === 'tasks' ? '#3498db' : '#2c3e50',
+            color: 'white',
+            border: '1px solid #4a5f7f',
+            borderRadius: '0 6px 6px 0',
+            cursor: 'pointer',
+            fontSize: '11px',
+            fontWeight: 'bold'
+          }}
+          title="Task Board"
+        >
+          ☑ Tasks
         </button>
       </div>
 

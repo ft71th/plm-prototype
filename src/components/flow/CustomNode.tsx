@@ -3,6 +3,43 @@ import React, { useState } from 'react';
 import { Handle, Position } from 'reactflow';
 import { NodeResizer } from '@reactflow/node-resizer';
 
+// Extra handles for 4-side connectivity (top/bottom + reverse left/right)
+const handleDotStyle = {
+  width: '8px',
+  height: '8px',
+  background: 'rgba(100, 100, 100, 0.3)',
+  border: '1.5px solid rgba(255,255,255,0.5)',
+  transition: 'background 0.2s, transform 0.2s',
+};
+
+function ExtraHandles({ color, skipLeftRight }: { color?: string; skipLeftRight?: boolean }) {
+  const bg = color ? `${color}66` : 'rgba(100,100,100,0.3)';
+  const s = { ...handleDotStyle, background: bg };
+  return (
+    <>
+      {/* Top handles */}
+      <Handle type="target" position={Position.Top} id="top-target"
+        style={{ ...s, top: '-4px', left: '40%' }} />
+      <Handle type="source" position={Position.Top} id="top-source"
+        style={{ ...s, top: '-4px', left: '60%' }} />
+      {/* Bottom handles */}
+      <Handle type="target" position={Position.Bottom} id="bottom-target"
+        style={{ ...s, bottom: '-4px', left: '40%' }} />
+      <Handle type="source" position={Position.Bottom} id="bottom-source"
+        style={{ ...s, bottom: '-4px', left: '60%' }} />
+      {/* Extra left source + right target (skip when ports exist to avoid overlap) */}
+      {!skipLeftRight && (
+        <>
+          <Handle type="source" position={Position.Left} id="left-source"
+            style={{ ...s, left: '-4px', top: '35%' }} />
+          <Handle type="target" position={Position.Right} id="right-target"
+            style={{ ...s, right: '-4px', top: '35%' }} />
+        </>
+      )}
+    </>
+  );
+}
+
 function CustomNode({ data, id, selected }: { data: NodeData; id: string; selected: boolean }) {
   const [isEditing, setIsEditing] = useState(false);
   const [label, setLabel] = useState(data.label);
@@ -440,6 +477,7 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
           position={Position.Right}
           style={{ background: data.groupColor || '#3498db', width: '10px', height: '10px' }}
         />
+        <ExtraHandles color={data.groupColor || '#3498db'} />
       </div>
     );
   }
@@ -594,6 +632,7 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
             title={port.name}
           />
         ))}
+        <ExtraHandles color="#795548" skipLeftRight={ports.length > 0} />
       </div>
     );
   }
@@ -685,6 +724,7 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
             bottom: '-4px' 
           }}
         />
+        <ExtraHandles color="#2ecc71" />
       </div>
     );
   }
@@ -1017,6 +1057,7 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
             {data.issueCount > 9 ? '9+' : data.issueCount}
           </div>
         )}
+      <ExtraHandles skipLeftRight={ports.length > 0} />
       </div>
       </>
     );
@@ -1432,6 +1473,8 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
           📎
         </div>
       )}
+
+      <ExtraHandles skipLeftRight={(data.ports || []).length > 0} />
     </div>
   );
 }

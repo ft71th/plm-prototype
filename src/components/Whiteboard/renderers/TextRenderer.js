@@ -7,7 +7,7 @@ import { wrapText } from './ShapeRenderer';
 
 export function renderText(ctx, textElement) {
   const { x, y, width, height, content } = textElement;
-  if (!content || !content.text) return;
+  if (!content) return;
 
   ctx.save();
 
@@ -20,6 +20,34 @@ export function renderText(ctx, textElement) {
     ctx.rotate(rotation);
     ctx.translate(-cx, -cy);
   }
+
+  // Background fill
+  if (content.backgroundColor && content.backgroundColor !== 'transparent') {
+    ctx.fillStyle = content.backgroundColor;
+    const bgOpacity = content.backgroundOpacity ?? 1;
+    ctx.globalAlpha = bgOpacity;
+    const r = content.backgroundRadius || 4;
+    if (r > 0) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + width - r, y);
+      ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+      ctx.lineTo(x + width, y + height - r);
+      ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+      ctx.lineTo(x + r, y + height);
+      ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      ctx.fillRect(x, y, width, height);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // No text to draw? Still rendered the background above.
+  if (!content.text) { ctx.restore(); return; }
 
   const padding = 8;
   const maxWidth = width - padding * 2;

@@ -13,6 +13,7 @@ function LeftIconStrip({
   onAddUseCase,
   onAddActor,
   onAddTextAnnotation,
+  onAddPostIt,
   onOpenLibrary,
   onOpenIssueManager,
   onVoice,
@@ -141,6 +142,7 @@ function LeftIconStrip({
       
       {/* Annotations */}
       <ToolbarButton onClick={onAddTextAnnotation} title="Add Text" bgColor="#607d8b" icon="📝" />
+      <ToolbarButton onClick={onAddPostIt} title="Add Post-it" bgColor="#f9e547" icon="📌" />
       
       {/* Separator */}
       <div style={{ height: '1px', background: '#4a5f7f', margin: '4px 0' }} />

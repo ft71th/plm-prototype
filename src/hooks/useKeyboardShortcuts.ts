@@ -13,6 +13,7 @@ interface UseKeyboardShortcutsParams {
   duplicateSelectedNodes: () => void;
   toggleLockSelectedNodes: () => void;
   groupSelectedNodes: () => void;
+  addImageNode?: (dataUrl: string, w: number, h: number) => void;
   ungroupSelectedNodes: () => void;
   addPlatformNode: () => void;
   addRequirementNode: () => void;
@@ -35,6 +36,7 @@ export default function useKeyboardShortcuts({
   undo, redo,
   duplicateNode,
   nodes, setNodes,
+  addImageNode,
 }: UseKeyboardShortcutsParams) {
   const selectedNode = useStore(s => s.selectedNode);
   const setSelectedNode = useStore(s => s.setSelectedNode);
@@ -74,8 +76,8 @@ export default function useKeyboardShortcuts({
         copySelectedNodes();
       }
       if (mod && e.key === 'v') {
-        e.preventDefault();
-        pasteNodes();
+        // Don't preventDefault — let the native paste event fire
+        // so we can check for clipboard images first (handled below)
       }
       if (mod && e.key === 'x') {
         e.preventDefault();
@@ -185,4 +187,48 @@ export default function useKeyboardShortcuts({
     nodes, selectedNode, setNodes, setSelectedNode, setSelectedEdge,
     setShowLinkManager, viewMode,
   ]);
+
+  // ─── Paste event listener (image paste + fallback to internal paste) ───
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      // Skip in freeform mode (handled by WhiteboardCanvas)
+      if (viewMode === 'freeform') return;
+
+      // Skip when in input fields
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+
+      const items = e.clipboardData?.items;
+      if (items) {
+        for (const item of Array.from(items)) {
+          if (item.type.startsWith('image/')) {
+            e.preventDefault();
+            const file = item.getAsFile();
+            if (!file) continue;
+
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+              const dataUrl = evt.target?.result as string;
+              const img = new Image();
+              img.onload = () => {
+                if (addImageNode) {
+                  addImageNode(dataUrl, img.width, img.height);
+                }
+              };
+              img.src = dataUrl;
+            };
+            reader.readAsDataURL(file);
+            return; // Image found — don't do internal paste
+          }
+        }
+      }
+
+      // No image in clipboard — paste internal elements
+      e.preventDefault();
+      pasteNodes();
+    };
+
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, [viewMode, pasteNodes, addImageNode]);
 }

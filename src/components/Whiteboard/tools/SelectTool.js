@@ -233,7 +233,7 @@ export class SelectTool {
 
     if (hitId) {
       const el = state.elements[hitId];
-      if (el && (el.type === 'shape' || el.type === 'text')) {
+      if (el && (el.type === 'shape' || el.type === 'text' || el.type === 'frame')) {
         // Enter inline text editing mode
         store.getState().setEditingElementId(hitId);
       }

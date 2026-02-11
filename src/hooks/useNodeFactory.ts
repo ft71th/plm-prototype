@@ -282,6 +282,67 @@ export default function useNodeFactory({
     }, 0);
   }, [nodeId, handleNodeLabelChange, setNodes, clearSelection, getCenterPosition, setNodeId]);
 
+  /** Add image node from pasted/dropped image */
+  const addImageNode = useCallback((dataUrl: string, imgWidth: number, imgHeight: number, position?: { x: number; y: number }) => {
+    clearSelection();
+    const pos = position || getCenterPosition();
+
+    // Scale down large images
+    const maxDim = 400;
+    let w = imgWidth;
+    let h = imgHeight;
+    if (w > maxDim || h > maxDim) {
+      const ratio = Math.min(maxDim / w, maxDim / h);
+      w = Math.round(w * ratio);
+      h = Math.round(h * ratio);
+    }
+
+    setTimeout(() => {
+      const newNode = {
+        id: String(nodeId),
+        type: 'imageNode',
+        position: pos,
+        selected: true,
+        data: {
+          src: dataUrl,
+          label: '',
+          itemType: 'image',
+          nodeWidth: w,
+          nodeHeight: h,
+          onChange: handleNodeLabelChange,
+        },
+      };
+      setNodes((nds) => [...nds, newNode]);
+      setNodeId((id) => id + 1);
+    }, 0);
+  }, [nodeId, handleNodeLabelChange, setNodes, clearSelection, getCenterPosition, setNodeId]);
+
+  /** Add post-it note */
+  const addPostItNode = useCallback((color = 'yellow') => {
+    clearSelection();
+    const position = getCenterPosition();
+
+    setTimeout(() => {
+      const newNode = {
+        id: String(nodeId),
+        type: 'postIt',
+        position,
+        selected: true,
+        data: {
+          text: '',
+          itemType: 'postIt',
+          postItColor: color,
+          nodeWidth: 180,
+          nodeHeight: 140,
+          fontSize: 13,
+          onChange: handleNodeLabelChange,
+        },
+      };
+      setNodes((nds) => [...nds, newNode]);
+      setNodeId((id) => id + 1);
+    }, 0);
+  }, [nodeId, handleNodeLabelChange, setNodes, clearSelection, getCenterPosition, setNodeId]);
+
   // Convenience aliases matching old API
   const addSystemNode = useCallback(() => addNode('system'), [addNode]);
   const addSubSystemNode = useCallback(() => addNode('subsystem'), [addNode]);
@@ -297,6 +358,8 @@ export default function useNodeFactory({
     addParameterNode,
     addHardwareNode,
     addTextAnnotationNode,
+    addImageNode,
+    addPostItNode,
     addSystemNode,
     addSubSystemNode,
     addFunctionNode,

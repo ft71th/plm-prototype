@@ -1,5 +1,6 @@
 import type { PLMNode, PLMEdge, NodeData, Issue, IssueMap, HardwareType, Port } from '../../types';
 import React, { useState, useEffect, useRef } from 'react';
+import { Handle, Position } from 'reactflow';
 import { NodeResizer } from '@reactflow/node-resizer';
 
 function TextAnnotationNode({ data, id, selected }: { data: NodeData; id: string; selected: boolean }) {
@@ -130,6 +131,24 @@ function TextAnnotationNode({ data, id, selected }: { data: NodeData; id: string
           📝 Text
         </div>
       )}
+
+      {/* Connection handles — all 4 sides */}
+      <Handle type="target" position={Position.Left} id="default-target"
+        style={{ background: '#60606066', width: 6, height: 6, left: -3, border: '1.5px solid #fff' }} />
+      <Handle type="source" position={Position.Right} id="default-source"
+        style={{ background: '#60606066', width: 6, height: 6, right: -3, border: '1.5px solid #fff' }} />
+      <Handle type="target" position={Position.Top} id="top-target"
+        style={{ background: '#60606066', width: 6, height: 6, top: -3, border: '1.5px solid #fff' }} />
+      <Handle type="source" position={Position.Bottom} id="bottom-source"
+        style={{ background: '#60606066', width: 6, height: 6, bottom: -3, border: '1.5px solid #fff' }} />
+      <Handle type="source" position={Position.Left} id="left-source"
+        style={{ background: '#60606044', width: 5, height: 5, left: -3, top: '35%', border: '1px solid #fff' }} />
+      <Handle type="target" position={Position.Right} id="right-target"
+        style={{ background: '#60606044', width: 5, height: 5, right: -3, top: '35%', border: '1px solid #fff' }} />
+      <Handle type="source" position={Position.Top} id="top-source"
+        style={{ background: '#60606044', width: 5, height: 5, top: -3, left: '60%', border: '1px solid #fff' }} />
+      <Handle type="target" position={Position.Bottom} id="bottom-target"
+        style={{ background: '#60606044', width: 5, height: 5, bottom: -3, left: '60%', border: '1px solid #fff' }} />
     </div>
   );
 }

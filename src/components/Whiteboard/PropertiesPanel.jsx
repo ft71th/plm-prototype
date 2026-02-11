@@ -51,6 +51,7 @@ export default function PropertiesPanel({ className = '' }) {
   const isShape = single?.type === 'shape';
   const isText = single?.type === 'text';
   const isLine = single?.type === 'line';
+  const isFrame = single?.type === 'frame';
   const hasTextContent = isShape ? !!single.text : isText;
   const textContent = isText ? single.content : (isShape ? single.text : null);
 
@@ -236,6 +237,126 @@ export default function PropertiesPanel({ className = '' }) {
               <option value="right">Höger</option>
             </select>
           </div>
+        </Section>
+      )}
+
+      {/* ─── Text Background Color ─── */}
+      {isText && single && (
+        <Section title="Textbakgrund">
+          <div style={styles.row}>
+            <ColorInput
+              label="Färg"
+              value={single.content?.backgroundColor || '#ffffff'}
+              onChange={(v) => {
+                pushHistoryCheckpoint();
+                updateElement(single.id, { content: { ...single.content, backgroundColor: v } });
+                addRecentColor(v);
+              }}
+            />
+            <NumberInput
+              label="Opacity"
+              value={Math.round((single.content?.backgroundOpacity ?? 0) * 100)}
+              min={0} max={100} suffix="%"
+              onChange={(v) => {
+                pushHistoryCheckpoint();
+                updateElement(single.id, { content: { ...single.content, backgroundOpacity: v / 100 } });
+              }}
+            />
+          </div>
+          <div style={styles.row}>
+            <NumberInput
+              label="Radie"
+              value={single.content?.backgroundRadius ?? 4}
+              min={0} max={40}
+              onChange={(v) => {
+                updateElement(single.id, { content: { ...single.content, backgroundRadius: v } });
+              }}
+            />
+            <button
+              onClick={() => {
+                pushHistoryCheckpoint();
+                updateElement(single.id, { content: { ...single.content, backgroundColor: 'transparent', backgroundOpacity: 0 } });
+              }}
+              style={{ ...styles.smallButton, marginLeft: 4 }}
+              title="Ta bort bakgrund"
+            >
+              Ingen
+            </button>
+          </div>
+          <RecentColors colors={recentColors} onSelect={(c) => {
+            pushHistoryCheckpoint();
+            updateElement(single.id, { content: { ...single.content, backgroundColor: c, backgroundOpacity: single.content?.backgroundOpacity || 1 } });
+            addRecentColor(c);
+          }} />
+        </Section>
+      )}
+
+      {/* ─── Frame Properties ─── */}
+      {isFrame && single && (
+        <Section title="Ram (Frame)">
+          <div style={styles.row}>
+            <label style={{ ...styles.inputLabel, flex: 1 }}>
+              <span style={styles.inputLabelText}>Namn</span>
+              <input
+                type="text"
+                value={single.label || ''}
+                onChange={(e) => {
+                  pushHistoryCheckpoint();
+                  updateElement(single.id, { label: e.target.value });
+                }}
+                style={styles.select}
+                placeholder="Ramnamn..."
+              />
+            </label>
+          </div>
+          <div style={styles.row}>
+            <ColorInput
+              label="Kantfärg"
+              value={single.stroke || '#6366f1'}
+              onChange={(v) => {
+                pushHistoryCheckpoint();
+                updateElement(single.id, { stroke: v });
+                addRecentColor(v);
+              }}
+            />
+          </div>
+          <div style={styles.row}>
+            <ColorInput
+              label="Bakgrund"
+              value={single.fill || '#6366f1'}
+              onChange={(v) => {
+                pushHistoryCheckpoint();
+                updateElement(single.id, { fill: v });
+                addRecentColor(v);
+              }}
+            />
+            <NumberInput
+              label="Opacity"
+              value={Math.round((single.fillOpacity ?? 0.15) * 100)}
+              min={0} max={100} suffix="%"
+              onChange={(v) => {
+                pushHistoryCheckpoint();
+                updateElement(single.id, { fillOpacity: v / 100 });
+              }}
+            />
+          </div>
+          <div style={styles.row}>
+            <button
+              onClick={() => {
+                pushHistoryCheckpoint();
+                updateElement(single.id, { fill: 'transparent', fillOpacity: 0 });
+              }}
+              style={{ ...styles.smallButton }}
+              title="Ta bort bakgrundsfärg"
+            >
+              Ingen bakgrund
+            </button>
+          </div>
+          <RecentColors colors={recentColors} onSelect={(c) => {
+            pushHistoryCheckpoint();
+            updateElement(single.id, { fill: c, fillOpacity: single.fillOpacity ?? 0.15 });
+            addRecentColor(c);
+          }} />
         </Section>
       )}
 
