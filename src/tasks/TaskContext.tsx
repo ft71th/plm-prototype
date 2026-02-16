@@ -16,6 +16,7 @@ import {
   THEMES,
 } from './types';
 import * as store from './taskStore';
+import { initProjectTasks } from './taskStore';
 
 // ---------------------------------------------------------------------------
 // Context shape
@@ -29,6 +30,7 @@ interface TaskContextValue {
   activeBoard: TaskBoard | null;
   tasks: Task[];         // filtered tasks
   allTasks: Task[];      // unfiltered tasks for current board
+  loading: boolean;      // true while initializing from backend
 
   // Theme
   theme: BoardTheme;
@@ -103,6 +105,7 @@ export function TaskProvider({ projectId, currentUser, children }: TaskProviderP
   const [boards, setBoards] = useState<TaskBoard[]>([]);
   const [activeBoard, setActiveBoard] = useState<TaskBoard | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Load data
   const refresh = useCallback(() => {
@@ -121,13 +124,35 @@ export function TaskProvider({ projectId, currentUser, children }: TaskProviderP
     }
   }, [projectId, activeBoard?.id]);
 
+  // Initialize from backend, then load into state
   useEffect(() => {
-    const b = store.getBoards(projectId);
-    setBoards(b);
-    if (b.length > 0 && !activeBoard) {
-      setActiveBoard(b[0]);
-      setTasks(store.getTasksForBoard(projectId, b[0].id));
+    let cancelled = false;
+
+    async function init() {
+      setLoading(true);
+      try {
+        await initProjectTasks(projectId);
+      } catch (err) {
+        console.warn('[TaskContext] Backend init failed, using cache:', err);
+      }
+
+      if (cancelled) return;
+
+      const b = store.getBoards(projectId);
+      setBoards(b);
+      if (b.length > 0) {
+        setActiveBoard(b[0]);
+        setTasks(store.getTasksForBoard(projectId, b[0].id));
+      } else {
+        setActiveBoard(null);
+        setTasks([]);
+      }
+      setLoading(false);
     }
+
+    init();
+
+    return () => { cancelled = true; };
   }, [projectId]);
 
   // Board selection
@@ -140,7 +165,7 @@ export function TaskProvider({ projectId, currentUser, children }: TaskProviderP
     }
   }, [projectId]);
 
-  // ── Theme state (must be before Board ops so createBoard can reference it) ──
+  // — Theme state (must be before Board ops so createBoard can reference it) —
   const PROJECT_THEME_KEY = `northlight-theme-${projectId}`;
   const [projectThemeFallback, setProjectThemeFallback] = useState(() => {
     try { return localStorage.getItem(PROJECT_THEME_KEY) || 'dark'; } catch { return 'dark'; }
@@ -262,7 +287,7 @@ export function TaskProvider({ projectId, currentUser, children }: TaskProviderP
     if (activeBoard) setTasks(store.getTasksForBoard(projectId, activeBoard.id));
   }, [projectId, activeBoard?.id]);
 
-  // ── Theme (handleSetThemeKey) ──
+  // — Theme (handleSetThemeKey) —
   const handleSetThemeKey = useCallback((key: string) => {
     // Always save project-level fallback and update state
     try { localStorage.setItem(PROJECT_THEME_KEY, key); } catch {}
@@ -276,7 +301,7 @@ export function TaskProvider({ projectId, currentUser, children }: TaskProviderP
     setActiveBoard(b.find((x) => x.id === activeBoard.id) || null);
   }, [projectId, activeBoard?.id, PROJECT_THEME_KEY]);
 
-  // ── Filters ──
+  // — Filters —
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [searchFilter, setSearchFilter] = useState<string>('');
 
@@ -296,7 +321,7 @@ export function TaskProvider({ projectId, currentUser, children }: TaskProviderP
     return result;
   }, [tasks, categoryFilter, searchFilter]);
 
-  // ── Category ops ──
+  // — Category ops —
   const handleAddCategory = useCallback((name: string, color: string, icon: string) => {
     if (!activeBoard) return;
     const cat = { id: store.generateId(), name, color, icon };
@@ -333,7 +358,7 @@ export function TaskProvider({ projectId, currentUser, children }: TaskProviderP
     if (categoryFilter === categoryId) setCategoryFilter('all');
   }, [projectId, activeBoard, categoryFilter]);
 
-  // ── Label ops ──
+  // — Label ops —
   const handleAddLabel = useCallback((name: string, color: string) => {
     if (!activeBoard) return;
     const label = { id: store.generateId(), name, color };
@@ -370,7 +395,7 @@ export function TaskProvider({ projectId, currentUser, children }: TaskProviderP
     if (activeBoard) setTasks(store.getTasksForBoard(projectId, activeBoard.id));
   }, [projectId, activeBoard]);
 
-  // ── Custom themes ──
+  // — Custom themes —
   const CUSTOM_THEMES_KEY = `northlight-custom-themes`;
 
   const [customThemes, setCustomThemes] = useState<Record<string, BoardTheme>>(() => {
@@ -408,6 +433,7 @@ export function TaskProvider({ projectId, currentUser, children }: TaskProviderP
     activeBoard,
     tasks: filteredTasks,
     allTasks: tasks,
+    loading,
     theme: resolvedTheme,
     themeKey,
     setThemeKey: handleSetThemeKey,

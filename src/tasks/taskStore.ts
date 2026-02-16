@@ -1,5 +1,7 @@
 // ============================================================================
 // Northlight Task Management — Store (CRUD + Persistence)
+// Now uses backend API (PostgreSQL) as source of truth,
+// with in-memory cache for synchronous access.
 // ============================================================================
 
 import {
@@ -18,6 +20,8 @@ import {
   DEFAULT_CATEGORIES,
 } from './types';
 
+import { apiFetch } from '../api';
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -31,7 +35,156 @@ function now(): string {
 }
 
 // ---------------------------------------------------------------------------
-// Storage keys
+// In-memory cache + background sync
+// ---------------------------------------------------------------------------
+
+const boardsCache: Map<string, TaskBoard[]> = new Map();
+const tasksCache: Map<string, Task[]> = new Map();
+const initializedProjects: Set<string> = new Set();
+
+// Debounced save timers
+const boardsSaveTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+const tasksSaveTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+
+function debouncedSaveBoards(projectId: string): void {
+  const existing = boardsSaveTimers.get(projectId);
+  if (existing) clearTimeout(existing);
+
+  const timer = setTimeout(() => {
+    const boards = boardsCache.get(projectId) || [];
+    apiFetch(`/projects/${projectId}/boards`, {
+      method: 'PUT',
+      body: JSON.stringify({ data: boards }),
+    })
+      .then(() => console.log('[Tasks] Boards saved to backend for', projectId))
+      .catch((err: any) => console.warn('[Tasks] Failed to save boards:', err.message));
+
+    // Also cache to localStorage as fallback
+    try {
+      localStorage.setItem(`northlight-boards-${projectId}`, JSON.stringify(boards));
+    } catch (e) { /* ignore */ }
+  }, 1000);
+
+  boardsSaveTimers.set(projectId, timer);
+}
+
+function debouncedSaveTasks(projectId: string): void {
+  const existing = tasksSaveTimers.get(projectId);
+  if (existing) clearTimeout(existing);
+
+  const timer = setTimeout(() => {
+    const tasks = tasksCache.get(projectId) || [];
+    apiFetch(`/projects/${projectId}/tasks`, {
+      method: 'PUT',
+      body: JSON.stringify({ data: tasks }),
+    })
+      .then(() => console.log('[Tasks] Tasks saved to backend for', projectId))
+      .catch((err: any) => console.warn('[Tasks] Failed to save tasks:', err.message));
+
+    // Also cache to localStorage as fallback
+    try {
+      localStorage.setItem(`northlight-tasks-${projectId}`, JSON.stringify(tasks));
+    } catch (e) { /* ignore */ }
+  }, 1000);
+
+  tasksSaveTimers.set(projectId, timer);
+}
+
+// ---------------------------------------------------------------------------
+// Initialization — call this when opening a project
+// ---------------------------------------------------------------------------
+
+export async function initProjectTasks(projectId: string): Promise<void> {
+  if (initializedProjects.has(projectId)) return;
+
+  try {
+    // Load boards from backend
+    const boardsRes = await apiFetch(`/projects/${projectId}/boards`);
+    const backendBoards = boardsRes?.data;
+    if (Array.isArray(backendBoards) && backendBoards.length > 0) {
+      boardsCache.set(projectId, backendBoards);
+    } else {
+      // Try localStorage migration
+      const localBoards = localStorage.getItem(`northlight-boards-${projectId}`);
+      if (localBoards) {
+        try {
+          const parsed = JSON.parse(localBoards);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            console.log(`[Tasks] Migrating ${parsed.length} boards from localStorage`);
+            boardsCache.set(projectId, parsed);
+            // Push to backend
+            await apiFetch(`/projects/${projectId}/boards`, {
+              method: 'PUT',
+              body: JSON.stringify({ data: parsed }),
+            });
+          }
+        } catch (e) { /* ignore */ }
+      }
+      if (!boardsCache.has(projectId)) {
+        boardsCache.set(projectId, []);
+      }
+    }
+
+    // Load tasks from backend
+    const tasksRes = await apiFetch(`/projects/${projectId}/tasks`);
+    const backendTasks = tasksRes?.data;
+    if (Array.isArray(backendTasks) && backendTasks.length > 0) {
+      tasksCache.set(projectId, backendTasks);
+    } else {
+      // Try localStorage migration
+      const localTasks = localStorage.getItem(`northlight-tasks-${projectId}`);
+      if (localTasks) {
+        try {
+          const parsed = JSON.parse(localTasks);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            console.log(`[Tasks] Migrating ${parsed.length} tasks from localStorage`);
+            tasksCache.set(projectId, parsed);
+            // Push to backend
+            await apiFetch(`/projects/${projectId}/tasks`, {
+              method: 'PUT',
+              body: JSON.stringify({ data: parsed }),
+            });
+          }
+        } catch (e) { /* ignore */ }
+      }
+      if (!tasksCache.has(projectId)) {
+        tasksCache.set(projectId, []);
+      }
+    }
+
+    initializedProjects.add(projectId);
+    console.log(`[Tasks] Initialized project ${projectId}: ${boardsCache.get(projectId)?.length || 0} boards, ${tasksCache.get(projectId)?.length || 0} tasks`);
+  } catch (err: any) {
+    console.warn('[Tasks] Backend init failed, falling back to localStorage:', err.message);
+
+    // Fallback to localStorage
+    try {
+      const localBoards = localStorage.getItem(`northlight-boards-${projectId}`);
+      boardsCache.set(projectId, localBoards ? JSON.parse(localBoards) : []);
+    } catch (e) {
+      boardsCache.set(projectId, []);
+    }
+
+    try {
+      const localTasks = localStorage.getItem(`northlight-tasks-${projectId}`);
+      tasksCache.set(projectId, localTasks ? JSON.parse(localTasks) : []);
+    } catch (e) {
+      tasksCache.set(projectId, []);
+    }
+
+    initializedProjects.add(projectId);
+  }
+}
+
+// Force re-init (useful after migration)
+export function resetProjectCache(projectId: string): void {
+  initializedProjects.delete(projectId);
+  boardsCache.delete(projectId);
+  tasksCache.delete(projectId);
+}
+
+// ---------------------------------------------------------------------------
+// Storage keys (kept for localStorage fallback cache)
 // ---------------------------------------------------------------------------
 
 const BOARDS_KEY = (projectId: string) => `northlight-boards-${projectId}`;
@@ -39,11 +192,15 @@ const TASKS_KEY = (projectId: string) => `northlight-tasks-${projectId}`;
 const TASK_INDEX_KEY = (userId: string) => `northlight-task-index-${userId}`;
 
 // ---------------------------------------------------------------------------
-// Discovery — find all project IDs that have task data in localStorage
+// Discovery — find all project IDs that have task data
 // ---------------------------------------------------------------------------
 
 export function discoverProjectIds(): string[] {
   const ids = new Set<string>();
+  // From cache
+  boardsCache.forEach((_, key) => ids.add(key));
+  tasksCache.forEach((_, key) => ids.add(key));
+  // From localStorage (for uninitialized projects)
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     if (!key) continue;
@@ -61,16 +218,12 @@ export function discoverProjectIds(): string[] {
 // ---------------------------------------------------------------------------
 
 export function getBoards(projectId: string): TaskBoard[] {
-  try {
-    const raw = localStorage.getItem(BOARDS_KEY(projectId));
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+  return boardsCache.get(projectId) || [];
 }
 
 export function saveBoards(projectId: string, boards: TaskBoard[]): void {
-  localStorage.setItem(BOARDS_KEY(projectId), JSON.stringify(boards));
+  boardsCache.set(projectId, boards);
+  debouncedSaveBoards(projectId);
 }
 
 export function createBoard(
@@ -184,13 +337,11 @@ export function deleteColumn(
   if (!board) return;
 
   board.columns = board.columns.filter((c) => c.id !== columnId);
-  // Re-order
   board.columns.sort((a, b) => a.order - b.order);
   board.columns.forEach((c, i) => (c.order = i));
   board.updatedAt = now();
   saveBoards(projectId, boards);
 
-  // Move or delete tasks in the removed column
   const tasks = getTasks(projectId);
   if (moveTasksToColumnId) {
     tasks.forEach((t) => {
@@ -228,16 +379,12 @@ export function reorderColumns(
 // ---------------------------------------------------------------------------
 
 export function getTasks(projectId: string): Task[] {
-  try {
-    const raw = localStorage.getItem(TASKS_KEY(projectId));
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+  return tasksCache.get(projectId) || [];
 }
 
 export function saveTasks(projectId: string, tasks: Task[]): void {
-  localStorage.setItem(TASKS_KEY(projectId), JSON.stringify(tasks));
+  tasksCache.set(projectId, tasks);
+  debouncedSaveTasks(projectId);
 }
 
 export function getTasksForBoard(projectId: string, boardId: string): Task[] {
@@ -311,13 +458,11 @@ export function moveTask(
 
   const oldColumnId = task.columnId;
 
-  // Remove from old position
   const oldColumnTasks = tasks
     .filter((t) => t.boardId === task.boardId && t.columnId === oldColumnId && t.id !== taskId)
     .sort((a, b) => a.order - b.order);
   oldColumnTasks.forEach((t, i) => (t.order = i));
 
-  // Insert at new position
   task.columnId = toColumnId;
   task.order = toOrder;
   task.updatedAt = now();
@@ -326,7 +471,6 @@ export function moveTask(
     .filter((t) => t.boardId === task.boardId && t.columnId === toColumnId && t.id !== taskId)
     .sort((a, b) => a.order - b.order);
 
-  // Shift tasks at and after the insert position
   newColumnTasks.forEach((t, i) => {
     t.order = i >= toOrder ? i + 1 : i;
   });
@@ -436,7 +580,6 @@ export function linkItemToTask(
   const task = tasks.find((t) => t.id === taskId);
   if (!task) return;
 
-  // Avoid duplicates
   if (task.linkedItems.some((li) => li.itemId === item.itemId)) return;
 
   task.linkedItems.push(item);

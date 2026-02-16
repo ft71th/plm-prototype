@@ -9,10 +9,11 @@
  * so data persists across view mode switches.
  *
  * Feature: Per-project whiteboard data — each project gets its own
- * whiteboard state scoped by projectId in localStorage.
+ * whiteboard state. Data is persisted to the backend API (PostgreSQL)
+ * with localStorage as a write-through cache for fast loads.
  */
 
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback, useState } from 'react';
 import WhiteboardCanvas from './WhiteboardCanvas';
 import WhiteboardToolbar from './WhiteboardToolbar';
 import PropertiesPanel from './PropertiesPanel';
@@ -29,6 +30,7 @@ import ElementMetadataPanel from './ElementMetadataPanel';
 import RulerOverlay from './RulerOverlay';
 import SymbolLibraryPanel from './SymbolLibraryPanel';
 import useWhiteboardStore from '../../stores/whiteboardStore';
+import { apiFetch } from '../../api';
 
 // Save notification component
 function SaveNotification() {
@@ -48,8 +50,7 @@ function SaveNotification() {
 }
 
 /**
- * Get storage key for a project's whiteboard data.
- * Falls back to 'default' if no projectId is provided.
+ * localStorage keys kept as write-through cache for instant loads.
  */
 function getStorageKey(projectId) {
   const id = projectId || 'default';
@@ -61,6 +62,9 @@ function getTimeKey(projectId) {
   return `whiteboard-autosave-time-${id}`;
 }
 
+// Debounced save-to-backend timer ref (module level to survive re-renders)
+let _backendSaveTimer = null;
+
 export default function Whiteboard({ className = '', style = {}, projectId = null }) {
   const canvasRef = useRef(null);
   const importFromJSON = useWhiteboardStore((s) => s.importFromJSON);
@@ -68,115 +72,160 @@ export default function Whiteboard({ className = '', style = {}, projectId = nul
   const elements = useWhiteboardStore((s) => s.elements);
   const elementOrder = useWhiteboardStore((s) => s.elementOrder);
   const clearCanvas = useWhiteboardStore((s) => s.clearCanvas);
+  const [loading, setLoading] = useState(true);
 
   // Track which project we loaded for, to detect project changes
   const loadedProjectRef = useRef(null);
 
-  // Helper to save current state to localStorage (project-scoped)
-  const saveToLocalStorage = useCallback(() => {
+  // Save current state to backend + localStorage cache
+  const saveToBackend = useCallback((pid) => {
+    const effectivePid = pid || projectId;
+    if (!effectivePid) return;
+
     try {
       const json = exportToJSON();
-      localStorage.setItem(getStorageKey(projectId), json);
-      localStorage.setItem(getTimeKey(projectId), new Date().toISOString());
+      // Write-through cache to localStorage for instant next load
+      localStorage.setItem(getStorageKey(effectivePid), json);
+      localStorage.setItem(getTimeKey(effectivePid), new Date().toISOString());
+
+      // Save to backend
+      const parsed = JSON.parse(json);
+      apiFetch(`/projects/${effectivePid}/whiteboard`, {
+        method: 'PUT',
+        body: JSON.stringify({ data: parsed }),
+      })
+        .then(() => console.log('[Whiteboard] Saved to backend for project:', effectivePid))
+        .catch(err => console.warn('[Whiteboard] Backend save failed (will retry):', err.message));
     } catch (e) {
-      console.warn('[Whiteboard] Failed to autosave:', e);
+      console.warn('[Whiteboard] Failed to save:', e);
     }
   }, [exportToJSON, projectId]);
 
-  // Load from localStorage on mount OR when projectId changes
+  // Load from backend on mount OR when projectId changes
   useEffect(() => {
-    // If projectId changed, save old project first (if we had one loaded)
+    let cancelled = false;
+
+    // If projectId changed, save old project first
     if (loadedProjectRef.current !== null && loadedProjectRef.current !== projectId) {
-      try {
-        const state = useWhiteboardStore.getState();
-        const json = JSON.stringify({
-          version: '2.0',
-          timestamp: new Date().toISOString(),
-          elements: state.elements,
-          elementOrder: state.elementOrder,
-          gridSize: state.gridSize,
-          layers: state.layers,
-          frames: state.frames,
-        }, null, 2);
-        localStorage.setItem(getStorageKey(loadedProjectRef.current), json);
-        localStorage.setItem(getTimeKey(loadedProjectRef.current), new Date().toISOString());
-        console.log('[Whiteboard] Saved previous project:', loadedProjectRef.current);
-      } catch (e) {
-        console.warn('[Whiteboard] Failed to save previous project:', e);
-      }
+      saveToBackend(loadedProjectRef.current);
     }
 
-    // Now load the new project's whiteboard data
-    const storageKey = getStorageKey(projectId);
-    let saved = localStorage.getItem(storageKey);
-    
-    // Check if saved data is actually empty (has no elements)
-    let savedHasData = false;
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        const elCount = parsed.elements ? Object.keys(parsed.elements).length : 0;
-        savedHasData = elCount > 0;
-      } catch (e) { /* ignore */ }
-    }
-    
-    // Migration: if no meaningful project-scoped data, check the old global key
-    if (!savedHasData) {
-      const oldData = localStorage.getItem('whiteboard-autosave');
-      if (oldData) {
+    async function loadWhiteboard() {
+      setLoading(true);
+
+      // 1. Try loading from localStorage cache first (instant)
+      const storageKey = getStorageKey(projectId);
+      const cachedJson = localStorage.getItem(storageKey);
+      let cachedData = null;
+      if (cachedJson) {
         try {
-          const parsed = JSON.parse(oldData);
-          const oldElCount = parsed.elements ? Object.keys(parsed.elements).length : 0;
-          if (oldElCount > 0) {
-            console.log(`[Whiteboard] Migrating old whiteboard data (${oldElCount} elements) to project "${projectId || 'default'}"`);
-            saved = oldData;
-            savedHasData = true;
-            // Save under the new project-scoped key
-            localStorage.setItem(storageKey, oldData);
-            const oldTime = localStorage.getItem('whiteboard-autosave-time');
-            if (oldTime) localStorage.setItem(getTimeKey(projectId), oldTime);
-            // Don't remove old keys until confirmed working — just leave them
+          cachedData = JSON.parse(cachedJson);
+          const elCount = cachedData.elements ? Object.keys(cachedData.elements).length : 0;
+          if (elCount > 0) {
+            // Load cache immediately for fast UX
+            importFromJSON(cachedJson);
+            console.log(`[Whiteboard] Loaded ${elCount} elements from cache`);
+          } else {
+            cachedData = null;
           }
-        } catch (e) { /* ignore */ }
-      }
-    }
-    
-    if (saved && savedHasData) {
-      try {
-        const result = importFromJSON(saved);
-        if (result.success) {
-          const time = localStorage.getItem(getTimeKey(projectId));
-          console.log(`[Whiteboard] Loaded project "${projectId || 'default'}" from autosave:`, time ? new Date(time).toLocaleString() : 'unknown time');
+        } catch (e) {
+          cachedData = null;
         }
-      } catch (e) {
-        console.warn('[Whiteboard] Failed to load autosave:', e);
       }
-    } else if (!savedHasData) {
-      // No saved data for this project — start with clean whiteboard
-      console.log(`[Whiteboard] No saved data for project "${projectId || 'default'}", starting fresh`);
-      if (clearCanvas) clearCanvas();
+
+      // 2. Try loading from backend (source of truth)
+      if (projectId) {
+        try {
+          const response = await apiFetch(`/projects/${projectId}/whiteboard`);
+          if (cancelled) return;
+
+          const backendData = response?.data;
+          if (backendData && backendData.elements && Object.keys(backendData.elements).length > 0) {
+            const json = JSON.stringify(backendData, null, 2);
+            const result = importFromJSON(json);
+            if (result.success) {
+              // Update cache
+              localStorage.setItem(storageKey, json);
+              localStorage.setItem(getTimeKey(projectId), new Date().toISOString());
+              console.log(`[Whiteboard] Loaded from backend for project "${projectId}"`);
+            }
+          } else if (!cachedData) {
+            // No data in backend or cache — migrate from localStorage if available
+            const oldLocalData = localStorage.getItem(storageKey);
+            if (oldLocalData) {
+              try {
+                const parsed = JSON.parse(oldLocalData);
+                const elCount = parsed.elements ? Object.keys(parsed.elements).length : 0;
+                if (elCount > 0) {
+                  console.log(`[Whiteboard] Migrating ${elCount} elements from localStorage to backend`);
+                  importFromJSON(oldLocalData);
+                  // Push to backend
+                  await apiFetch(`/projects/${projectId}/whiteboard`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ data: parsed }),
+                  });
+                  console.log('[Whiteboard] Migration complete');
+                } else {
+                  console.log(`[Whiteboard] No saved data for project "${projectId}", starting fresh`);
+                  if (clearCanvas) clearCanvas();
+                }
+              } catch (e) {
+                console.log(`[Whiteboard] No saved data for project "${projectId}", starting fresh`);
+                if (clearCanvas) clearCanvas();
+              }
+            } else {
+              console.log(`[Whiteboard] No saved data for project "${projectId}", starting fresh`);
+              if (clearCanvas) clearCanvas();
+            }
+          }
+        } catch (err) {
+          console.warn('[Whiteboard] Backend load failed, using cache:', err.message);
+          if (!cachedData) {
+            console.log(`[Whiteboard] No data available for project "${projectId}", starting fresh`);
+            if (clearCanvas) clearCanvas();
+          }
+        }
+      }
+
+      if (!cancelled) {
+        setLoading(false);
+        loadedProjectRef.current = projectId;
+      }
     }
 
-    loadedProjectRef.current = projectId;
+    loadWhiteboard();
+
+    return () => { cancelled = true; };
   }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Autosave whenever elements change (debounced)
+  // Autosave whenever elements change (debounced — 2s for backend, instant for cache)
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      saveToLocalStorage();
-    }, 1000); // Debounce 1 second
+    // Instant localStorage cache
+    try {
+      const json = exportToJSON();
+      localStorage.setItem(getStorageKey(projectId), json);
+    } catch (e) { /* ignore */ }
 
-    return () => clearTimeout(timeoutId);
-  }, [elements, elementOrder, saveToLocalStorage]);
+    // Debounced backend save
+    if (_backendSaveTimer) clearTimeout(_backendSaveTimer);
+    _backendSaveTimer = setTimeout(() => {
+      saveToBackend(projectId);
+    }, 2000);
+
+    return () => {
+      if (_backendSaveTimer) clearTimeout(_backendSaveTimer);
+    };
+  }, [elements, elementOrder, saveToBackend, exportToJSON, projectId]);
 
   // Save on unmount (when switching away from Draw view)
   useEffect(() => {
     return () => {
-      // This runs when the component unmounts
+      const pid = loadedProjectRef.current;
+      if (!pid) return;
+
       try {
-        const pid = loadedProjectRef.current;
         const state = useWhiteboardStore.getState();
-        const json = JSON.stringify({
+        const data = {
           version: '2.0',
           timestamp: new Date().toISOString(),
           elements: state.elements,
@@ -184,10 +233,20 @@ export default function Whiteboard({ className = '', style = {}, projectId = nul
           gridSize: state.gridSize,
           layers: state.layers,
           frames: state.frames,
-        }, null, 2);
+        };
+        const json = JSON.stringify(data, null, 2);
+
+        // Cache
         localStorage.setItem(getStorageKey(pid), json);
         localStorage.setItem(getTimeKey(pid), new Date().toISOString());
-        console.log('[Whiteboard] Saved on unmount for project:', pid || 'default');
+
+        // Fire-and-forget backend save
+        apiFetch(`/projects/${pid}/whiteboard`, {
+          method: 'PUT',
+          body: JSON.stringify({ data }),
+        }).catch(err => console.warn('[Whiteboard] Unmount save failed:', err.message));
+
+        console.log('[Whiteboard] Saved on unmount for project:', pid);
       } catch (e) {
         console.warn('[Whiteboard] Failed to save on unmount:', e);
       }
@@ -221,6 +280,18 @@ export default function Whiteboard({ className = '', style = {}, projectId = nul
         margin: 0,
         padding: 0,
       }}>
+        {/* Loading overlay */}
+        {loading && (
+          <div style={{
+            position: 'absolute', inset: 0, display: 'flex',
+            alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(250,250,250,0.8)', zIndex: 100,
+            fontSize: '14px', color: '#666',
+          }}>
+            Loading whiteboard...
+          </div>
+        )}
+
         {/* Canvas (expands to fill) */}
         <WhiteboardCanvas
           className="whiteboard-main-canvas"

@@ -14,7 +14,7 @@ let socket = null;
 const getToken = () => localStorage.getItem('plm_token');
 
 // API fetch wrapper
-const apiFetch = async (endpoint, options = {}) => {
+export const apiFetch = async (endpoint, options = {}) => {
   const token = getToken();
   
   console.log('API Call:', endpoint, 'Token exists:', !!token);
