@@ -92,11 +92,10 @@ export default function useKeyboardShortcuts({
       // ─── Duplicate ───
       if (mod && e.key === 'd') {
         e.preventDefault();
-        duplicateSelectedNodes();
         const selectedNodes = nodes.filter((n: any) => n.selected);
-        if (selectedNodes.length === 1) {
-          duplicateNode(selectedNodes[0]);
-        } else if (selectedNodes.length === 0 && selectedNode) {
+        if (selectedNodes.length > 0) {
+          duplicateSelectedNodes();
+        } else if (selectedNode) {
           duplicateNode(selectedNode);
         }
       }

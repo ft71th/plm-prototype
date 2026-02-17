@@ -514,7 +514,9 @@ return (
         {/* Port Editor - for System Engineering items */}
         {(node.data.itemType === 'system' || 
           node.data.itemType === 'subsystem' || 
-          node.data.itemType === 'function') && (
+          node.data.itemType === 'function' ||
+          node.data.itemType === 'hardware' ||
+          node.data.type === 'hardware') && (
           <PortEditor
             ports={node.data.ports || []}
             onChange={(newPorts) => onUpdate(node.id, 'ports', newPorts)}

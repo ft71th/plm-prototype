@@ -55,6 +55,8 @@ export default function useProjectIO({
             ...node.data,
             onChange: undefined,
             onLabelChange: undefined,
+            onDeleteNode: undefined,
+            onShowIssues: undefined,
           }
         }));
 
@@ -202,11 +204,19 @@ export default function useProjectIO({
             const sourcePorts = sourceNode?.data?.ports || [];
             const targetPorts = targetNode?.data?.ports || [];
 
+            const BUILTIN_HANDLES = new Set([
+              'default-source', 'default-target',
+              'top-target', 'top-source',
+              'bottom-target', 'bottom-source',
+              'left-source', 'right-target',
+              'connector-source', 'connector-target',
+            ]);
+
             const validSourceHandle = !edge.sourceHandle ||
-              edge.sourceHandle === 'default-source' ||
+              BUILTIN_HANDLES.has(edge.sourceHandle) ||
               sourcePorts.some((p: any) => p.id === edge.sourceHandle);
             const validTargetHandle = !edge.targetHandle ||
-              edge.targetHandle === 'default-target' ||
+              BUILTIN_HANDLES.has(edge.targetHandle) ||
               targetPorts.some((p: any) => p.id === edge.targetHandle);
 
             return {

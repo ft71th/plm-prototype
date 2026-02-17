@@ -1424,3 +1424,8 @@
   font-size: 11px;
   color: var(--task-text-secondary);
 }
+
+/* ─── Edge label layering fix ─── */
+.react-flow__edgelabel-renderer {
+  z-index: 5 !important;
+}

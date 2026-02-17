@@ -65,7 +65,6 @@ import IssuePanelModal from './components/issues/IssuePanelModal';
 
 // ─── Extracted Library Components ───
 import ComponentLibraryPanel from './components/library/ComponentLibraryPanel';
-import METSLibraryPanel from './components/library/METSLibraryPanel';
 
 // ─── Extracted Hardware Components ───
 import ManageHardwareTypesModal from './components/hardware/ManageHardwareTypesModal';
@@ -392,7 +391,7 @@ export default function App(): React.ReactElement {
           }
         };
 
-        const edgesWithArrows = projectData.edges.map((edge, idx) => {
+        const edgesWithArrows = projectData.edges.map(edge => {
           const sourceNode = loadedNodes.find(n => n.id === edge.source);
           const targetNode = loadedNodes.find(n => n.id === edge.target);
           
@@ -423,8 +422,6 @@ export default function App(): React.ReactElement {
 
           return {
             ...edge,
-            // Ensure every edge has a unique id
-            id: edge.id || `e-${edge.source}-${edge.target}-${idx}`,
             sourceHandle: finalSourceHandle,
             targetHandle: finalTargetHandle,
             markerEnd: {
@@ -435,15 +432,7 @@ export default function App(): React.ReactElement {
             }
           };
         });
-        
-        // Deduplicate edges by id
-        const seenEdgeIds = new Set();
-        const uniqueEdges = edgesWithArrows.filter(e => {
-          if (seenEdgeIds.has(e.id)) return false;
-          seenEdgeIds.add(e.id);
-          return true;
-        });
-        setEdges(uniqueEdges);
+        setEdges(edgesWithArrows);
       } else {
         setEdges([]);
       }
@@ -695,10 +684,6 @@ export default function App(): React.ReactElement {
           onChange: handleNodeLabelChange,
           issueCount,
           criticalIssueCount,
-          onDeleteNode: (nodeId: string) => {
-            setNodes((nds) => nds.filter((n) => n.id !== nodeId));
-            setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
-          },
           onShowIssues: (n) => {
             setIssueNodeId(n.id);
             setShowIssuePanel(true);
@@ -719,14 +704,10 @@ export default function App(): React.ReactElement {
     addPlatformNode, addRequirementNode,
     addImageNode,
     addPostItNode,
-    addSWComponentNode,
   } = useNodeFactory({
     nodeId, setNodeId, generateItemId, handleNodeLabelChange,
     setNodes, reactFlowInstance, hardwareTypes,
   });
-
-  // ─── METS Library Panel state ───
-  const [showMETSLibrary, setShowMETSLibrary] = useState(false);
 
 
 
@@ -771,24 +752,16 @@ const createNewObject = (name, version, description) => {
     if (!nodeToDuplicate) return;
     
     const reqId = generateItemId (nodeToDuplicate.data.reqType || 'project');
-    
-    // Use functional setNodes + timestamp ID to avoid stale nodeId closures
-    // that caused cascading duplicates when called rapidly
-    const newId = `dup-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    
-    // Clean data: only copy content properties, re-attach fresh callbacks
-    const { onChange, onShowIssues, onDeleteNode, isHighlighted, isFiltered, ...cleanData } = nodeToDuplicate.data;
-    
     const newNode = {
-      id: newId,
+      id: String(nodeId),
       type: 'custom',
       position: { 
         x: nodeToDuplicate.position.x + 50, 
         y: nodeToDuplicate.position.y + 50 
       },
       data: { 
-        ...cleanData,
-        label: nodeToDuplicate.data.label.replace(/ \(Copy\)$/, '') + ' (Copy)',
+        ...nodeToDuplicate.data,
+        label: nodeToDuplicate.data.label + ' (Copy)',
         reqId: reqId,
         state: 'open',
         onChange: handleNodeLabelChange
@@ -796,7 +769,7 @@ const createNewObject = (name, version, description) => {
     };
     setNodes((nds) => nds.concat(newNode));
     setNodeId((id) => id + 1);
-  }, [handleNodeLabelChange, setNodes, generateItemId ]);
+  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId ]);
 
   // Check if user is already logged in
   useEffect(() => {
@@ -988,7 +961,6 @@ const createNewObject = (name, version, description) => {
         onAddTextAnnotation={addTextAnnotationNode}
         onAddPostIt={addPostItNode}
         onOpenLibrary={() => setShowLibraryPanel(true)}
-        onOpenMETSLibrary={() => setShowMETSLibrary(true)}
         onOpenIssueManager={() => setShowIssueManagerModal(true)}
         onVoice={startVoiceRecognition}
         isListening={isListening}
@@ -1153,24 +1125,6 @@ const createNewObject = (name, version, description) => {
         }}
         onDrop={(e) => {
           e.preventDefault();
-
-          // ── Handle METS component drag from library panel ──
-          const metsData = e.dataTransfer?.getData('application/northlight-mets-component');
-          if (metsData) {
-            try {
-              const { familyKey, variantKey } = JSON.parse(metsData);
-              let position = { x: 200, y: 200 };
-              if (reactFlowInstance) {
-                position = reactFlowInstance.screenToFlowPosition({ x: e.clientX, y: e.clientY });
-              }
-              addSWComponentNode(familyKey, variantKey, position);
-            } catch (err) {
-              console.error('Failed to drop METS component:', err);
-            }
-            return;
-          }
-
-          // ── Handle image file drops ──
           const files = e.dataTransfer?.files;
           if (!files || files.length === 0) return;
           const file = files[0];
@@ -1588,13 +1542,6 @@ const createNewObject = (name, version, description) => {
         onAddFromLibrary={addLibraryItemToCanvas}
         onSaveToLibrary={saveNodeToLibrary}
         onRefresh={fetchLibraryItems}
-      />
-
-      {/* METS Standard Component Library */}
-      <METSLibraryPanel
-        isOpen={showMETSLibrary}
-        onClose={() => setShowMETSLibrary(false)}
-        onAddComponent={(familyKey, variantKey) => addSWComponentNode(familyKey, variantKey)}
       />
 
       {/* Text Annotation Toolbar - shows when text annotation is selected */}

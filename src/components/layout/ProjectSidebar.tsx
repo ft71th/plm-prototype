@@ -11,6 +11,7 @@ export default function ProjectSidebar({
   // Project actions
   saveProjectToDatabase, handleCloseProject,
   exportProject, exportToExcel,
+  onImportRequirements,
   autoLayoutNodes,
   // Stats
   stats, filteredCount, edges,
@@ -88,6 +89,7 @@ export default function ProjectSidebar({
           />
         </div>
         <SidebarButton icon="📊" label="Export to Excel" onClick={closeThen(exportToExcel)} />
+        <SidebarButton icon="📥" label="Importera krav (CSV/Excel/PDF)" onClick={closeThen(onImportRequirements)} />
         <SidebarButton icon="🆕" label="New Object" onClick={closeThen(() => setShowNewObjectModal(true))} />
         <SidebarButton 
           icon="🔗" 

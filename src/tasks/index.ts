@@ -39,3 +39,8 @@ export {
   handleTaskMenuAction,
   quickCreateLinkedTask,
 } from './components/contextMenuIntegration';
+
+// Gantt / Timeline
+export { default as GanttView } from './components/GanttView';
+export * as ganttStore from './ganttStore';
+export type { GanttActivity, GanttCategory, GanttData } from './ganttTypes';

@@ -141,8 +141,13 @@ export function TaskProvider({ projectId, currentUser, children }: TaskProviderP
       const b = store.getBoards(projectId);
       setBoards(b);
       if (b.length > 0) {
-        setActiveBoard(b[0]);
-        setTasks(store.getTasksForBoard(projectId, b[0].id));
+        // Restore last active board from localStorage
+        const ACTIVE_BOARD_KEY = `northlight-active-board-${projectId}`;
+        const savedBoardId = localStorage.getItem(ACTIVE_BOARD_KEY);
+        const savedBoard = savedBoardId ? b.find(x => x.id === savedBoardId) : null;
+        const initialBoard = savedBoard || b[0];
+        setActiveBoard(initialBoard);
+        setTasks(store.getTasksForBoard(projectId, initialBoard.id));
       } else {
         setActiveBoard(null);
         setTasks([]);
@@ -158,9 +163,13 @@ export function TaskProvider({ projectId, currentUser, children }: TaskProviderP
   // Board selection
   const handleSetActiveBoard = useCallback((board: TaskBoard | null) => {
     setActiveBoard(board);
+    // Persist selection so it survives view switches
+    const ACTIVE_BOARD_KEY = `northlight-active-board-${projectId}`;
     if (board) {
+      localStorage.setItem(ACTIVE_BOARD_KEY, board.id);
       setTasks(store.getTasksForBoard(projectId, board.id));
     } else {
+      localStorage.removeItem(ACTIVE_BOARD_KEY);
       setTasks([]);
     }
   }, [projectId]);
@@ -197,8 +206,12 @@ export function TaskProvider({ projectId, currentUser, children }: TaskProviderP
     const remaining = store.getBoards(projectId);
     setBoards(remaining);
     if (activeBoard?.id === boardId) {
-      setActiveBoard(remaining[0] || null);
-      setTasks(remaining[0] ? store.getTasksForBoard(projectId, remaining[0].id) : []);
+      const next = remaining[0] || null;
+      setActiveBoard(next);
+      setTasks(next ? store.getTasksForBoard(projectId, next.id) : []);
+      const ACTIVE_BOARD_KEY = `northlight-active-board-${projectId}`;
+      if (next) localStorage.setItem(ACTIVE_BOARD_KEY, next.id);
+      else localStorage.removeItem(ACTIVE_BOARD_KEY);
     }
   }, [projectId, activeBoard?.id]);
 

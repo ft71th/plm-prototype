@@ -11,7 +11,6 @@ import ReactFlow, {
   Background,
   useNodesState,
   useEdgesState,
-  useUpdateNodeInternals,
   Panel,
   MarkerType,
   SelectionMode,
@@ -32,14 +31,14 @@ import {
 } from './RequirementLinks';
 
 // ─── Task Management ───
-import { TaskProvider, KanbanBoard, GanttView } from './tasks';
+import { TaskProvider, KanbanBoard } from './tasks';
 import './tasks/taskManagement.css';
 
 // ─── Extracted Constants ───
 import { RELATIONSHIP_TYPES, defaultEdgeOptions, inferRelationshipType } from './constants/relationships';
 import { ISSUE_CATEGORIES, ISSUE_PRIORITIES, ISSUE_STATUSES } from './constants/issues';
 import { defaultHardwareTypes } from './constants/hardwareDefaults';
-// initialNodes/initialEdges removed — projects load from database
+import { initialNodes, initialEdges } from './constants/initialData';
 
 // ─── Custom Hooks ───
 import {
@@ -65,7 +64,6 @@ import IssuePanelModal from './components/issues/IssuePanelModal';
 
 // ─── Extracted Library Components ───
 import ComponentLibraryPanel from './components/library/ComponentLibraryPanel';
-import METSLibraryPanel from './components/library/METSLibraryPanel';
 
 // ─── Extracted Hardware Components ───
 import ManageHardwareTypesModal from './components/hardware/ManageHardwareTypesModal';
@@ -86,36 +84,6 @@ import DocumentView from './components/views/DocumentView';
 // API Base URL - same as api.js
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-/**
- * HandleUpdater — placed inside <ReactFlow> to force re-measurement of all node
- * handle positions after nodes are loaded. Without this, handles are at (0,0) 
- * until a manual resize triggers ResizeObserver.
- */
-function HandleUpdater({ nodeIds }: { nodeIds: string[] }) {
-  const updateNodeInternals = useUpdateNodeInternals();
-  const prevCountRef = React.useRef(0);
-
-  React.useEffect(() => {
-    if (nodeIds.length === 0) return;
-    // Only trigger when node count changes (project load / import)
-    if (nodeIds.length === prevCountRef.current) return;
-    prevCountRef.current = nodeIds.length;
-
-    // Need multiple passes — DOM elements may not be ready on first frame
-    const timers = [150, 400, 800].map(delay =>
-      setTimeout(() => {
-        nodeIds.forEach(id => {
-          try { updateNodeInternals(id); } catch(e) { /* node may not exist yet */ }
-        });
-      }, delay)
-    );
-
-    return () => timers.forEach(clearTimeout);
-  }, [nodeIds, updateNodeInternals]);
-
-  return null;
-}
-
 export default function App(): React.ReactElement {
   // Suppress ResizeObserver loop error (common with React Flow, harmless)
   useEffect(() => {
@@ -130,32 +98,8 @@ export default function App(): React.ReactElement {
     return () => window.removeEventListener('error', resizeObserverErr);
   }, []);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-
-  // Track whether initial node dimensions have been measured by ResizeObserver.
-  const dimensionMeasuredRef = useRef(false);
-  const dimensionTimerRef = useRef<any>(null);
-  
-  // Hide edges briefly during PLM↔Simple transitions to avoid visual glitch.
-  const [edgesHidden, setEdgesHidden] = useState(false);
-  const prevViewModeRef = useRef<string | null>(null);
-  
-  const handleNodesChange = useCallback((changes: any[]) => {
-    onNodesChange(changes);
-    
-    if (!dimensionMeasuredRef.current) {
-      const hasDimensionChange = changes.some((c: any) => c.type === 'dimensions');
-      if (hasDimensionChange) {
-        if (dimensionTimerRef.current) clearTimeout(dimensionTimerRef.current);
-        dimensionTimerRef.current = setTimeout(() => {
-          setEdges(eds => eds.map(e => ({ ...e })));
-          dimensionMeasuredRef.current = true;
-          setEdgesHidden(false); // Show edges now that handles are correct
-        }, 100);
-      }
-    }
-  }, [onNodesChange, setEdges]);
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   
   // ─── Zustand Store (UI, filters, project, auth, selection) ───
   const {
@@ -267,20 +211,6 @@ export default function App(): React.ReactElement {
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
   const [showImport, setShowImport] = useState(false);
 
-  // Hide edges during PLM↔Simple view transitions to prevent visual glitch.
-  // Nodes change size when mode switches → handles move → edges draw to
-  // old positions for a few frames before updateNodeInternals fires.
-  useEffect(() => {
-    let fallback: any;
-    if (prevViewModeRef.current !== null && prevViewModeRef.current !== viewMode) {
-      setEdgesHidden(true);
-      dimensionMeasuredRef.current = false;
-      fallback = setTimeout(() => setEdgesHidden(false), 500);
-    }
-    prevViewModeRef.current = viewMode;
-    return () => { if (fallback) clearTimeout(fallback); };
-  }, [viewMode]);
-
 
    // Handle login
   const handleLogin = (userData) => {
@@ -300,9 +230,6 @@ export default function App(): React.ReactElement {
   const handleSelectProject = (projectData) => {
     console.log('Opening project:', projectData);
     
-    // Reset dimension measurement guard so edges refresh for new project's nodes
-    dimensionMeasuredRef.current = false;
-    
     // Set project info
     setCurrentProject(projectData.project || projectData);
     setObjectName(projectData.project?.name || projectData.name || 'New Project');
@@ -310,33 +237,21 @@ export default function App(): React.ReactElement {
     
     // Load nodes and edges if present
     if (projectData.nodes) {
-      const loadedNodes = projectData.nodes.map(node => {
-        // Only set explicit width/height if the node has saved dimensions.
-        // Do NOT use fallback defaults — they differ between PLM/Simple views
-        // and would give ReactFlow incorrect handle positions.
-        // Nodes without saved dimensions will be measured by ResizeObserver.
-        const hasSavedWidth = node.data?.nodeWidth || node.width;
-        const hasSavedHeight = node.data?.nodeHeight || node.height;
-        
-        return {
-          ...node,
-          // Only tell ReactFlow dimensions if we actually know them
-          ...(hasSavedWidth ? { width: node.data?.nodeWidth || node.width } : {}),
-          ...(hasSavedHeight ? { height: node.data?.nodeHeight || node.height } : {}),
-          // Restore resized dimensions as style so ReactFlow renders at saved size
-          style: {
-            ...(node.style || {}),
-            ...(node.data?.nodeWidth ? { width: node.data.nodeWidth } : {}),
-            ...(node.data?.nodeHeight ? { height: node.data.nodeHeight } : {}),
-          },
-          data: {
-            ...node.data,
-            // Preserve reqType - don't override it!
-            reqType: node.data.reqType,
-            onChange: handleNodeLabelChange
-          }
-        };
-      });
+      const loadedNodes = projectData.nodes.map(node => ({
+        ...node,
+        // Restore resized dimensions as style so ReactFlow renders at saved size
+        style: {
+          ...(node.style || {}),
+          ...(node.data?.nodeWidth ? { width: node.data.nodeWidth } : {}),
+          ...(node.data?.nodeHeight ? { height: node.data.nodeHeight } : {}),
+        },
+        data: {
+          ...node.data,
+          // Preserve reqType - don't override it!
+          reqType: node.data.reqType,
+          onChange: handleNodeLabelChange
+        }
+      }));
       setNodes(loadedNodes);
       
       // Update all ID counters based on loaded nodes (via hook)
@@ -345,88 +260,28 @@ export default function App(): React.ReactElement {
       // Load issues (via hook)
       loadIssues(projectData.issues);
       
-      // Process edges - validate handles and auto-resolve missing ones by geometry
+      // Process edges - validate handles exist on nodes
       if (projectData.edges) {
-        // Built-in handle IDs from ExtraHandles component in CustomNode
-        const BUILTIN_HANDLES = new Set([
-          'top-target', 'top-source',
-          'bottom-target', 'bottom-source',
-          'left-source', 'right-target',
-        ]);
-
-        // Pick the best source/target handle pair based on relative node positions
-        const resolveHandles = (srcNode: any, tgtNode: any) => {
-          if (!srcNode || !tgtNode) return { sourceHandle: 'default-source', targetHandle: 'default-target' };
-
-          const sw = srcNode.width || srcNode.data?.nodeWidth || 160;
-          const sh = srcNode.height || srcNode.data?.nodeHeight || 100;
-          const tw = tgtNode.width || tgtNode.data?.nodeWidth || 160;
-          const th = tgtNode.height || tgtNode.data?.nodeHeight || 100;
-
-          // Center points of each node
-          const sx = srcNode.position.x + sw / 2;
-          const sy = srcNode.position.y + sh / 2;
-          const tx = tgtNode.position.x + tw / 2;
-          const ty = tgtNode.position.y + th / 2;
-
-          const dx = tx - sx;
-          const dy = ty - sy;
-
-          // Choose handles based on dominant direction
-          if (Math.abs(dx) > Math.abs(dy)) {
-            if (dx > 0) {
-              // Target is to the RIGHT → source right side, target left side
-              return { sourceHandle: 'default-source', targetHandle: 'default-target' };
-            } else {
-              // Target is to the LEFT → source left side, target right side
-              return { sourceHandle: 'left-source', targetHandle: 'right-target' };
-            }
-          } else {
-            if (dy > 0) {
-              // Target is BELOW → source bottom, target top
-              return { sourceHandle: 'bottom-source', targetHandle: 'top-target' };
-            } else {
-              // Target is ABOVE → source top, target bottom
-              return { sourceHandle: 'top-source', targetHandle: 'bottom-target' };
-            }
-          }
-        };
-
-        const edgesWithArrows = projectData.edges.map((edge, idx) => {
+        const edgesWithArrows = projectData.edges.map(edge => {
           const sourceNode = loadedNodes.find(n => n.id === edge.source);
           const targetNode = loadedNodes.find(n => n.id === edge.target);
           
-          // Validate handles against custom ports + built-in handles
+          // Check if handles exist on the nodes
           const sourcePorts = sourceNode?.data?.ports || [];
           const targetPorts = targetNode?.data?.ports || [];
           
-          const isValidSource = edge.sourceHandle && (
+          const validSourceHandle = !edge.sourceHandle || 
             edge.sourceHandle === 'default-source' ||
-            BUILTIN_HANDLES.has(edge.sourceHandle) ||
-            sourcePorts.some(p => p.id === edge.sourceHandle)
-          );
-          const isValidTarget = edge.targetHandle && (
+            sourcePorts.some(p => p.id === edge.sourceHandle);
+          const validTargetHandle = !edge.targetHandle || 
             edge.targetHandle === 'default-target' ||
-            BUILTIN_HANDLES.has(edge.targetHandle) ||
-            targetPorts.some(p => p.id === edge.targetHandle)
-          );
-
-          // Use valid handles, or resolve geometrically for missing/invalid ones
-          let finalSourceHandle = isValidSource ? edge.sourceHandle : null;
-          let finalTargetHandle = isValidTarget ? edge.targetHandle : null;
-
-          if (!finalSourceHandle || !finalTargetHandle) {
-            const resolved = resolveHandles(sourceNode, targetNode);
-            if (!finalSourceHandle) finalSourceHandle = resolved.sourceHandle;
-            if (!finalTargetHandle) finalTargetHandle = resolved.targetHandle;
-          }
-
+            targetPorts.some(p => p.id === edge.targetHandle);
+          
           return {
             ...edge,
-            // Ensure every edge has a unique id
-            id: edge.id || `e-${edge.source}-${edge.target}-${idx}`,
-            sourceHandle: finalSourceHandle,
-            targetHandle: finalTargetHandle,
+            // Convert invalid or null handles to undefined (use default)
+            sourceHandle: validSourceHandle ? (edge.sourceHandle === null ? undefined : edge.sourceHandle) : undefined,
+            targetHandle: validTargetHandle ? (edge.targetHandle === null ? undefined : edge.targetHandle) : undefined,
             markerEnd: {
               type: MarkerType.ArrowClosed,
               width: 20,
@@ -435,15 +290,7 @@ export default function App(): React.ReactElement {
             }
           };
         });
-        
-        // Deduplicate edges by id
-        const seenEdgeIds = new Set();
-        const uniqueEdges = edgesWithArrows.filter(e => {
-          if (seenEdgeIds.has(e.id)) return false;
-          seenEdgeIds.add(e.id);
-          return true;
-        });
-        setEdges(uniqueEdges);
+        setEdges(edgesWithArrows);
       } else {
         setEdges([]);
       }
@@ -485,6 +332,15 @@ export default function App(): React.ReactElement {
   };
 
   // Save project to database
+
+  // Handle importing requirements from documents
+  const handleImportNodes = useCallback((newNodes) => {
+    setNodes(nds => [...nds, ...newNodes.map(n => ({
+      ...n,
+      data: { ...n.data, onChange: handleNodeLabelChange }
+    }))]);
+    setShowImport(false);
+  }, [setNodes, handleNodeLabelChange]);
 
   const stats = useMemo(() => {
     const floatingConnectors = nodes.filter(n => n.data?.isFloatingConnector).length;  // ADD THIS
@@ -534,15 +390,6 @@ export default function App(): React.ReactElement {
     );
   }
 }, [setNodes]);
-
-  // Handle importing requirements from documents
-  const handleImportNodes = useCallback((newNodes) => {
-    setNodes(nds => [...nds, ...newNodes.map(n => ({
-      ...n,
-      data: { ...n.data, onChange: handleNodeLabelChange }
-    }))]);
-    setShowImport(false);
-  }, [setNodes, handleNodeLabelChange]);
 
   // ─── Clipboard & Node Operations Hooks (depend on handleNodeLabelChange) ───
   const {
@@ -695,10 +542,6 @@ export default function App(): React.ReactElement {
           onChange: handleNodeLabelChange,
           issueCount,
           criticalIssueCount,
-          onDeleteNode: (nodeId: string) => {
-            setNodes((nds) => nds.filter((n) => n.id !== nodeId));
-            setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
-          },
           onShowIssues: (n) => {
             setIssueNodeId(n.id);
             setShowIssuePanel(true);
@@ -719,14 +562,10 @@ export default function App(): React.ReactElement {
     addPlatformNode, addRequirementNode,
     addImageNode,
     addPostItNode,
-    addSWComponentNode,
   } = useNodeFactory({
     nodeId, setNodeId, generateItemId, handleNodeLabelChange,
     setNodes, reactFlowInstance, hardwareTypes,
   });
-
-  // ─── METS Library Panel state ───
-  const [showMETSLibrary, setShowMETSLibrary] = useState(false);
 
 
 
@@ -771,24 +610,16 @@ const createNewObject = (name, version, description) => {
     if (!nodeToDuplicate) return;
     
     const reqId = generateItemId (nodeToDuplicate.data.reqType || 'project');
-    
-    // Use functional setNodes + timestamp ID to avoid stale nodeId closures
-    // that caused cascading duplicates when called rapidly
-    const newId = `dup-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    
-    // Clean data: only copy content properties, re-attach fresh callbacks
-    const { onChange, onShowIssues, onDeleteNode, isHighlighted, isFiltered, ...cleanData } = nodeToDuplicate.data;
-    
     const newNode = {
-      id: newId,
+      id: String(nodeId),
       type: 'custom',
       position: { 
         x: nodeToDuplicate.position.x + 50, 
         y: nodeToDuplicate.position.y + 50 
       },
       data: { 
-        ...cleanData,
-        label: nodeToDuplicate.data.label.replace(/ \(Copy\)$/, '') + ' (Copy)',
+        ...nodeToDuplicate.data,
+        label: nodeToDuplicate.data.label + ' (Copy)',
         reqId: reqId,
         state: 'open',
         onChange: handleNodeLabelChange
@@ -796,7 +627,7 @@ const createNewObject = (name, version, description) => {
     };
     setNodes((nds) => nds.concat(newNode));
     setNodeId((id) => id + 1);
-  }, [handleNodeLabelChange, setNodes, generateItemId ]);
+  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId ]);
 
   // Check if user is already logged in
   useEffect(() => {
@@ -974,7 +805,7 @@ const createNewObject = (name, version, description) => {
       />
       
       {/* Left Icon Strip - hidden in freeform drawing mode */}
-      {viewMode !== 'freeform' && viewMode !== 'tasks' && viewMode !== 'gantt' && viewMode !== '3d' && <LeftIconStrip
+      {viewMode !== 'freeform' && viewMode !== 'tasks' && viewMode !== '3d' && <LeftIconStrip
         onAddSystem={addSystemNode}
         onAddSubSystem={addSubSystemNode}
         onAddFunction={addFunctionNode}
@@ -988,7 +819,6 @@ const createNewObject = (name, version, description) => {
         onAddTextAnnotation={addTextAnnotationNode}
         onAddPostIt={addPostItNode}
         onOpenLibrary={() => setShowLibraryPanel(true)}
-        onOpenMETSLibrary={() => setShowMETSLibrary(true)}
         onOpenIssueManager={() => setShowIssueManagerModal(true)}
         onVoice={startVoiceRecognition}
         isListening={isListening}
@@ -1071,16 +901,6 @@ const createNewObject = (name, version, description) => {
             />
           </div>
         </TaskProvider>
-      ) : viewMode === 'gantt' ? (
-        <TaskProvider projectId={currentProject?.id || 'default'} currentUser={user?.name || 'user'}>
-          <div style={{ 
-            marginTop: '50px', 
-            height: 'calc(100vh - 50px)',
-            overflow: 'hidden'
-          }}>
-            <GanttView />
-          </div>
-        </TaskProvider>
       ) : viewMode === '3d' ? (
         <TraceabilityView3D 
           projectId={currentProject?.id || null}
@@ -1097,7 +917,6 @@ const createNewObject = (name, version, description) => {
         nodes={processedNodes}
         edges={edges.map(e => ({
           ...e,
-          hidden: edgesHidden,
           data: { 
             ...e.data, 
             showLabel: showRelationshipLabels,
@@ -1119,7 +938,7 @@ const createNewObject = (name, version, description) => {
           }
         }))}
         onInit={setReactFlowInstance}
-        onNodesChange={handleNodesChange}
+        onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onEdgeUpdate={onEdgeUpdate}
@@ -1153,24 +972,6 @@ const createNewObject = (name, version, description) => {
         }}
         onDrop={(e) => {
           e.preventDefault();
-
-          // ── Handle METS component drag from library panel ──
-          const metsData = e.dataTransfer?.getData('application/northlight-mets-component');
-          if (metsData) {
-            try {
-              const { familyKey, variantKey } = JSON.parse(metsData);
-              let position = { x: 200, y: 200 };
-              if (reactFlowInstance) {
-                position = reactFlowInstance.screenToFlowPosition({ x: e.clientX, y: e.clientY });
-              }
-              addSWComponentNode(familyKey, variantKey, position);
-            } catch (err) {
-              console.error('Failed to drop METS component:', err);
-            }
-            return;
-          }
-
-          // ── Handle image file drops ──
           const files = e.dataTransfer?.files;
           if (!files || files.length === 0) return;
           const file = files[0];
@@ -1202,7 +1003,6 @@ const createNewObject = (name, version, description) => {
         }}
       >
         <Controls style={{ bottom: 20, left: 70 }} />
-        <HandleUpdater nodeIds={nodes.map(n => n.id)} />
         <MiniMap 
           style={{ 
             position: 'absolute',
@@ -1588,13 +1388,6 @@ const createNewObject = (name, version, description) => {
         onAddFromLibrary={addLibraryItemToCanvas}
         onSaveToLibrary={saveNodeToLibrary}
         onRefresh={fetchLibraryItems}
-      />
-
-      {/* METS Standard Component Library */}
-      <METSLibraryPanel
-        isOpen={showMETSLibrary}
-        onClose={() => setShowMETSLibrary(false)}
-        onAddComponent={(familyKey, variantKey) => addSWComponentNode(familyKey, variantKey)}
       />
 
       {/* Text Annotation Toolbar - shows when text annotation is selected */}

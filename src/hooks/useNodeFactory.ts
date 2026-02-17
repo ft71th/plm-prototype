@@ -2,6 +2,10 @@ import type { PLMNode, PLMEdge, NodeData, Issue, IssueMap, HardwareType, Whitebo
 import { useCallback } from 'react';
 import { defaultHardwareTypes } from '../constants/hardwareDefaults';
 import useStore from '../store';
+import {
+  COMPONENT_FAMILIES, FAMILY_COLORS,
+  getSignalsForVariant, getConfigForVariant, getFeaturesForVariant,
+} from '../data/metsComponentLibrary';
 
 /**
  * Node template definitions. Each key maps to the default data fields for that node type.
@@ -343,6 +347,61 @@ export default function useNodeFactory({
     }, 0);
   }, [nodeId, handleNodeLabelChange, setNodes, clearSelection, getCenterPosition, setNodeId]);
 
+  /** Add METS standard SW component node */
+  const addSWComponentNode = useCallback((familyKey: string, variantKey: string, dropPosition?: { x: number; y: number }) => {
+    const family = COMPONENT_FAMILIES[familyKey];
+    const variant = family?.variants[variantKey];
+    if (!family || !variant) {
+      console.error(`Unknown METS component: ${familyKey}/${variantKey}`);
+      return;
+    }
+
+    clearSelection();
+    const position = dropPosition || getCenterPosition();
+    const signals = getSignalsForVariant(familyKey, variantKey);
+    const config = getConfigForVariant(familyKey, variantKey);
+    const features = getFeaturesForVariant(familyKey, variantKey);
+
+    // Generate a default instance name
+    const existingCount = (setNodes as any).__currentNodes
+      ? 0 // can't peek inside setState easily; just use timestamp suffix
+      : 0;
+    const suffix = String(Date.now()).slice(-4);
+    const instanceName = `fb_${family.name.toLowerCase()}${variantKey}${suffix}`;
+
+    setTimeout(() => {
+      const newNode = {
+        id: String(nodeId),
+        type: 'swComponent',
+        position,
+        selected: true,
+        data: {
+          label: `${family.icon} ${familyKey} (${variantKey})`,
+          type: 'swComponent',
+          itemType: 'hardware',
+          // METS-specific fields
+          metsFamily: familyKey,
+          metsVariant: variantKey,
+          metsClassName: variant.name,
+          metsInstanceName: instanceName,
+          metsPosNo: '',
+          metsSystem: '',
+          metsSignals: signals,
+          metsConfig: config,
+          metsFeatures: features,
+          metsStates: family.states,
+          metsStateFlow: family.stateFlow,
+          // Standard fields
+          description: variant.description,
+          nodeWidth: 260,
+          onChange: handleNodeLabelChange,
+        },
+      };
+      setNodes((nds) => [...nds, newNode]);
+      setNodeId((id) => id + 1);
+    }, 0);
+  }, [nodeId, handleNodeLabelChange, setNodes, clearSelection, getCenterPosition, setNodeId]);
+
   // Convenience aliases matching old API
   const addSystemNode = useCallback(() => addNode('system'), [addNode]);
   const addSubSystemNode = useCallback(() => addNode('subsystem'), [addNode]);
@@ -360,6 +419,7 @@ export default function useNodeFactory({
     addTextAnnotationNode,
     addImageNode,
     addPostItNode,
+    addSWComponentNode,
     addSystemNode,
     addSubSystemNode,
     addFunctionNode,

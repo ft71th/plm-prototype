@@ -1,6 +1,6 @@
 import type { PLMNode, PLMEdge, NodeData, Issue, IssueMap, HardwareType, Port } from '../../types';
-import React, { useState } from 'react';
-import { Handle, Position } from 'reactflow';
+import React, { useState, useEffect, useRef } from 'react';
+import { Handle, Position, useUpdateNodeInternals } from 'reactflow';
 import { NodeResizer } from '@reactflow/node-resizer';
 
 // Extra handles for 4-side connectivity (top/bottom + reverse left/right)
@@ -44,6 +44,40 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
   const [isEditing, setIsEditing] = useState(false);
   const [label, setLabel] = useState(data.label);
   const isHighlighted = data.isHighlighted;
+  const wbContainerRef = useRef<HTMLDivElement>(null);
+  const updateNodeInternals = useUpdateNodeInternals();
+
+  // Force ReactFlow to recalculate handle positions after the node renders.
+  // This is critical for whiteboard/simple mode where nodes have dynamic sizes
+  // (content-based width, minHeight, etc.) that aren't known at first render.
+  // Without this, ReactFlow caches stale handle positions from initial measurement.
+  useEffect(() => {
+    const timer = requestAnimationFrame(() => {
+      updateNodeInternals(id);
+    });
+    return () => cancelAnimationFrame(timer);
+  }, [id, updateNodeInternals, data.isWhiteboardMode, data.label, data.nodeWidth, data.nodeHeight]);
+
+  // Auto-heal: if the rendered node is larger than stored dimensions,
+  // update React Flow so edges connect to the correct positions
+  useEffect(() => {
+    if (!data.isWhiteboardMode || !wbContainerRef.current || !data.onChange) return;
+    const timer = requestAnimationFrame(() => {
+      const el = wbContainerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const zoom = rect.width > 0 && el.offsetWidth > 0 ? rect.width / el.offsetWidth : 1;
+      const actualW = el.offsetWidth;
+      const actualH = el.offsetHeight;
+      const storedW = data.nodeWidth || 0;
+      const storedH = data.nodeHeight || 0;
+      if (actualW > storedW + 5 || actualH > storedH + 5) {
+        data.onChange(id, 'nodeWidth', actualW);
+        data.onChange(id, 'nodeHeight', actualH);
+      }
+    });
+    return () => cancelAnimationFrame(timer);
+  }, [data.isWhiteboardMode]);
 
   const getBorderColor = () => {
     if (data.priority === 'high') return '#e74c3c';
@@ -356,17 +390,48 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
   if (data.isFloatingConnector) {
     return (
       <div style={{
-        width: '24px',
-        height: '24px',
+        width: '32px',
+        height: '32px',
         borderRadius: '50%',
         background: selected ? '#3498db' : '#e74c3c',
         border: '3px solid #fff',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+        boxShadow: selected ? '0 0 12px rgba(52, 152, 219, 0.8)' : '0 2px 8px rgba(0,0,0,0.3)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         cursor: 'grab',
+        position: 'relative',
       }}>
+        {/* Delete button — always visible */}
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            if (data.onDeleteNode) {
+              data.onDeleteNode(id);
+            }
+          }}
+          style={{
+            position: 'absolute',
+            top: '-12px',
+            right: '-12px',
+            width: '18px',
+            height: '18px',
+            borderRadius: '50%',
+            background: '#c0392b',
+            color: 'white',
+            fontSize: '11px',
+            fontWeight: 'bold',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            border: '2px solid #fff',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+            lineHeight: 1,
+            zIndex: 20,
+          }}
+          title="Delete connector"
+        >✕</div>
         <Handle
           type="target"
           position={Position.Left}
@@ -502,10 +567,26 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
     const nodeWidth = Math.max(iconSize + 20, 80);  // Icon width + padding
 
     return (
+      <>
+      <NodeResizer
+        color="#795548"
+        isVisible={selected}
+        minWidth={60}
+        minHeight={60}
+        onResizeEnd={(event, params) => {
+          if (data.onChange) {
+            data.onChange(id, 'nodeWidth', params.width);
+            data.onChange(id, 'nodeHeight', params.height);
+            // Also scale icon with resize
+            data.onChange(id, 'hwIconSize', Math.max(32, Math.min(params.width, params.height) - 30));
+          }
+        }}
+        handleStyle={{ width: '8px', height: '8px', borderRadius: '2px' }}
+      />
       <div 
         style={{
-          width: `${nodeWidth}px`,
-          minHeight: `${nodeHeight}px`,
+          width: data.nodeWidth ? `${data.nodeWidth}px` : `${nodeWidth}px`,
+          minHeight: data.nodeHeight ? `${data.nodeHeight}px` : `${nodeHeight}px`,
           backgroundColor: 'transparent',
           position: 'relative',
           cursor: 'pointer',
@@ -560,9 +641,9 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
             color: '#333',
             textAlign: 'center',
             maxWidth: `${nodeWidth + 40}px`,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
+            wordBreak: 'break-word',
+            overflowWrap: 'break-word',
+            lineHeight: '1.3',
             textShadow: '0 0 3px #fff, 0 0 3px #fff',
           }}>
             {data.label}
@@ -634,6 +715,7 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
         ))}
         <ExtraHandles color="#795548" skipLeftRight={ports.length > 0} />
       </div>
+      </>
     );
   }
 
@@ -687,6 +769,7 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
         <Handle
           type="target"
           position={Position.Left}
+          id="default-target"
           style={{ 
             background: '#2ecc71', 
             width: '8px', 
@@ -697,6 +780,7 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
         <Handle
           type="source"
           position={Position.Right}
+          id="default-source"
           style={{ 
             background: '#2ecc71', 
             width: '8px', 
@@ -707,6 +791,7 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
         <Handle
           type="target"
           position={Position.Top}
+          id="top-target"
           style={{ 
             background: '#2ecc71', 
             width: '8px', 
@@ -717,6 +802,7 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
         <Handle
           type="source"
           position={Position.Bottom}
+          id="bottom-source"
           style={{ 
             background: '#2ecc71', 
             width: '8px', 
@@ -765,14 +851,23 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
       longestInput + labelWidth + longestOutput + 60  // ports + label + spacing
     );
 
+    // Auto-size label font based on available width
+    const actualNodeWidth = data.nodeWidth || nodeWidth;
+    const availableLabelWidth = actualNodeWidth - (longestInput > 0 ? longestInput + 20 : actualNodeWidth * 0.1) - (longestOutput > 0 ? longestOutput + 20 : actualNodeWidth * 0.1) - 20;
+    const baseFontSize = 14;
+    const labelTextWidth = (data.label || '').length * (baseFontSize * 0.6);
+    const autoFontSize = labelTextWidth > availableLabelWidth && availableLabelWidth > 0
+      ? Math.max(9, Math.floor(baseFontSize * (availableLabelWidth / labelTextWidth)))
+      : baseFontSize;
+
     return (
       <>
         {/* NodeResizer for whiteboard mode */}
         <NodeResizer
           color="#3498db"
           isVisible={selected}
-          minWidth={120}
-          minHeight={60}
+          minWidth={Math.max(140, longestInput + longestOutput + 80, nodeWidth)}
+          minHeight={nodeHeight}
           onResizeEnd={(event, params) => {
             // Persist resized dimensions in node.data so they survive save/load
             if (data.onChange) {
@@ -787,6 +882,7 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
           }}
         />
         <div 
+          ref={wbContainerRef}
           style={{
             width: '100%',
             height: '100%',
@@ -983,11 +1079,12 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
         <div style={{
           position: 'absolute',
           top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
+          left: longestInput > 0 ? `${longestInput + 20}px` : '10%',
+          right: longestOutput > 0 ? `${longestOutput + 20}px` : '10%',
+          transform: 'translateY(-50%)',
           textAlign: 'center',
-          maxWidth: `${nodeWidth - longestInput - longestOutput - 40}px`,
-          padding: '0 10px'
+          padding: '0 10px',
+          overflow: 'hidden',
         }}>
           {isEditing ? (
             <input
@@ -1014,15 +1111,17 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
             <div 
               onDoubleClick={handleDoubleClick}
               style={{
-                fontSize: '14px',
+                fontSize: `${autoFontSize}px`,
                 fontWeight: 'bold',
                 color: '#fff',
                 textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
                 cursor: 'text',
-                whiteSpace: 'nowrap',
+                whiteSpace: 'normal',
+                wordBreak: 'break-word',
+                overflowWrap: 'break-word',
                 overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                maxWidth: '100%'
+                maxWidth: '100%',
+                lineHeight: '1.3',
               }}
             >
               {data.label}
@@ -1396,7 +1495,10 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
               fontWeight: 'bold',
               cursor: (data.state === 'frozen' || data.state === 'released') ? 'not-allowed' : 'text',
               minHeight: '20px',
-              marginBottom: '6px'
+              marginBottom: '6px',
+              wordBreak: 'break-word',
+              overflowWrap: 'break-word',
+              lineHeight: '1.3',
             }}
           >
             {data.label}

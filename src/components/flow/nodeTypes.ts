@@ -3,6 +3,7 @@ import CustomNode from './CustomNode';
 import TextAnnotationNode from './TextAnnotationNode';
 import ImageNode from './ImageNode';
 import PostItNode from './PostItNode';
+import SWComponentNode from './SWComponentNode';
 import CustomEdge from './CustomEdge';
 
 export const nodeTypes = {
@@ -10,6 +11,7 @@ export const nodeTypes = {
   textAnnotation: TextAnnotationNode,
   imageNode: ImageNode,
   postIt: PostItNode,
+  swComponent: SWComponentNode,
 };
 
 export const edgeTypes = {

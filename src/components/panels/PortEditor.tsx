@@ -47,6 +47,26 @@ function PortEditor({ ports = [], onChange, disabled }: any) {
     onChange(ports.filter(p => p.id !== portId));
   };
 
+  const movePort = (portId: string, direction: 'up' | 'down') => {
+    // Work on the full ports array to keep ordering across input/output
+    const idx = ports.findIndex(p => p.id === portId);
+    if (idx === -1) return;
+    const port = ports[idx];
+    const sameDirPorts = ports.filter(p => (p.direction || p.type) === (port.direction || port.type));
+    const sameDirIdx = sameDirPorts.findIndex(p => p.id === portId);
+    
+    if (direction === 'up' && sameDirIdx <= 0) return;
+    if (direction === 'down' && sameDirIdx >= sameDirPorts.length - 1) return;
+    
+    const swapIdx = direction === 'up' ? sameDirIdx - 1 : sameDirIdx + 1;
+    const swapped = [...sameDirPorts];
+    [swapped[sameDirIdx], swapped[swapIdx]] = [swapped[swapIdx], swapped[sameDirIdx]];
+    
+    // Rebuild full array: replace same-direction ports with reordered version
+    const otherPorts = ports.filter(p => (p.direction || p.type) !== (port.direction || port.type));
+    onChange([...otherPorts, ...swapped]);
+  };
+
   const updatePort = (portId, field, value) => {
     onChange(ports.map(p => 
       p.id === portId ? { ...p, [field]: value } : p
@@ -82,7 +102,7 @@ function PortEditor({ ports = [], onChange, disabled }: any) {
         }}>
           ○ INPUTS ({inputPorts.length})
         </div>
-        {inputPorts.map(port => (
+        {inputPorts.map((port, idx) => (
           <div key={port.id} style={{
             display: 'flex',
             alignItems: 'center',
@@ -124,19 +144,43 @@ function PortEditor({ ports = [], onChange, disabled }: any) {
               {port.type}
             </span>
             {!disabled && (
-              <button
-                onClick={() => removePort(port.id)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#e74c3c',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  padding: '0 4px'
-                }}
-              >
-                ×
-              </button>
+              <div style={{ display: 'flex', gap: '2px', flexShrink: 0, alignItems: 'center', marginLeft: '4px' }}>
+                <button
+                  onClick={() => movePort(port.id, 'up')}
+                  disabled={idx === 0}
+                  title="Move up"
+                  style={{
+                    background: idx === 0 ? '#2a2a3a' : '#3498db', border: 'none', color: idx === 0 ? '#555' : '#fff',
+                    cursor: idx === 0 ? 'default' : 'pointer', fontSize: '10px', padding: '3px 4px', lineHeight: 1,
+                    borderRadius: '3px', width: '20px', height: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
+                  }}
+                >▲</button>
+                <button
+                  onClick={() => movePort(port.id, 'down')}
+                  disabled={idx === inputPorts.length - 1}
+                  title="Move down"
+                  style={{
+                    background: idx === inputPorts.length - 1 ? '#2a2a3a' : '#3498db', border: 'none', color: idx === inputPorts.length - 1 ? '#555' : '#fff',
+                    cursor: idx === inputPorts.length - 1 ? 'default' : 'pointer', fontSize: '10px', padding: '3px 4px', lineHeight: 1,
+                    borderRadius: '3px', width: '20px', height: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
+                  }}
+                >▼</button>
+                <button
+                  onClick={() => removePort(port.id)}
+                  style={{
+                    background: '#2a2a3a',
+                    border: 'none',
+                    color: '#e74c3c',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    padding: '0 4px',
+                    width: '20px', height: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    borderRadius: '3px'
+                  }}
+                >
+                  ×
+                </button>
+              </div>
             )}
           </div>
         ))}
@@ -155,7 +199,7 @@ function PortEditor({ ports = [], onChange, disabled }: any) {
         }}>
           ● OUTPUTS ({outputPorts.length})
         </div>
-        {outputPorts.map(port => (
+        {outputPorts.map((port, idx) => (
           <div key={port.id} style={{
             display: 'flex',
             alignItems: 'center',
@@ -196,19 +240,43 @@ function PortEditor({ ports = [], onChange, disabled }: any) {
               {port.type}
             </span>
             {!disabled && (
-              <button
-                onClick={() => removePort(port.id)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#e74c3c',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  padding: '0 4px'
-                }}
-              >
-                ×
-              </button>
+              <div style={{ display: 'flex', gap: '2px', flexShrink: 0, alignItems: 'center', marginLeft: '4px' }}>
+                <button
+                  onClick={() => movePort(port.id, 'up')}
+                  disabled={idx === 0}
+                  title="Move up"
+                  style={{
+                    background: idx === 0 ? '#2a2a3a' : '#e67e22', border: 'none', color: idx === 0 ? '#555' : '#fff',
+                    cursor: idx === 0 ? 'default' : 'pointer', fontSize: '10px', padding: '3px 4px', lineHeight: 1,
+                    borderRadius: '3px', width: '20px', height: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
+                  }}
+                >▲</button>
+                <button
+                  onClick={() => movePort(port.id, 'down')}
+                  disabled={idx === outputPorts.length - 1}
+                  title="Move down"
+                  style={{
+                    background: idx === outputPorts.length - 1 ? '#2a2a3a' : '#e67e22', border: 'none', color: idx === outputPorts.length - 1 ? '#555' : '#fff',
+                    cursor: idx === outputPorts.length - 1 ? 'default' : 'pointer', fontSize: '10px', padding: '3px 4px', lineHeight: 1,
+                    borderRadius: '3px', width: '20px', height: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
+                  }}
+                >▼</button>
+                <button
+                  onClick={() => removePort(port.id)}
+                  style={{
+                    background: '#2a2a3a',
+                    border: 'none',
+                    color: '#e74c3c',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    padding: '0 4px',
+                    width: '20px', height: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    borderRadius: '3px'
+                  }}
+                >
+                  ×
+                </button>
+              </div>
             )}
           </div>
         ))}

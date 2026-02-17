@@ -30,6 +30,7 @@ function CustomEdge({
   const edgeStyle = {
     stroke: selected ? '#3498db' : '#95a5a6',
     strokeWidth: selected ? 3 : 2,
+    cursor: 'pointer',
     zIndex: selected ? 1000 : 0,
   };
 
@@ -41,9 +42,12 @@ function CustomEdge({
     return '0';
   };
 
-  // Update local state when data changes
+  // Update local state when data changes (guard against same value to prevent loops)
   useEffect(() => {
-    setLabelText(data?.customLabel || '');
+    const newLabel = data?.customLabel || '';
+    if (newLabel !== labelText) {
+      setLabelText(newLabel);
+    }
   }, [data?.customLabel]);
 
   const handleSave = () => {
@@ -93,17 +97,22 @@ function CustomEdge({
 
   return (
     <>
+      {/* Invisible wider path for easier selection — 20px click area */}
+      <path
+        d={edgePath}
+        style={{
+          stroke: 'transparent',
+          strokeWidth: 20,
+          fill: 'none',
+          cursor: 'pointer',
+          pointerEvents: 'stroke',
+        }}
+        className="react-flow__edge-interaction"
+      />
       <path
         id={id}
         className="react-flow__edge-path"
         d={edgePath}
-        /*style={{
-          stroke: relType.color,
-          strokeWidth: selected ? 3 : 2,
-          strokeDasharray: getStrokeDasharray(),
-          fill: 'none',
-          cursor: 'pointer',
-        }}*/
         strokeDasharray={getStrokeDasharray()}
         style={edgeStyle}
         markerEnd={`url(#arrow-${data?.relationType || 'related'})`}
@@ -114,6 +123,7 @@ function CustomEdge({
             style={{
               position: 'absolute',
               transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+              zIndex: 10,
               background: data?.isWhiteboardMode ? '#fff' : '#2c3e50',
               padding: data?.isWhiteboardMode ? '4px 10px' : '4px 8px',
               borderRadius: '4px',

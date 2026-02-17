@@ -15,6 +15,7 @@ function LeftIconStrip({
   onAddTextAnnotation,
   onAddPostIt,
   onOpenLibrary,
+  onOpenMETSLibrary,
   onOpenIssueManager,
   onVoice,
   isListening,
@@ -149,6 +150,7 @@ function LeftIconStrip({
       
       {/* Library & Issues */}
       <ToolbarButton onClick={onOpenLibrary} title="Library" bgColor="#16a085" icon="📚" />
+      <ToolbarButton onClick={onOpenMETSLibrary} title="METS Komp." bgColor="#1e3a5f" icon="🔧" />
       <ToolbarButton onClick={onOpenIssueManager} title="Issues" bgColor="#c0392b" icon="🐛" />
       
       {/* Separator */}

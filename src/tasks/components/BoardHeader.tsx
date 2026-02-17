@@ -2,9 +2,59 @@
 // BoardHeader — Board selector, settings, and toolbar
 // ============================================================================
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTaskContext } from '../TaskContext';
 import ThemePicker from './ThemePicker';
+import { Task, TaskBoard, TaskColumn } from '../types';
+
+// ─── Markdown Export ────────────────────────────────────────────────────
+function tasksToMarkdown(board: TaskBoard, tasks: Task[]): string {
+  const lines: string[] = [];
+  const prio: Record<string, string> = { critical: '🔴 Kritisk', high: '🟠 Hög', medium: '🟡 Medium', low: '🟢 Låg' };
+
+  lines.push(`# ${board.name}`);
+  lines.push('');
+
+  for (const col of board.columns) {
+    const colTasks = tasks
+      .filter((t) => t.columnId === col.id)
+      .sort((a, b) => a.order - b.order);
+
+    lines.push(`## ${col.name} (${colTasks.length})`);
+    lines.push('');
+
+    if (colTasks.length === 0) {
+      lines.push('_Inga tasks_');
+      lines.push('');
+      continue;
+    }
+
+    for (const t of colTasks) {
+      const parts: string[] = [];
+      if (t.priority && t.priority !== 'medium') parts.push(prio[t.priority] || t.priority);
+      if (t.assignee) parts.push(`→ ${t.assignee}`);
+      if (t.dueDate) parts.push(`📅 ${t.dueDate}`);
+      if (t.labels.length > 0) parts.push(t.labels.map((l) => `\`${l}\``).join(' '));
+
+      lines.push(`- **${t.title}**${parts.length ? ' — ' + parts.join(' · ') : ''}`);
+
+      if (t.description) {
+        // Indent description lines
+        const desc = t.description.trim();
+        lines.push(`  ${desc.split('\n').join('\n  ')}`);
+      }
+
+      if (t.checklist && t.checklist.length > 0) {
+        for (const item of t.checklist) {
+          lines.push(`  - [${item.done ? 'x' : ' '}] ${item.text}`);
+        }
+      }
+    }
+    lines.push('');
+  }
+
+  return lines.join('\n');
+}
 
 interface BoardHeaderProps {
   onShowMyTasks: () => void;
@@ -19,6 +69,7 @@ export default function BoardHeader({ onShowMyTasks }: BoardHeaderProps) {
     updateBoard,
     deleteBoard,
     addColumn,
+    tasks,
   } = useTaskContext();
 
   const [showBoardPicker, setShowBoardPicker] = useState(false);
@@ -28,6 +79,7 @@ export default function BoardHeader({ onShowMyTasks }: BoardHeaderProps) {
   const [renameBoardValue, setRenameBoardValue] = useState('');
   const [showAddColumn, setShowAddColumn] = useState(false);
   const [newColumnName, setNewColumnName] = useState('');
+  const [exportToast, setExportToast] = useState('');
   const pickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -63,6 +115,28 @@ export default function BoardHeader({ onShowMyTasks }: BoardHeaderProps) {
       setShowAddColumn(false);
     }
   };
+
+  const handleExportMarkdown = useCallback(() => {
+    if (!activeBoard) return;
+    const md = tasksToMarkdown(activeBoard, tasks);
+    navigator.clipboard.writeText(md).then(() => {
+      setExportToast('Kopierat till urklipp!');
+      setTimeout(() => setExportToast(''), 2500);
+    }).catch(() => {
+      // Fallback: download as file
+      const blob = new Blob([md], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${activeBoard.name.toLowerCase().replace(/\s+/g, '-')}-tasks.md`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setExportToast('Nedladdad som .md-fil');
+      setTimeout(() => setExportToast(''), 2500);
+    });
+  }, [activeBoard, tasks]);
 
   return (
     <div className="board-header">
@@ -192,6 +266,16 @@ export default function BoardHeader({ onShowMyTasks }: BoardHeaderProps) {
         <button className="board-header__btn board-header__btn--outline" onClick={onShowMyTasks}>
           👤 My Tasks
         </button>
+
+        {/* Export Markdown */}
+        <button className="board-header__btn board-header__btn--outline" onClick={handleExportMarkdown} title="Kopiera tasks som Markdown">
+          📋 Export
+        </button>
+        {exportToast && (
+          <span style={{ fontSize: 11, color: '#2dd4a8', fontWeight: 600, whiteSpace: 'nowrap' }}>
+            ✓ {exportToast}
+          </span>
+        )}
 
         {/* Theme */}
         <ThemePicker />
