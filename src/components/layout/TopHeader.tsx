@@ -204,7 +204,7 @@ function TopHeader({
             background: viewMode === '3d' ? '#3498db' : '#2c3e50',
             color: 'white',
             border: '1px solid #4a5f7f',
-            borderRadius: '0 6px 6px 0',
+            borderRadius: '0',
             cursor: 'pointer',
             fontSize: '11px',
             fontWeight: 'bold'
@@ -212,6 +212,22 @@ function TopHeader({
           title="3D Traceability View"
         >
           🔮 3D
+        </button>
+        <button
+          onClick={() => onViewModeChange('sequence')}
+          style={{
+            padding: '6px 10px',
+            background: viewMode === 'sequence' ? '#3498db' : '#2c3e50',
+            color: 'white',
+            border: '1px solid #4a5f7f',
+            borderRadius: '0 6px 6px 0',
+            cursor: 'pointer',
+            fontSize: '11px',
+            fontWeight: 'bold'
+          }}
+          title="Sequence Diagram"
+        >
+          📊 Seq
         </button>
       </div>
 

@@ -82,6 +82,7 @@ import ChangePasswordModal from './components/modals/ChangePasswordModal';
 
 // ─── Extracted View Components ───
 import DocumentView from './components/views/DocumentView';
+import { SequenceView } from './components/SequenceView';
 
 // API Base URL - same as api.js
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -974,7 +975,7 @@ const createNewObject = (name, version, description) => {
       />
       
       {/* Left Icon Strip - hidden in freeform drawing mode */}
-      {viewMode !== 'freeform' && viewMode !== 'tasks' && viewMode !== 'gantt' && viewMode !== '3d' && <LeftIconStrip
+      {viewMode !== 'freeform' && viewMode !== 'tasks' && viewMode !== 'gantt' && viewMode !== '3d' && viewMode !== 'sequence' && <LeftIconStrip
         onAddSystem={addSystemNode}
         onAddSubSystem={addSubSystemNode}
         onAddFunction={addFunctionNode}
@@ -1088,6 +1089,13 @@ const createNewObject = (name, version, description) => {
           edges={edges}
           requirementLinks={requirementLinks}
           style={{ marginTop: '50px', height: 'calc(100vh - 50px)' }} 
+        />
+      ) : viewMode === 'sequence' ? (
+        <SequenceView
+          projectId={currentProject?.id || null}
+          nodes={nodes}
+          edges={edges}
+          style={{ marginTop: '50px', height: 'calc(100vh - 50px)' }}
         />
       ) : viewMode === 'freeform' ? (
         <Whiteboard style={{ marginTop: '50px', height: 'calc(100vh - 50px)' }} projectId={currentProject?.id || null} />
