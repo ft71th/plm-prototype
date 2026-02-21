@@ -77,7 +77,7 @@ function IssueManagerModal({ issues, nodes, onClose, onIssueClick, onUpdateIssue
         boxShadow: '0 10px 50px rgba(0,0,0,0.5)',
       }}>
         {/* Header */}
-        <div style={{ padding: '20px 25px', borderBottom: '1px solid #34495e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ padding: '20px 25px', borderBottom: '1px solid var(--nl-border, #34495e)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h2 style={{ margin: 0, color: '#fff', fontSize: '22px' }}>🐛 Issue Manager</h2>
             <p style={{ margin: '5px 0 0', color: '#7f8c8d', fontSize: '13px' }}>Track and manage all issues across your project</p>
@@ -86,7 +86,7 @@ function IssueManagerModal({ issues, nodes, onClose, onIssueClick, onUpdateIssue
         </div>
 
         {/* Stats Bar */}
-        <div style={{ display: 'flex', gap: '15px', padding: '15px 25px', backgroundColor: '#2c3e50', borderBottom: '1px solid #34495e' }}>
+        <div style={{ display: 'flex', gap: '15px', padding: '15px 25px', backgroundColor: '#2c3e50', borderBottom: '1px solid var(--nl-border, #34495e)' }}>
           {[
             { label: 'Total', value: stats.total, color: '#fff' },
             { label: 'Open', value: stats.open, color: '#e74c3c' },
@@ -113,9 +113,9 @@ function IssueManagerModal({ issues, nodes, onClose, onIssueClick, onUpdateIssue
             placeholder="🔍 Search issues..."
             value={searchTerm}
             onChange={(e: any) => setSearchTerm(e.target.value)}
-            style={{ flex: 1, padding: '10px 15px', backgroundColor: '#34495e', color: '#fff', border: '1px solid #4a5f7f', borderRadius: '6px' }}
+            style={{ flex: 1, padding: '10px 15px', backgroundColor: '#34495e', color: '#fff', border: '1px solid var(--nl-border, #4a5f7f)', borderRadius: '6px' }}
           />
-          <select value={filter} onChange={(e: any) => setFilter(e.target.value)} style={{ padding: '10px 15px', backgroundColor: '#34495e', color: '#fff', border: '1px solid #4a5f7f', borderRadius: '6px' }}>
+          <select value={filter} onChange={(e: any) => setFilter(e.target.value)} style={{ padding: '10px 15px', backgroundColor: '#34495e', color: '#fff', border: '1px solid var(--nl-border, #4a5f7f)', borderRadius: '6px' }}>
             <option value="all">All Issues</option>
             <option value="open">Open Only</option>
             <option value="resolved">Resolved</option>
@@ -123,7 +123,7 @@ function IssueManagerModal({ issues, nodes, onClose, onIssueClick, onUpdateIssue
             <option value="critical">🔴 Critical</option>
             <option value="high">🟠 High Priority</option>
           </select>
-          <select value={sortBy} onChange={(e: any) => setSortBy(e.target.value)} style={{ padding: '10px 15px', backgroundColor: '#34495e', color: '#fff', border: '1px solid #4a5f7f', borderRadius: '6px' }}>
+          <select value={sortBy} onChange={(e: any) => setSortBy(e.target.value)} style={{ padding: '10px 15px', backgroundColor: '#34495e', color: '#fff', border: '1px solid var(--nl-border, #4a5f7f)', borderRadius: '6px' }}>
             <option value="priority">Sort by Priority</option>
             <option value="date">Sort by Date</option>
             <option value="status">Sort by Status</option>

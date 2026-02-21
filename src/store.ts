@@ -22,6 +22,7 @@ export interface StoreState {
   showSplash: boolean;
   showRelationshipLabels: boolean;
   viewMode: ViewMode;
+  isDarkMode: boolean;
 
   setSidebarOpen: (v: SetterOrValue<boolean>) => void;
   setFiltersOpen: (v: SetterOrValue<boolean>) => void;
@@ -36,6 +37,8 @@ export interface StoreState {
   setShowSplash: (v: boolean) => void;
   setShowRelationshipLabels: (v: SetterOrValue<boolean>) => void;
   setViewMode: (v: ViewMode) => void;
+  setIsDarkMode: (v: boolean) => void;
+  toggleTheme: () => void;
 
   // Filters
   searchText: string;
@@ -109,6 +112,9 @@ const useStore = create<StoreState>((set, get) => ({
   showSplash: true,
   showRelationshipLabels: true,
   viewMode: 'plm',
+  isDarkMode: (() => {
+    try { return localStorage.getItem('northlight-dark-mode') !== 'false'; } catch { return true; }
+  })(),
 
   setSidebarOpen: (v) => set({ sidebarOpen: typeof v === 'function' ? v(get().sidebarOpen) : v }),
   setFiltersOpen: (v) => set({ filtersOpen: typeof v === 'function' ? v(get().filtersOpen) : v }),
@@ -123,6 +129,8 @@ const useStore = create<StoreState>((set, get) => ({
   setShowSplash: (v) => set({ showSplash: v }),
   setShowRelationshipLabels: (v) => set({ showRelationshipLabels: typeof v === 'function' ? v(get().showRelationshipLabels) : v }),
   setViewMode: (v) => set({ viewMode: v }),
+  setIsDarkMode: (v) => { localStorage.setItem('northlight-dark-mode', String(v)); set({ isDarkMode: v }); },
+  toggleTheme: () => { const next = !get().isDarkMode; localStorage.setItem('northlight-dark-mode', String(next)); set({ isDarkMode: next }); },
 
   // FILTER STATE
   searchText: '',

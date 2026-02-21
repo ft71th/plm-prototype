@@ -1410,7 +1410,7 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <span>{getClassificationIcon()}</span>
-          <span style={{ color: '#bdc3c7', textTransform: 'capitalize' }}>
+          <span style={{ color: 'var(--nl-text-secondary, #bdc3c7)', textTransform: 'capitalize' }}>
             {data.classification || 'requirement'}
           </span>
         </div>
@@ -1452,7 +1452,7 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
             width: '100%',
             fontSize: '14px',
             fontWeight: 'bold',
-            background: '#34495e',
+            background: 'var(--nl-bg-input, #34495e)',
             color: 'white',
             border: '1px solid ' + getBorderColor(),
             borderRadius: '4px',

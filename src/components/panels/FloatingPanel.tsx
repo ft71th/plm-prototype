@@ -22,7 +22,7 @@ function FloatingPanel({
   }, [initialPosition]);
 
   {/* Requirement Links Section */}
-  <div style={{ marginTop: '15px', borderTop: '1px solid #34495e', paddingTop: '10px' }}>
+  <div style={{ marginTop: '15px', borderTop: '1px solid var(--nl-border, #34495e)', paddingTop: '10px' }}>
     <NodeLinkSection
       nodeId={node.id}
       links={requirementLinks}
@@ -100,11 +100,11 @@ return (
         top: '20px',
         bottom: '20px',
         width: '360px',
-        background: '#2c3e50',
+        background: 'var(--nl-bg-panel, #2c3e50)',
         borderRadius: '8px',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+        boxShadow: 'var(--nl-shadow-lg, 0 8px 24px rgba(0,0,0,0.4))',
         zIndex: 2000,
-        color: 'white',
+        color: 'var(--nl-text-primary, white)',
         userSelect: isDragging ? 'none' : 'auto',
         display: 'flex',
         flexDirection: 'column',
@@ -114,11 +114,11 @@ return (
       <div 
         style={{
           padding: '12px 15px',
-          borderBottom: '2px solid #34495e',
+          borderBottom: '2px solid var(--nl-border, #34495e)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          background: '#34495e',
+          background: 'var(--nl-bg-input, #34495e)',
           borderTopLeftRadius: '8px',
           borderTopRightRadius: '8px',
           cursor: isDragging ? 'grabbing' : 'grab'
@@ -144,7 +144,7 @@ return (
           style={{
             background: 'transparent',
             border: 'none',
-            color: 'white',
+            color: 'var(--nl-text-primary, white)',
             fontSize: '20px',
             cursor: 'pointer',
             padding: '0 6px',
@@ -165,7 +165,7 @@ return (
             display: 'block',
             marginBottom: '6px',
             fontSize: '11px',
-            color: '#bdc3c7',
+            color: 'var(--nl-text-secondary, #bdc3c7)',
             textTransform: 'uppercase',
             fontWeight: 'bold'
           }}>
@@ -180,7 +180,7 @@ return (
           </label>
           <div style={{
             padding: '8px',
-            background: '#34495e',
+            background: 'var(--nl-bg-input, #34495e)',
             borderRadius: '4px',
             fontSize: '16px',
             fontWeight: 'bold',
@@ -197,7 +197,7 @@ return (
             display: 'block',
             marginBottom: '6px',
             fontSize: '11px',
-            color: '#bdc3c7',
+            color: 'var(--nl-text-secondary, #bdc3c7)',
             textTransform: 'uppercase',
             fontWeight: 'bold'
           }}>
@@ -215,9 +215,9 @@ return (
             style={{
               width: '100%',
               padding: '8px',
-              background: isEditable ? '#34495e' : '#2c3e50',
-              color: 'white',
-              border: '1px solid #4a5f7f',
+              background: isEditable ? 'var(--nl-bg-input, #34495e)' : 'var(--nl-bg-panel, #2c3e50)',
+              color: 'var(--nl-text-primary, white)',
+              border: '1px solid var(--nl-border, #4a5f7f)',
               borderRadius: '4px',
               fontSize: '14px',
               cursor: isEditable ? 'pointer' : 'not-allowed'
@@ -248,7 +248,7 @@ return (
             display: 'block',
             marginBottom: '6px',
             fontSize: '11px',
-            color: '#bdc3c7',
+            color: 'var(--nl-text-secondary, #bdc3c7)',
             textTransform: 'uppercase',
             fontWeight: 'bold'
           }}>
@@ -264,9 +264,9 @@ return (
               style={{
                 flex: 1,
                 padding: '8px',
-                background: isEditable ? '#34495e' : '#2c3e50',
-                color: 'white',
-                border: '1px solid #4a5f7f',
+                background: isEditable ? 'var(--nl-bg-input, #34495e)' : 'var(--nl-bg-panel, #2c3e50)',
+                color: 'var(--nl-text-primary, white)',
+                border: '1px solid var(--nl-border, #4a5f7f)',
                 borderRadius: '4px',
                 fontSize: '14px',
                 fontFamily: 'monospace',
@@ -285,7 +285,7 @@ return (
                 style={{
                   padding: '8px 12px',
                   background: '#8e44ad',
-                  color: 'white',
+                  color: 'var(--nl-text-primary, white)',
                   border: 'none',
                   borderRadius: '4px',
                   cursor: 'pointer',
@@ -321,9 +321,9 @@ return (
             style={{
               width: '100%',
               padding: '10px',
-              background: isEditable ? '#34495e' : '#2c3e50',
+              background: isEditable ? 'var(--nl-bg-input, #34495e)' : 'var(--nl-bg-panel, #2c3e50)',
               color: isEditable ? 'white' : '#7f8c8d',
-              border: '1px solid #4a5f7f',
+              border: '1px solid var(--nl-border, #4a5f7f)',
               borderRadius: '6px',
               fontSize: '14px',
               fontWeight: 'bold',
@@ -342,7 +342,7 @@ return (
             display: 'block',
             marginBottom: '6px',
             fontSize: '11px',
-            color: '#bdc3c7',
+            color: 'var(--nl-text-secondary, #bdc3c7)',
             textTransform: 'uppercase',
             fontWeight: 'bold'
           }}>
@@ -354,9 +354,9 @@ return (
             style={{
               width: '100%',
               padding: '8px',
-              background: '#34495e',
-              color: 'white',
-              border: '1px solid #4a5f7f',
+              background: 'var(--nl-bg-input, #34495e)',
+              color: 'var(--nl-text-primary, white)',
+              border: '1px solid var(--nl-border, #4a5f7f)',
               borderRadius: '4px',
               fontSize: '13px',
               cursor: 'pointer'
@@ -388,9 +388,9 @@ return (
               style={{
                 width: '100%',
                 padding: '10px',
-                background: '#34495e',
-                color: 'white',
-                border: '1px solid #4a5f7f',
+                background: 'var(--nl-bg-input, #34495e)',
+                color: 'var(--nl-text-primary, white)',
+                border: '1px solid var(--nl-border, #4a5f7f)',
                 borderRadius: '6px',
                 fontSize: '13px'
               }}
@@ -421,9 +421,9 @@ return (
               style={{
                 width: '100%',
                 padding: '10px',
-                background: '#34495e',
-                color: 'white',
-                border: '1px solid #4a5f7f',
+                background: 'var(--nl-bg-input, #34495e)',
+                color: 'var(--nl-text-primary, white)',
+                border: '1px solid var(--nl-border, #4a5f7f)',
                 borderRadius: '6px',
                 fontSize: '13px'
               }}
@@ -455,9 +455,9 @@ return (
             style={{
               width: '100%',
               padding: '10px',
-              background: '#34495e',
-              color: 'white',
-              border: '1px solid #4a5f7f',
+              background: 'var(--nl-bg-input, #34495e)',
+              color: 'var(--nl-text-primary, white)',
+              border: '1px solid var(--nl-border, #4a5f7f)',
               borderRadius: '6px',
               fontSize: '13px'
             }}
@@ -485,7 +485,7 @@ return (
             display: 'block',
             marginBottom: '6px',
             fontSize: '11px',
-            color: '#bdc3c7',
+            color: 'var(--nl-text-secondary, #bdc3c7)',
             textTransform: 'uppercase',
             fontWeight: 'bold'
           }}>
@@ -499,9 +499,9 @@ return (
             style={{
               width: '100%',
               padding: '8px',
-              background: isEditable ? '#34495e' : '#2c3e50',
-              color: 'white',
-              border: '1px solid #4a5f7f',
+              background: isEditable ? 'var(--nl-bg-input, #34495e)' : 'var(--nl-bg-panel, #2c3e50)',
+              color: 'var(--nl-text-primary, white)',
+              border: '1px solid var(--nl-border, #4a5f7f)',
               borderRadius: '4px',
               fontSize: '13px',
               fontFamily: 'inherit',
@@ -530,7 +530,7 @@ return (
             display: 'block',
             marginBottom: '6px',
             fontSize: '11px',
-            color: '#bdc3c7',
+            color: 'var(--nl-text-secondary, #bdc3c7)',
             textTransform: 'uppercase',
             fontWeight: 'bold'
           }}>
@@ -548,9 +548,9 @@ return (
               background: node.data.issueCount > 0 
                 ? (node.data.criticalIssueCount > 0 ? '#c0392b' : '#e67e22')
                 : '#34495e',
-              border: '1px solid #4a5f7f',
+              border: '1px solid var(--nl-border, #4a5f7f)',
               borderRadius: '6px',
-              color: 'white',
+              color: 'var(--nl-text-primary, white)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -590,7 +590,7 @@ return (
             display: 'block',
             marginBottom: '6px',
             fontSize: '11px',
-            color: '#bdc3c7',
+            color: 'var(--nl-text-secondary, #bdc3c7)',
             textTransform: 'uppercase',
             fontWeight: 'bold'
           }}>
@@ -619,7 +619,7 @@ return (
                     marginTop: '8px',
                     padding: '6px 12px',
                     background: '#e74c3c',
-                    color: 'white',
+                    color: 'var(--nl-text-primary, white)',
                     border: 'none',
                     borderRadius: '4px',
                     cursor: 'pointer',
@@ -635,7 +635,7 @@ return (
             <label style={{
               display: 'block',
               padding: '20px',
-              background: isEditable ? '#34495e' : '#2c3e50',
+              background: isEditable ? 'var(--nl-bg-input, #34495e)' : 'var(--nl-bg-panel, #2c3e50)',
               border: '2px dashed #4a5f7f',
               borderRadius: '4px',
               textAlign: 'center',
@@ -686,7 +686,7 @@ return (
                 style={{
                   background: '#e74c3c',
                   border: 'none',
-                  color: 'white',
+                  color: 'var(--nl-text-primary, white)',
                   padding: '4px 8px',
                   borderRadius: '4px',
                   fontSize: '10px',
@@ -716,7 +716,7 @@ return (
                 <div 
                   key={issue.id} 
                   style={{
-                    background: '#34495e',
+                    background: 'var(--nl-bg-input, #34495e)',
                     borderRadius: '4px',
                     padding: '10px',
                     marginBottom: '6px',
@@ -741,7 +741,7 @@ return (
                         flex: 1,
                         background: 'transparent',
                         border: 'none',
-                        color: 'white',
+                        color: 'var(--nl-text-primary, white)',
                         fontSize: '12px',
                         fontWeight: 'bold',
                         outline: 'none'
@@ -778,10 +778,10 @@ return (
                     placeholder="Issue description..."
                     style={{
                       width: '100%',
-                      background: '#2c3e50',
-                      border: '1px solid #4a5f7f',
+                      background: 'var(--nl-bg-panel, #2c3e50)',
+                      border: '1px solid var(--nl-border, #4a5f7f)',
                       borderRadius: '3px',
-                      color: 'white',
+                      color: 'var(--nl-text-primary, white)',
                       fontSize: '11px',
                       padding: '6px',
                       resize: 'vertical',
@@ -802,9 +802,9 @@ return (
                       style={{
                         flex: 1,
                         padding: '4px',
-                        background: '#2c3e50',
-                        color: 'white',
-                        border: '1px solid #4a5f7f',
+                        background: 'var(--nl-bg-panel, #2c3e50)',
+                        color: 'var(--nl-text-primary, white)',
+                        border: '1px solid var(--nl-border, #4a5f7f)',
                         borderRadius: '3px',
                         fontSize: '10px'
                       }}
@@ -826,9 +826,9 @@ return (
                       style={{
                         flex: 1,
                         padding: '4px',
-                        background: '#2c3e50',
-                        color: 'white',
-                        border: '1px solid #4a5f7f',
+                        background: 'var(--nl-bg-panel, #2c3e50)',
+                        color: 'var(--nl-text-primary, white)',
+                        border: '1px solid var(--nl-border, #4a5f7f)',
                         borderRadius: '3px',
                         fontSize: '10px'
                       }}
@@ -858,7 +858,7 @@ return (
             display: 'block',
             marginBottom: '6px',
             fontSize: '11px',
-            color: '#bdc3c7',
+            color: 'var(--nl-text-secondary, #bdc3c7)',
             textTransform: 'uppercase',
             fontWeight: 'bold'
           }}>
@@ -871,9 +871,9 @@ return (
             style={{
               width: '100%',
               padding: '8px',
-              background: isEditable ? '#34495e' : '#2c3e50',
-              color: 'white',
-              border: '1px solid #4a5f7f',
+              background: isEditable ? 'var(--nl-bg-input, #34495e)' : 'var(--nl-bg-panel, #2c3e50)',
+              color: 'var(--nl-text-primary, white)',
+              border: '1px solid var(--nl-border, #4a5f7f)',
               borderRadius: '4px',
               fontSize: '13px',
               cursor: isEditable ? 'pointer' : 'not-allowed'
@@ -890,7 +890,7 @@ return (
             display: 'block',
             marginBottom: '6px',
             fontSize: '11px',
-            color: '#bdc3c7',
+            color: 'var(--nl-text-secondary, #bdc3c7)',
             textTransform: 'uppercase',
             fontWeight: 'bold'
           }}>
@@ -905,9 +905,9 @@ return (
             style={{
               width: '100%',
               padding: '8px',
-              background: isEditable ? '#34495e' : '#2c3e50',
-              color: 'white',
-              border: '1px solid #4a5f7f',
+              background: isEditable ? 'var(--nl-bg-input, #34495e)' : 'var(--nl-bg-panel, #2c3e50)',
+              color: 'var(--nl-text-primary, white)',
+              border: '1px solid var(--nl-border, #4a5f7f)',
               borderRadius: '4px',
               fontSize: '13px',
               cursor: isEditable ? 'text' : 'not-allowed'
@@ -921,7 +921,7 @@ return (
             display: 'block',
             marginBottom: '6px',
             fontSize: '11px',
-            color: '#bdc3c7',
+            color: 'var(--nl-text-secondary, #bdc3c7)',
             textTransform: 'uppercase',
             fontWeight: 'bold'
           }}>
@@ -936,9 +936,9 @@ return (
               width: '100%',
               minHeight: '60px',
               padding: '8px',
-              background: isEditable ? '#34495e' : '#2c3e50',
-              color: 'white',
-              border: '1px solid #4a5f7f',
+              background: isEditable ? 'var(--nl-bg-input, #34495e)' : 'var(--nl-bg-panel, #2c3e50)',
+              color: 'var(--nl-text-primary, white)',
+              border: '1px solid var(--nl-border, #4a5f7f)',
               borderRadius: '4px',
               fontSize: '13px',
               fontFamily: 'inherit',
@@ -971,8 +971,8 @@ return (
                   width: '100%',
                   minHeight: '60px',
                   padding: '8px',
-                  background: isEditable ? '#34495e' : '#2c3e50',
-                  color: 'white',
+                  background: isEditable ? 'var(--nl-bg-input, #34495e)' : 'var(--nl-bg-panel, #2c3e50)',
+                  color: 'var(--nl-text-primary, white)',
                   border: '1px solid #27ae60',
                   borderRadius: '4px',
                   fontSize: '13px',
@@ -1003,8 +1003,8 @@ return (
                   width: '100%',
                   minHeight: '60px',
                   padding: '8px',
-                  background: isEditable ? '#34495e' : '#2c3e50',
-                  color: 'white',
+                  background: isEditable ? 'var(--nl-bg-input, #34495e)' : 'var(--nl-bg-panel, #2c3e50)',
+                  color: 'var(--nl-text-primary, white)',
                   border: '1px solid #27ae60',
                   borderRadius: '4px',
                   fontSize: '13px',
@@ -1035,8 +1035,8 @@ return (
                   width: '100%',
                   minHeight: '100px',
                   padding: '8px',
-                  background: isEditable ? '#34495e' : '#2c3e50',
-                  color: 'white',
+                  background: isEditable ? 'var(--nl-bg-input, #34495e)' : 'var(--nl-bg-panel, #2c3e50)',
+                  color: 'var(--nl-text-primary, white)',
                   border: '1px solid #27ae60',
                   borderRadius: '4px',
                   fontSize: '13px',
@@ -1067,8 +1067,8 @@ return (
                   width: '100%',
                   minHeight: '100px',
                   padding: '8px',
-                  background: isEditable ? '#34495e' : '#2c3e50',
-                  color: 'white',
+                  background: isEditable ? 'var(--nl-bg-input, #34495e)' : 'var(--nl-bg-panel, #2c3e50)',
+                  color: 'var(--nl-text-primary, white)',
                   border: '1px solid #27ae60',
                   borderRadius: '4px',
                   fontSize: '13px',
@@ -1102,8 +1102,8 @@ return (
                 style={{
                   width: '100%',
                   padding: '8px',
-                  background: '#34495e',
-                  color: 'white',
+                  background: 'var(--nl-bg-input, #34495e)',
+                  color: 'var(--nl-text-primary, white)',
                   border: '1px solid #00bcd4',
                   borderRadius: '4px',
                   fontSize: '13px'
@@ -1134,9 +1134,9 @@ return (
                   style={{
                     width: '100%',
                     padding: '8px',
-                    background: '#34495e',
-                    color: 'white',
-                    border: '1px solid #4a5f7f',
+                    background: 'var(--nl-bg-input, #34495e)',
+                    color: 'var(--nl-text-primary, white)',
+                    border: '1px solid var(--nl-border, #4a5f7f)',
                     borderRadius: '4px',
                     fontSize: '13px'
                   }}
@@ -1162,9 +1162,9 @@ return (
                   style={{
                     width: '100%',
                     padding: '8px',
-                    background: '#34495e',
-                    color: 'white',
-                    border: '1px solid #4a5f7f',
+                    background: 'var(--nl-bg-input, #34495e)',
+                    color: 'var(--nl-text-primary, white)',
+                    border: '1px solid var(--nl-border, #4a5f7f)',
                     borderRadius: '4px',
                     fontSize: '13px'
                   }}
@@ -1192,9 +1192,9 @@ return (
                   style={{
                     width: '100%',
                     padding: '8px',
-                    background: '#34495e',
-                    color: 'white',
-                    border: '1px solid #4a5f7f',
+                    background: 'var(--nl-bg-input, #34495e)',
+                    color: 'var(--nl-text-primary, white)',
+                    border: '1px solid var(--nl-border, #4a5f7f)',
                     borderRadius: '4px',
                     fontSize: '13px'
                   }}
@@ -1219,9 +1219,9 @@ return (
                   style={{
                     width: '100%',
                     padding: '8px',
-                    background: '#34495e',
-                    color: 'white',
-                    border: '1px solid #4a5f7f',
+                    background: 'var(--nl-bg-input, #34495e)',
+                    color: 'var(--nl-text-primary, white)',
+                    border: '1px solid var(--nl-border, #4a5f7f)',
                     borderRadius: '4px',
                     fontSize: '13px'
                   }}
@@ -1246,9 +1246,9 @@ return (
                   style={{
                     width: '100%',
                     padding: '8px',
-                    background: '#34495e',
-                    color: 'white',
-                    border: '1px solid #4a5f7f',
+                    background: 'var(--nl-bg-input, #34495e)',
+                    color: 'var(--nl-text-primary, white)',
+                    border: '1px solid var(--nl-border, #4a5f7f)',
                     borderRadius: '4px',
                     fontSize: '13px'
                   }}
@@ -1284,8 +1284,8 @@ return (
                   style={{
                     flex: 1,
                     padding: '8px',
-                    background: '#34495e',
-                    color: 'white',
+                    background: 'var(--nl-bg-input, #34495e)',
+                    color: 'var(--nl-text-primary, white)',
                     border: '1px solid #795548',
                     borderRadius: '4px',
                     fontSize: '13px'
@@ -1303,7 +1303,7 @@ return (
                     style={{
                       padding: '8px 12px',
                       background: '#3498db',
-                      color: 'white',
+                      color: 'var(--nl-text-primary, white)',
                       border: 'none',
                       borderRadius: '4px',
                       cursor: 'pointer',
@@ -1339,7 +1339,7 @@ return (
                   gap: '10px',
                   marginBottom: '10px',
                   padding: '10px',
-                  background: '#2c3e50',
+                  background: 'var(--nl-bg-panel, #2c3e50)',
                   borderRadius: '6px'
                 }}>
                   <img 
@@ -1359,7 +1359,7 @@ return (
                     style={{
                       padding: '6px 12px',
                       background: '#e74c3c',
-                      color: 'white',
+                      color: 'var(--nl-text-primary, white)',
                       border: 'none',
                       borderRadius: '4px',
                       cursor: 'pointer',
@@ -1381,9 +1381,9 @@ return (
                   style={{
                     flex: 1,
                     padding: '8px',
-                    background: '#34495e',
-                    color: 'white',
-                    border: '1px solid #4a5f7f',
+                    background: 'var(--nl-bg-input, #34495e)',
+                    color: 'var(--nl-text-primary, white)',
+                    border: '1px solid var(--nl-border, #4a5f7f)',
                     borderRadius: '4px',
                     fontSize: '12px'
                   }}
@@ -1400,7 +1400,7 @@ return (
                   style={{
                     padding: '8px 12px',
                     background: '#27ae60',
-                    color: 'white',
+                    color: 'var(--nl-text-primary, white)',
                     border: 'none',
                     borderRadius: '4px',
                     cursor: 'pointer',
@@ -1418,7 +1418,7 @@ return (
                 <label style={{
                   padding: '6px 12px',
                   background: '#3498db',
-                  color: 'white',
+                  color: 'var(--nl-text-primary, white)',
                   borderRadius: '4px',
                   cursor: isEditable ? 'pointer' : 'not-allowed',
                   fontSize: '11px',
@@ -1504,9 +1504,9 @@ return (
                 style={{
                   width: '100%',
                   padding: '8px',
-                  background: '#34495e',
-                  color: 'white',
-                  border: '1px solid #4a5f7f',
+                  background: 'var(--nl-bg-input, #34495e)',
+                  color: 'var(--nl-text-primary, white)',
+                  border: '1px solid var(--nl-border, #4a5f7f)',
                   borderRadius: '4px',
                   fontSize: '13px'
                 }}
@@ -1533,9 +1533,9 @@ return (
                   style={{
                     width: '100%',
                     padding: '8px',
-                    background: '#34495e',
-                    color: 'white',
-                    border: '1px solid #4a5f7f',
+                    background: 'var(--nl-bg-input, #34495e)',
+                    color: 'var(--nl-text-primary, white)',
+                    border: '1px solid var(--nl-border, #4a5f7f)',
                     borderRadius: '4px',
                     fontSize: '13px'
                   }}
@@ -1560,9 +1560,9 @@ return (
                   style={{
                     width: '100%',
                     padding: '8px',
-                    background: '#34495e',
-                    color: 'white',
-                    border: '1px solid #4a5f7f',
+                    background: 'var(--nl-bg-input, #34495e)',
+                    color: 'var(--nl-text-primary, white)',
+                    border: '1px solid var(--nl-border, #4a5f7f)',
                     borderRadius: '4px',
                     fontSize: '13px'
                   }}
@@ -1590,9 +1590,9 @@ return (
                   width: '100%',
                   minHeight: '80px',
                   padding: '8px',
-                  background: '#34495e',
-                  color: 'white',
-                  border: '1px solid #4a5f7f',
+                  background: 'var(--nl-bg-input, #34495e)',
+                  color: 'var(--nl-text-primary, white)',
+                  border: '1px solid var(--nl-border, #4a5f7f)',
                   borderRadius: '4px',
                   fontSize: '13px',
                   fontFamily: 'monospace',
@@ -1625,8 +1625,8 @@ return (
                 style={{
                   width: '100%',
                   padding: '8px',
-                  background: '#34495e',
-                  color: 'white',
+                  background: 'var(--nl-bg-input, #34495e)',
+                  color: 'var(--nl-text-primary, white)',
                   border: '1px solid #f39c12',
                   borderRadius: '4px',
                   minHeight: '60px',
@@ -1657,8 +1657,8 @@ return (
                 style={{
                   width: '100%',
                   padding: '8px',
-                  background: '#34495e',
-                  color: 'white',
+                  background: 'var(--nl-bg-input, #34495e)',
+                  color: 'var(--nl-text-primary, white)',
                   border: '1px solid #f39c12',
                   borderRadius: '4px',
                   minHeight: '80px',
@@ -1689,8 +1689,8 @@ return (
                 style={{
                   width: '100%',
                   padding: '8px',
-                  background: '#34495e',
-                  color: 'white',
+                  background: 'var(--nl-bg-input, #34495e)',
+                  color: 'var(--nl-text-primary, white)',
                   border: '1px solid #f39c12',
                   borderRadius: '4px',
                   minHeight: '60px',
@@ -1721,8 +1721,8 @@ return (
                 style={{
                   width: '100%',
                   padding: '8px',
-                  background: '#34495e',
-                  color: 'white',
+                  background: 'var(--nl-bg-input, #34495e)',
+                  color: 'var(--nl-text-primary, white)',
                   border: '1px solid #f39c12',
                   borderRadius: '4px',
                   minHeight: '60px',
@@ -1757,8 +1757,8 @@ return (
                 style={{
                   width: '100%',
                   padding: '8px',
-                  background: '#34495e',
-                  color: 'white',
+                  background: 'var(--nl-bg-input, #34495e)',
+                  color: 'var(--nl-text-primary, white)',
                   border: '1px solid #2ecc71',
                   borderRadius: '4px',
                   fontSize: '13px'
@@ -1790,8 +1790,8 @@ return (
                 style={{
                   width: '100%',
                   padding: '8px',
-                  background: '#34495e',
-                  color: 'white',
+                  background: 'var(--nl-bg-input, #34495e)',
+                  color: 'var(--nl-text-primary, white)',
                   border: '1px solid #2ecc71',
                   borderRadius: '4px',
                   minHeight: '80px',
@@ -1808,7 +1808,7 @@ return (
 
         <div style={{
           padding: '10px',
-          background: '#34495e',
+          background: 'var(--nl-bg-input, #34495e)',
           borderRadius: '4px',
           fontSize: '11px',
           color: '#95a5a6',
@@ -1829,7 +1829,7 @@ return (
               padding: '10px',
               marginBottom: '10px',
               background: '#27ae60',
-              color: 'white',
+              color: 'var(--nl-text-primary, white)',
               border: 'none',
               borderRadius: '4px',
               cursor: 'pointer',
@@ -1855,7 +1855,7 @@ return (
             width: '100%',
             padding: '10px',
             background: '#8e44ad',
-            color: 'white',
+            color: 'var(--nl-text-primary, white)',
             border: 'none',
             borderRadius: '4px',
             cursor: 'pointer',

@@ -164,7 +164,7 @@ function DocumentView({ nodes, edges, onNodeClick }: any) {
             {node.data?.description && (
               <p style={{
                 margin: '8px 0',
-                color: '#bdc3c7',
+                color: 'var(--nl-text-secondary, #bdc3c7)',
                 fontSize: '14px',
                 lineHeight: '1.6'
               }}>
@@ -182,7 +182,7 @@ function DocumentView({ nodes, edges, onNodeClick }: any) {
                 fontSize: '13px'
               }}>
                 <strong style={{ color: '#f1c40f' }}>💡 Rationale:</strong>
-                <span style={{ color: '#bdc3c7', marginLeft: '8px' }}>{node.data.rationale}</span>
+                <span style={{ color: 'var(--nl-text-secondary, #bdc3c7)', marginLeft: '8px' }}>{node.data.rationale}</span>
               </div>
             )}
             
@@ -201,7 +201,7 @@ function DocumentView({ nodes, edges, onNodeClick }: any) {
                       alignItems: 'center',
                       gap: '6px',
                       padding: '4px 10px',
-                      background: '#2c3e50',
+                      background: 'var(--nl-bg-panel, #2c3e50)',
                       borderRadius: '4px',
                       fontSize: '12px',
                       marginRight: '8px',
@@ -446,7 +446,7 @@ function DocumentView({ nodes, edges, onNodeClick }: any) {
           textAlign: 'center',
           marginBottom: '40px',
           paddingBottom: '30px',
-          borderBottom: '2px solid #34495e'
+          borderBottom: '2px solid var(--nl-border, #34495e)'
         }}>
           <h1 style={{
             fontSize: '28px',
@@ -508,7 +508,7 @@ function DocumentView({ nodes, edges, onNodeClick }: any) {
         <div style={{
           marginBottom: '40px',
           padding: '20px',
-          background: '#2c3e50',
+          background: 'var(--nl-bg-panel, #2c3e50)',
           borderRadius: '8px'
         }}>
           <h2 style={{ color: '#3498db', fontSize: '16px', marginBottom: '15px' }}>

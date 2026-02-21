@@ -238,7 +238,7 @@ export interface ProjectData {
 // VIEW MODE
 // ═══════════════════════════════════════════
 
-export type ViewMode = 'plm' | 'whiteboard' | 'simple' | 'document' | 'tasks' | 'gantt' | 'freeform' | '3d' | 'sequence';
+export type ViewMode = 'plm' | 'whiteboard' | 'simple' | 'document' | 'tasks' | 'gantt' | 'freeform' | '3d' | 'sequence' | 'mindmap';
 
 // ═══════════════════════════════════════════
 // CLIPBOARD

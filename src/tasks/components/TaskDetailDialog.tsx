@@ -16,8 +16,6 @@ export default function TaskDetailDialog({ task, onClose }: TaskDetailDialogProp
     activeBoard,
     updateTask,
     deleteTask,
-    addChecklistItem,
-    toggleChecklistItem,
     unlinkItem,
     addLabel,
     updateLabel,
@@ -70,17 +68,15 @@ export default function TaskDetailDialog({ task, onClose }: TaskDetailDialogProp
 
   const handleAddCheckItem = () => {
     if (newCheckItem.trim() && editedTask) {
-      addChecklistItem(editedTask.id, newCheckItem.trim());
-      setNewCheckItem('');
-      // Refresh local state
       const updated = { ...editedTask };
       if (!updated.checklist) updated.checklist = [];
-      updated.checklist.push({
+      updated.checklist = [...updated.checklist, {
         id: Date.now().toString(),
         text: newCheckItem.trim(),
         done: false,
-      });
+      }];
       setEditedTask(updated);
+      setNewCheckItem('');
     }
   };
 
@@ -161,8 +157,6 @@ export default function TaskDetailDialog({ task, onClose }: TaskDetailDialogProp
                       type="checkbox"
                       checked={item.done}
                       onChange={() => {
-                        toggleChecklistItem(editedTask.id, item.id);
-                        // Update local
                         setEditedTask((prev) => {
                           if (!prev) return null;
                           return {

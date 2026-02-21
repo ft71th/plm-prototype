@@ -10,10 +10,10 @@ function RelationshipPanel({ edge, onClose, onUpdate, position }: any) {
         position: 'fixed',
         left: position.x + 'px',
         top: position.y + 'px',
-        background: '#2c3e50',
+        background: 'var(--nl-bg-panel, #2c3e50)',
         borderRadius: '8px',
         padding: '15px',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+        boxShadow: 'var(--nl-shadow-lg, 0 8px 24px rgba(0,0,0,0.4))',
         zIndex: 3000,
         color: 'white',
         minWidth: '250px'
@@ -23,7 +23,7 @@ function RelationshipPanel({ edge, onClose, onUpdate, position }: any) {
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: '12px',
-        borderBottom: '2px solid #34495e',
+        borderBottom: '2px solid var(--nl-border, #34495e)',
         paddingBottom: '8px'
       }}>
         <span style={{ fontWeight: 'bold', fontSize: '14px' }}>🔗 Edit Relationship</span>
@@ -40,7 +40,7 @@ function RelationshipPanel({ edge, onClose, onUpdate, position }: any) {
         <label style={{
           display: 'block',
           fontSize: '11px',
-          color: '#bdc3c7',
+          color: 'var(--nl-text-secondary, #bdc3c7)',
           marginBottom: '6px',
           textTransform: 'uppercase',
           fontWeight: 'bold'
@@ -53,9 +53,9 @@ function RelationshipPanel({ edge, onClose, onUpdate, position }: any) {
           style={{
             width: '100%',
             padding: '10px',
-            background: '#34495e',
+            background: 'var(--nl-bg-input, #34495e)',
             color: 'white',
-            border: '1px solid #4a5f7f',
+            border: '1px solid var(--nl-border, #4a5f7f)',
             borderRadius: '4px',
             fontSize: '13px',
             cursor: 'pointer'
@@ -100,7 +100,7 @@ function RelationshipPanel({ edge, onClose, onUpdate, position }: any) {
         <label style={{
           display: 'block',
           fontSize: '11px',
-          color: '#bdc3c7',
+          color: 'var(--nl-text-secondary, #bdc3c7)',
           marginBottom: '6px',
           textTransform: 'uppercase',
           fontWeight: 'bold'
@@ -126,7 +126,7 @@ function RelationshipPanel({ edge, onClose, onUpdate, position }: any) {
           style={{
             width: '100%',
             padding: '8px',
-            background: '#34495e',
+            background: 'var(--nl-bg-input, #34495e)',
             color: 'white',
             border: '1px solid #3498db',
             borderRadius: '4px',
@@ -143,7 +143,7 @@ function RelationshipPanel({ edge, onClose, onUpdate, position }: any) {
         <div style={{ 
           marginBottom: '15px',
           padding: '10px',
-          background: '#1a2634',
+          background: 'var(--nl-bg-panel, #1a2634)',
           borderRadius: '6px'
         }}>
           <label style={{
@@ -202,9 +202,9 @@ function RelationshipPanel({ edge, onClose, onUpdate, position }: any) {
             width: '100%',
             minHeight: '80px',
             padding: '8px',
-            background: '#34495e',
+            background: 'var(--nl-bg-input, #34495e)',
             color: 'white',
-            border: '1px solid #4a5f7f',
+            border: '1px solid var(--nl-border, #4a5f7f)',
             borderRadius: '4px',
             fontSize: '12px',
             fontFamily: 'inherit',

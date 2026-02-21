@@ -155,7 +155,7 @@ function ManageHardwareTypesModal({ onClose, hardwareTypes, onAddType, onDeleteT
     >
       <div 
         style={{
-          background: '#2c3e50',
+          background: 'var(--nl-bg-panel, #2c3e50)',
           padding: '30px',
           borderRadius: '12px',
           width: '600px',
@@ -220,7 +220,7 @@ function ManageHardwareTypesModal({ onClose, hardwareTypes, onAddType, onDeleteT
 
         {/* Add New Type Section */}
         <div style={{
-          background: '#34495e',
+          background: 'var(--nl-bg-input, #34495e)',
           padding: '20px',
           borderRadius: '8px',
           marginBottom: '20px'
@@ -235,7 +235,7 @@ function ManageHardwareTypesModal({ onClose, hardwareTypes, onAddType, onDeleteT
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
             <div>
-              <label style={{ display: 'block', color: '#bdc3c7', fontSize: '11px', marginBottom: '5px' }}>
+              <label style={{ display: 'block', color: 'var(--nl-text-secondary, #bdc3c7)', fontSize: '11px', marginBottom: '5px' }}>
                 NAME *
               </label>
               <input
@@ -246,16 +246,16 @@ function ManageHardwareTypesModal({ onClose, hardwareTypes, onAddType, onDeleteT
                 style={{
                   width: '100%',
                   padding: '10px',
-                  background: '#2c3e50',
+                  background: 'var(--nl-bg-panel, #2c3e50)',
                   color: 'white',
-                  border: '1px solid #4a5f7f',
+                  border: '1px solid var(--nl-border, #4a5f7f)',
                   borderRadius: '4px',
                   fontSize: '14px'
                 }}
               />
             </div>
             <div>
-              <label style={{ display: 'block', color: '#bdc3c7', fontSize: '11px', marginBottom: '5px' }}>
+              <label style={{ display: 'block', color: 'var(--nl-text-secondary, #bdc3c7)', fontSize: '11px', marginBottom: '5px' }}>
                 ICON
               </label>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -300,9 +300,9 @@ function ManageHardwareTypesModal({ onClose, hardwareTypes, onAddType, onDeleteT
                   }}
                   style={{
                     padding: '10px',
-                    background: '#2c3e50',
+                    background: 'var(--nl-bg-panel, #2c3e50)',
                     color: 'white',
-                    border: '1px solid #4a5f7f',
+                    border: '1px solid var(--nl-border, #4a5f7f)',
                     borderRadius: '4px',
                     fontSize: '18px',
                     cursor: 'pointer'
@@ -352,7 +352,7 @@ function ManageHardwareTypesModal({ onClose, hardwareTypes, onAddType, onDeleteT
           </div>
           
           <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', color: '#bdc3c7', fontSize: '11px', marginBottom: '5px' }}>
+            <label style={{ display: 'block', color: 'var(--nl-text-secondary, #bdc3c7)', fontSize: '11px', marginBottom: '5px' }}>
               DESCRIPTION
             </label>
             <input
@@ -363,9 +363,9 @@ function ManageHardwareTypesModal({ onClose, hardwareTypes, onAddType, onDeleteT
               style={{
                 width: '100%',
                 padding: '10px',
-                background: '#2c3e50',
+                background: 'var(--nl-bg-panel, #2c3e50)',
                 color: 'white',
-                border: '1px solid #4a5f7f',
+                border: '1px solid var(--nl-border, #4a5f7f)',
                 borderRadius: '4px',
                 fontSize: '14px'
               }}
@@ -380,7 +380,7 @@ function ManageHardwareTypesModal({ onClose, hardwareTypes, onAddType, onDeleteT
               alignItems: 'center',
               gap: '8px',
               padding: '8px 12px',
-              background: '#2c3e50',
+              background: 'var(--nl-bg-panel, #2c3e50)',
               borderRadius: '6px'
             }}>
               {customIconUrl ? (
@@ -413,7 +413,7 @@ function ManageHardwareTypesModal({ onClose, hardwareTypes, onAddType, onDeleteT
 
         {/* Existing Types List */}
         <div>
-          <h3 style={{ color: '#bdc3c7', marginBottom: '15px', fontSize: '14px' }}>
+          <h3 style={{ color: 'var(--nl-text-secondary, #bdc3c7)', marginBottom: '15px', fontSize: '14px' }}>
             📋 Existing Types ({hardwareTypes.length})
           </h3>
           
@@ -433,7 +433,7 @@ function ManageHardwareTypesModal({ onClose, hardwareTypes, onAddType, onDeleteT
                   <div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
                       <div>
-                        <label style={{ display: 'block', color: '#bdc3c7', fontSize: '10px', marginBottom: '4px' }}>NAME</label>
+                        <label style={{ display: 'block', color: 'var(--nl-text-secondary, #bdc3c7)', fontSize: '10px', marginBottom: '4px' }}>NAME</label>
                         <input
                           type="text"
                           value={editName}
@@ -441,16 +441,16 @@ function ManageHardwareTypesModal({ onClose, hardwareTypes, onAddType, onDeleteT
                           style={{
                             width: '100%',
                             padding: '8px',
-                            background: '#34495e',
+                            background: 'var(--nl-bg-input, #34495e)',
                             color: 'white',
-                            border: '1px solid #4a5f7f',
+                            border: '1px solid var(--nl-border, #4a5f7f)',
                             borderRadius: '4px',
                             fontSize: '13px'
                           }}
                         />
                       </div>
                       <div>
-                        <label style={{ display: 'block', color: '#bdc3c7', fontSize: '10px', marginBottom: '4px' }}>ICON</label>
+                        <label style={{ display: 'block', color: 'var(--nl-text-secondary, #bdc3c7)', fontSize: '10px', marginBottom: '4px' }}>ICON</label>
                         <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
                           {/* Upload Button */}
                           <label style={{
@@ -491,9 +491,9 @@ function ManageHardwareTypesModal({ onClose, hardwareTypes, onAddType, onDeleteT
                             }}
                             style={{
                               padding: '8px',
-                              background: '#34495e',
+                              background: 'var(--nl-bg-input, #34495e)',
                               color: 'white',
-                              border: '1px solid #4a5f7f',
+                              border: '1px solid var(--nl-border, #4a5f7f)',
                               borderRadius: '4px',
                               fontSize: '16px'
                             }}
@@ -535,7 +535,7 @@ function ManageHardwareTypesModal({ onClose, hardwareTypes, onAddType, onDeleteT
                       </div>
                     </div>
                     <div style={{ marginBottom: '10px' }}>
-                      <label style={{ display: 'block', color: '#bdc3c7', fontSize: '10px', marginBottom: '4px' }}>DESCRIPTION</label>
+                      <label style={{ display: 'block', color: 'var(--nl-text-secondary, #bdc3c7)', fontSize: '10px', marginBottom: '4px' }}>DESCRIPTION</label>
                       <input
                         type="text"
                         value={editDescription}
@@ -543,9 +543,9 @@ function ManageHardwareTypesModal({ onClose, hardwareTypes, onAddType, onDeleteT
                         style={{
                           width: '100%',
                           padding: '8px',
-                          background: '#34495e',
+                          background: 'var(--nl-bg-input, #34495e)',
                           color: 'white',
-                          border: '1px solid #4a5f7f',
+                          border: '1px solid var(--nl-border, #4a5f7f)',
                           borderRadius: '4px',
                           fontSize: '13px'
                         }}

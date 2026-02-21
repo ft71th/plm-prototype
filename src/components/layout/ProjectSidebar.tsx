@@ -62,7 +62,7 @@ export default function ProjectSidebar({
           }} 
         />
         <div style={{ 
-          borderTop: '1px solid #34495e', 
+          borderTop: '1px solid var(--nl-border, #34495e)', 
           margin: '10px 0',
           paddingTop: '10px'
         }}>
@@ -120,7 +120,7 @@ export default function ProjectSidebar({
       <SidebarSection title="📊 Statistics">
         <div style={{ 
           padding: '10px', 
-          background: '#2c3e50', 
+          background: 'var(--nl-bg-panel, #2c3e50)', 
           borderRadius: '6px',
           fontSize: '12px'
         }}>
@@ -140,7 +140,7 @@ export default function ProjectSidebar({
             <div style={{ 
               marginTop: '8px',
               paddingTop: '8px',
-              borderTop: '1px solid #34495e'
+              borderTop: '1px solid var(--nl-border, #34495e)'
             }}>
               <span style={{ color: '#e74c3c' }}>⚠️ Unconnected:</span>
               <span style={{ float: 'right', fontWeight: 'bold', color: '#e74c3c' }}>
@@ -194,10 +194,10 @@ export default function ProjectSidebar({
       <SidebarSection title="💡 Help">
         <div style={{ 
           padding: '10px', 
-          background: '#2c3e50', 
+          background: 'var(--nl-bg-panel, #2c3e50)', 
           borderRadius: '6px',
           fontSize: '11px',
-          color: '#bdc3c7'
+          color: 'var(--nl-text-secondary, #bdc3c7)'
         }}>
           <div><strong>Double-click:</strong> Edit node</div>
           <div><strong>Connect:</strong> Drag from handle</div>

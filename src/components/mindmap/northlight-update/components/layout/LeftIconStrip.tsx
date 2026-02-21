@@ -1,5 +1,4 @@
 import React, { useState, useCallback } from 'react';
-import type { NorthlightTheme } from '../../theme';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface GroupItem {
@@ -36,10 +35,8 @@ function LeftIconStrip({
   onOpenIssueManager,
   onVoice,
   isListening,
-  voiceStatus,
-  theme,
+  voiceStatus
 }: any) {
-  const t = theme as NorthlightTheme;
   const [expanded, setExpanded] = useState<Record<string, boolean>>({ arch: true });
 
   const toggle = useCallback((id: string) => {
@@ -122,7 +119,7 @@ function LeftIconStrip({
       display: 'flex',
       flexDirection: 'column',
       zIndex: 2500,
-      background: t?.bgSidebar || 'rgba(44, 62, 80, 0.92)',
+      background: 'rgba(44, 62, 80, 0.92)',
       padding: 6,
       borderRadius: 10,
       backdropFilter: 'blur(4px)',
@@ -143,22 +140,22 @@ function LeftIconStrip({
               background: 'none', border: 'none',
               cursor: 'pointer', borderRadius: 6,
             }}
-            onMouseEnter={e => (e.currentTarget.style.background = (t?.bgHover || 'rgba(255,255,255,0.06)'))}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'none')}
           >
             <span style={{
-              fontSize: 7, color: t?.textMuted || '#64748b',
+              fontSize: 7, color: '#64748b',
               transition: 'transform 0.15s',
               transform: expanded[group.id] ? 'rotate(90deg)' : 'rotate(0deg)',
               display: 'inline-block', width: 10,
             }}>▶</span>
             <span style={{ fontSize: 12 }}>{group.icon}</span>
             <span style={{
-              color: t?.textSecondary || '#94a3b8', fontSize: 10, fontWeight: 600,
+              color: '#94a3b8', fontSize: 10, fontWeight: 600,
               textTransform: 'uppercase', letterSpacing: 0.5,
               flex: 1, textAlign: 'left',
             }}>{group.label}</span>
-            <span style={{ color: t?.textMuted || '#475569', fontSize: 9, fontFamily: 'monospace' }}>
+            <span style={{ color: '#475569', fontSize: 9, fontFamily: 'monospace' }}>
               {group.items.length}
             </span>
           </button>
@@ -180,7 +177,7 @@ function LeftIconStrip({
                   cursor: 'pointer', borderRadius: 5,
                   transition: 'background 0.1s',
                 }}
-                onMouseEnter={e => (e.currentTarget.style.background = (t?.bgHover || 'rgba(255,255,255,0.08)'))}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               >
                 <div style={{
@@ -192,7 +189,7 @@ function LeftIconStrip({
                   {item.icon}
                 </div>
                 <span style={{
-                  color: t?.textPrimary || '#e2e8f0', fontSize: 11, fontWeight: 500,
+                  color: '#e2e8f0', fontSize: 11, fontWeight: 500,
                   whiteSpace: 'nowrap',
                 }}>{item.label}</span>
               </div>
@@ -201,13 +198,13 @@ function LeftIconStrip({
 
           {/* Separator */}
           {gi < groups.length - 1 && (
-            <div style={{ height: 1, background: t?.borderLight || '#334155', margin: '2px 8px' }} />
+            <div style={{ height: 1, background: '#334155', margin: '2px 8px' }} />
           )}
         </div>
       ))}
 
       {/* ── Voice — always visible ── */}
-      <div style={{ height: 1, background: t?.borderLight || '#334155', margin: '2px 8px' }} />
+      <div style={{ height: 1, background: '#334155', margin: '2px 8px' }} />
       <div
         onClick={wrap(onVoice)}
         style={{
@@ -224,14 +221,14 @@ function LeftIconStrip({
           fontSize: 14,
           animation: isListening ? 'pulse 1s infinite' : 'none',
         }}>🎤</div>
-        <span style={{ color: t?.textPrimary || '#e2e8f0', fontSize: 11, fontWeight: 500 }}>
+        <span style={{ color: '#e2e8f0', fontSize: 11, fontWeight: 500 }}>
           {isListening ? 'Lyssnar...' : 'Voice'}
         </span>
       </div>
 
       {voiceStatus && (
         <div style={{
-          background: t?.bgPanel || '#1e293b', padding: '4px 8px', borderRadius: 5,
+          background: '#1e293b', padding: '4px 8px', borderRadius: 5,
           fontSize: 9, margin: '2px 4px 0',
           color: voiceStatus.includes('✅') ? '#27ae60' : 
                  voiceStatus.includes('❌') ? '#e74c3c' : '#3498db',

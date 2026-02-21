@@ -4,7 +4,6 @@ import { auth, projects, realtime } from './api';
 import { NorthlightSplash, NorthlightLogo } from './NorthlightLogo';
 import React, { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import useStore from './store';
-import { getTheme } from './theme';
 import ProjectSelector from './ProjectSelector';
 import ReactFlow, {
   MiniMap,
@@ -196,11 +195,7 @@ export default function App(): React.ReactElement {
     currentProject, setCurrentProject, currentProjectId, setCurrentProjectId,
     // Auth
     user, setUser, isAuthChecking, setIsAuthChecking,
-    // Theme
-    isDarkMode, toggleTheme,
   } = useStore();
-
-  const theme = useMemo(() => getTheme(isDarkMode), [isDarkMode]);
 
   // ─── Custom Hooks ───
   const {
@@ -880,7 +875,7 @@ const createNewObject = (name, version, description) => {
     return (
       <div style={{
         minHeight: `${appHeight}px`,
-        background: theme.bgApp,
+        background: '#1a1a2e',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -924,9 +919,9 @@ const createNewObject = (name, version, description) => {
   });
   
   const toolbarBtnSmall = {
-    background: 'var(--nl-bg-input, #4a5f7f)',
+    background: '#4a5f7f',
     border: 'none',
-    color: 'var(--nl-text-primary, white)',
+    color: 'white',
     padding: '4px 6px',
     borderRadius: '3px',
     cursor: 'pointer',
@@ -946,30 +941,7 @@ const createNewObject = (name, version, description) => {
         token: localStorage.getItem('plm_token'),
       }}
     >
-    <div style={{
-      width: '100vw', height: `${appHeight}px`, background: theme.bgApp, overflow: 'hidden',
-      // CSS custom properties for deep component theming
-      '--nl-bg-app': theme.bgApp,
-      '--nl-bg-header': theme.bgHeader,
-      '--nl-bg-header-border': theme.bgHeaderBorder,
-      '--nl-bg-sidebar': theme.bgSidebar,
-      '--nl-bg-canvas': theme.bgCanvas,
-      '--nl-bg-panel': theme.bgPanel,
-      '--nl-bg-input': theme.bgInput,
-      '--nl-bg-hover': theme.bgHover,
-      '--nl-bg-accent': theme.bgAccent,
-      '--nl-bg-overlay': theme.bgOverlay,
-      '--nl-text-primary': theme.textPrimary,
-      '--nl-text-secondary': theme.textSecondary,
-      '--nl-text-muted': theme.textMuted,
-      '--nl-text-inverse': theme.textInverse,
-      '--nl-border': theme.border,
-      '--nl-border-light': theme.borderLight,
-      '--nl-border-focus': theme.borderFocus,
-      '--nl-accent': theme.accent,
-      '--nl-shadow': theme.shadow,
-      '--nl-shadow-lg': theme.shadowLg,
-    } as any}>
+    <div style={{ width: '100vw', height: `${appHeight}px`, background: '#1a1a2e',overflow: 'hidden' }}>
       
       {/* Top Header */}
       <TopHeader
@@ -1013,9 +985,6 @@ const createNewObject = (name, version, description) => {
         onLogout={handleLogout}
         onChangePassword={() => setShowChangePassword(true)}
         UserAvatarsComponent={UserAvatars}
-        theme={theme}
-        isDarkMode={isDarkMode}
-        onToggleTheme={toggleTheme}
       />
       
       {/* Left Icon Strip - hidden in freeform drawing mode */}
@@ -1038,7 +1007,6 @@ const createNewObject = (name, version, description) => {
         onVoice={startVoiceRecognition}
         isListening={isListening}
         voiceStatus={voiceStatus}
-        theme={theme}
       />}
       
       {/* Sidebar */}
@@ -1249,7 +1217,7 @@ const createNewObject = (name, version, description) => {
           reader.readAsDataURL(file);
         }}
         style={{ 
-          background: theme.bgCanvas,
+          background: viewMode === 'whiteboard' ? '#f5f5f5' : '#1a1a2e',
           marginTop: '50px',
           height: `${appHeight - 50}px`
         }}
@@ -1263,11 +1231,11 @@ const createNewObject = (name, version, description) => {
             right: 10,
             width: 150,
             height: 100,
-            background: theme.minimapBg,
+            background: '#ecf0f1',
             borderRadius: '8px',
-            border: `1px solid ${theme.border}`
+            border: '1px solid #34495e'
           }}
-          maskColor={theme.minimapMask}
+          maskColor="rgba(0,0,0,0.2)"
         />
         
         <SelectionToolbar
@@ -1291,7 +1259,7 @@ const createNewObject = (name, version, description) => {
           variant="dots" 
           gap={12} 
           size={1} 
-          color={isDarkMode ? '#444' : '#cbd5e1'} 
+          color={viewMode === 'whiteboard' ? '#ccc' : '#444'} 
         />
         
         {/* Arrow markers for relationships */}
@@ -1324,7 +1292,7 @@ const createNewObject = (name, version, description) => {
             right: '20px',
             top: '80px',
             width: '280px',
-            background: 'var(--nl-bg-panel, #2c3e50)',
+            background: '#2c3e50',
             borderRadius: '8px',
             boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
             zIndex: 2000,
@@ -1438,7 +1406,7 @@ const createNewObject = (name, version, description) => {
                 onClick={() => updateNodeData(selectedNode.id, 'fontWeight', selectedNode.data.fontWeight === 'bold' ? 'normal' : 'bold')}
                 style={{
                   padding: '6px 12px',
-                  background: selectedNode.data.fontWeight === 'bold' ? 'var(--nl-accent, #3498db)' : 'var(--nl-bg-input, #34495e)',
+                  background: selectedNode.data.fontWeight === 'bold' ? '#3498db' : '#34495e',
                   border: 'none',
                   borderRadius: '4px',
                   color: 'white',
@@ -1452,7 +1420,7 @@ const createNewObject = (name, version, description) => {
                 onClick={() => updateNodeData(selectedNode.id, 'fontStyle', selectedNode.data.fontStyle === 'italic' ? 'normal' : 'italic')}
                 style={{
                   padding: '6px 12px',
-                  background: selectedNode.data.fontStyle === 'italic' ? 'var(--nl-accent, #3498db)' : 'var(--nl-bg-input, #34495e)',
+                  background: selectedNode.data.fontStyle === 'italic' ? '#3498db' : '#34495e',
                   border: 'none',
                   borderRadius: '4px',
                   color: 'white',

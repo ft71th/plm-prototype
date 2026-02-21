@@ -14,7 +14,7 @@ function Sidebar({ isOpen, onClose, children }: any) {
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.3)',
+            backgroundColor: 'var(--nl-bg-overlay, rgba(0,0,0,0.3))',
             zIndex: 4000
           }}
         />
@@ -27,18 +27,18 @@ function Sidebar({ isOpen, onClose, children }: any) {
         left: isOpen ? 0 : '-280px',
         width: '260px',
         height: '100vh',
-        backgroundColor: '#1a2634',
-        boxShadow: isOpen ? '4px 0 20px rgba(0,0,0,0.5)' : 'none',
+        backgroundColor: 'var(--nl-bg-panel, #1a2634)',
+        boxShadow: isOpen ? 'var(--nl-shadow-lg, 4px 0 20px rgba(0,0,0,0.5))' : 'none',
         transition: 'left 0.3s ease',
         zIndex: 4001,
         display: 'flex',
         flexDirection: 'column',
-        color: 'white'
+        color: 'var(--nl-text-primary, white)'
       }}>
         {/* Header */}
         <div style={{
           padding: '15px',
-          borderBottom: '1px solid #34495e',
+          borderBottom: '1px solid var(--nl-border, #34495e)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center'
@@ -49,7 +49,7 @@ function Sidebar({ isOpen, onClose, children }: any) {
             style={{
               background: 'transparent',
               border: 'none',
-              color: 'white',
+              color: 'var(--nl-text-primary, white)',
               fontSize: '20px',
               cursor: 'pointer'
             }}
@@ -77,7 +77,7 @@ function SidebarSection({ title, children }) {
     <div style={{ marginBottom: '15px' }}>
       <div style={{
         fontSize: '11px',
-        color: '#7f8c8d',
+        color: 'var(--nl-text-muted, #7f8c8d)',
         textTransform: 'uppercase',
         fontWeight: 'bold',
         marginBottom: '8px',
@@ -98,8 +98,8 @@ function SidebarButton({ icon, label, onClick, active }) {
       style={{
         width: '100%',
         padding: '10px 12px',
-        background: active ? '#3498db' : 'transparent',
-        color: 'white',
+        background: active ? 'var(--nl-bg-accent, #3498db)' : 'transparent',
+        color: 'var(--nl-text-primary, white)',
         border: 'none',
         borderRadius: '6px',
         cursor: 'pointer',
@@ -112,15 +112,13 @@ function SidebarButton({ icon, label, onClick, active }) {
         marginBottom: '4px',
         transition: 'background 0.2s'
       }}
-      onMouseOver={(e) => e.target.style.background = active ? '#3498db' : '#2c3e50'}
-      onMouseOut={(e) => e.target.style.background = active ? '#3498db' : 'transparent'}
+      onMouseOver={(e: any) => e.currentTarget.style.background = active ? 'var(--nl-bg-accent, #3498db)' : 'var(--nl-bg-hover, #2c3e50)'}
+      onMouseOut={(e: any) => e.currentTarget.style.background = active ? 'var(--nl-bg-accent, #3498db)' : 'transparent'}
     >
       <span style={{ fontSize: '16px' }}>{icon}</span>
       {label}
     </button>
   );
 }
-
-// Top Header Bar Component
 
 export { Sidebar, SidebarSection, SidebarButton };

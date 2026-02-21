@@ -50,7 +50,7 @@ function ChangePasswordModal({ onClose, onSuccess }: any) {
       zIndex: 5000
     }}>
       <div style={{
-        background: '#2c3e50',
+        background: 'var(--nl-bg-panel, #2c3e50)',
         padding: '30px',
         borderRadius: '12px',
         width: '100%',
@@ -76,7 +76,7 @@ function ChangePasswordModal({ onClose, onSuccess }: any) {
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', color: '#bdc3c7', marginBottom: '6px', fontSize: '12px' }}>
+            <label style={{ display: 'block', color: 'var(--nl-text-secondary, #bdc3c7)', marginBottom: '6px', fontSize: '12px' }}>
               Current Password
             </label>
             <input
@@ -87,8 +87,8 @@ function ChangePasswordModal({ onClose, onSuccess }: any) {
               style={{
                 width: '100%',
                 padding: '10px',
-                background: '#34495e',
-                border: '1px solid #4a5f7f',
+                background: 'var(--nl-bg-input, #34495e)',
+                border: '1px solid var(--nl-border, #4a5f7f)',
                 borderRadius: '6px',
                 color: 'white',
                 fontSize: '14px',
@@ -98,7 +98,7 @@ function ChangePasswordModal({ onClose, onSuccess }: any) {
           </div>
 
           <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', color: '#bdc3c7', marginBottom: '6px', fontSize: '12px' }}>
+            <label style={{ display: 'block', color: 'var(--nl-text-secondary, #bdc3c7)', marginBottom: '6px', fontSize: '12px' }}>
               New Password
             </label>
             <input
@@ -110,8 +110,8 @@ function ChangePasswordModal({ onClose, onSuccess }: any) {
               style={{
                 width: '100%',
                 padding: '10px',
-                background: '#34495e',
-                border: '1px solid #4a5f7f',
+                background: 'var(--nl-bg-input, #34495e)',
+                border: '1px solid var(--nl-border, #4a5f7f)',
                 borderRadius: '6px',
                 color: 'white',
                 fontSize: '14px',
@@ -121,7 +121,7 @@ function ChangePasswordModal({ onClose, onSuccess }: any) {
           </div>
 
           <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', color: '#bdc3c7', marginBottom: '6px', fontSize: '12px' }}>
+            <label style={{ display: 'block', color: 'var(--nl-text-secondary, #bdc3c7)', marginBottom: '6px', fontSize: '12px' }}>
               Confirm New Password
             </label>
             <input
@@ -132,8 +132,8 @@ function ChangePasswordModal({ onClose, onSuccess }: any) {
               style={{
                 width: '100%',
                 padding: '10px',
-                background: '#34495e',
-                border: '1px solid #4a5f7f',
+                background: 'var(--nl-bg-input, #34495e)',
+                border: '1px solid var(--nl-border, #4a5f7f)',
                 borderRadius: '6px',
                 color: 'white',
                 fontSize: '14px',

@@ -48,7 +48,7 @@ function Login({ onLogin }) {
       fontFamily: 'Arial, sans-serif'
     }}>
       <div style={{
-        background: '#2c3e50',
+        background: 'var(--nl-bg-panel, #2c3e50)',
         padding: '40px',
         borderRadius: '12px',
         boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
@@ -91,8 +91,8 @@ function Login({ onLogin }) {
                 style={{
                   width: '100%',
                   padding: '12px',
-                  background: '#34495e',
-                  border: '1px solid #4a5f7f',
+                  background: 'var(--nl-bg-input, #34495e)',
+                  border: '1px solid var(--nl-border, #4a5f7f)',
                   borderRadius: '6px',
                   color: 'white',
                   fontSize: '14px',
@@ -117,8 +117,8 @@ function Login({ onLogin }) {
               style={{
                 width: '100%',
                 padding: '12px',
-                background: '#34495e',
-                border: '1px solid #4a5f7f',
+                background: 'var(--nl-bg-input, #34495e)',
+                border: '1px solid var(--nl-border, #4a5f7f)',
                 borderRadius: '6px',
                 color: 'white',
                 fontSize: '14px',
@@ -143,8 +143,8 @@ function Login({ onLogin }) {
               style={{
                 width: '100%',
                 padding: '12px',
-                background: '#34495e',
-                border: '1px solid #4a5f7f',
+                background: 'var(--nl-bg-input, #34495e)',
+                border: '1px solid var(--nl-border, #4a5f7f)',
                 borderRadius: '6px',
                 color: 'white',
                 fontSize: '14px',

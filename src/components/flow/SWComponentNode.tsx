@@ -126,7 +126,7 @@ function SWComponentNode({ data, id, selected }: { data: any; id: string; select
               onKeyDown={e => { if (e.key === 'Enter') handleFinishEdit(); if (e.key === 'Escape') setIsEditingName(false); }}
               autoFocus
               style={{
-                background: '#1e293b', border: `1px solid ${color.primary}`, borderRadius: 4,
+                background: 'var(--nl-bg-panel, #1e293b)', border: `1px solid ${color.primary}`, borderRadius: 4,
                 color: '#e2e8f0', fontSize: 12, fontWeight: 600, fontFamily: 'monospace',
                 padding: '1px 4px', outline: 'none', width: '60%',
               }}

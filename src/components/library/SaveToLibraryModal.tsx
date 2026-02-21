@@ -43,7 +43,7 @@ function SaveToLibraryModal({ node, onClose, onSave }: any) {
         </h2>
 
         <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', color: '#bdc3c7', fontSize: '11px', textTransform: 'uppercase', marginBottom: '6px' }}>
+          <label style={{ display: 'block', color: 'var(--nl-text-secondary, #bdc3c7)', fontSize: '11px', textTransform: 'uppercase', marginBottom: '6px' }}>
             Component Name *
           </label>
           <input
@@ -55,7 +55,7 @@ function SaveToLibraryModal({ node, onClose, onSave }: any) {
               padding: '12px',
               backgroundColor: '#34495e',
               color: '#fff',
-              border: '1px solid #4a5f7f',
+              border: '1px solid var(--nl-border, #4a5f7f)',
               borderRadius: '6px',
               boxSizing: 'border-box'
             }}
@@ -63,7 +63,7 @@ function SaveToLibraryModal({ node, onClose, onSave }: any) {
         </div>
 
         <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', color: '#bdc3c7', fontSize: '11px', textTransform: 'uppercase', marginBottom: '6px' }}>
+          <label style={{ display: 'block', color: 'var(--nl-text-secondary, #bdc3c7)', fontSize: '11px', textTransform: 'uppercase', marginBottom: '6px' }}>
             Description
           </label>
           <textarea
@@ -75,7 +75,7 @@ function SaveToLibraryModal({ node, onClose, onSave }: any) {
               padding: '12px',
               backgroundColor: '#34495e',
               color: '#fff',
-              border: '1px solid #4a5f7f',
+              border: '1px solid var(--nl-border, #4a5f7f)',
               borderRadius: '6px',
               resize: 'vertical',
               boxSizing: 'border-box'
@@ -84,7 +84,7 @@ function SaveToLibraryModal({ node, onClose, onSave }: any) {
         </div>
 
         <div style={{ marginBottom: '25px' }}>
-          <label style={{ display: 'block', color: '#bdc3c7', fontSize: '11px', textTransform: 'uppercase', marginBottom: '6px' }}>
+          <label style={{ display: 'block', color: 'var(--nl-text-secondary, #bdc3c7)', fontSize: '11px', textTransform: 'uppercase', marginBottom: '6px' }}>
             Version
           </label>
           <input
@@ -96,7 +96,7 @@ function SaveToLibraryModal({ node, onClose, onSave }: any) {
               padding: '12px',
               backgroundColor: '#34495e',
               color: '#fff',
-              border: '1px solid #4a5f7f',
+              border: '1px solid var(--nl-border, #4a5f7f)',
               borderRadius: '6px',
               boxSizing: 'border-box'
             }}

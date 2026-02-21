@@ -128,7 +128,7 @@ function ImageNode({ data, id, selected }: { data: ImageNodeData; id: string; se
           left: '0',
           display: 'flex',
           gap: '4px',
-          background: '#2c3e50',
+          background: 'var(--nl-bg-panel, #2c3e50)',
           padding: '2px 6px',
           borderRadius: '4px',
           fontSize: '10px',

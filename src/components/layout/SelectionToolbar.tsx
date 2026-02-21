@@ -30,7 +30,7 @@ export default function SelectionToolbar({
           bottom: 20,
           left: '50%',
           transform: 'translateX(-50%)',
-          background: '#2c3e50',
+          background: 'var(--nl-bg-panel, #2c3e50)',
           borderRadius: '8px',
           padding: '8px 12px',
           display: 'flex',
@@ -119,7 +119,7 @@ export default function SelectionToolbar({
             style={{
               background: 'transparent',
               border: '1px solid #7f8c8d',
-              color: '#bdc3c7',
+              color: 'var(--nl-text-secondary, #bdc3c7)',
               padding: '4px 8px',
               borderRadius: '4px',
               cursor: 'pointer',

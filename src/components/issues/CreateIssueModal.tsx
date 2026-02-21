@@ -62,7 +62,7 @@ function CreateIssueModal({ nodeId, nodeName, onClose, onCreate }: any) {
 
         {/* Title */}
         <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', color: '#bdc3c7', fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '6px' }}>
+          <label style={{ display: 'block', color: 'var(--nl-text-secondary, #bdc3c7)', fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '6px' }}>
             Issue Title *
           </label>
           <input
@@ -76,7 +76,7 @@ function CreateIssueModal({ nodeId, nodeName, onClose, onCreate }: any) {
               padding: '12px',
               backgroundColor: '#34495e',
               color: '#fff',
-              border: '1px solid #4a5f7f',
+              border: '1px solid var(--nl-border, #4a5f7f)',
               borderRadius: '6px',
               fontSize: '14px',
               boxSizing: 'border-box'
@@ -87,13 +87,13 @@ function CreateIssueModal({ nodeId, nodeName, onClose, onCreate }: any) {
         {/* Category & Priority */}
         <div style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
           <div style={{ flex: 1 }}>
-            <label style={{ display: 'block', color: '#bdc3c7', fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '6px' }}>
+            <label style={{ display: 'block', color: 'var(--nl-text-secondary, #bdc3c7)', fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '6px' }}>
               Category
             </label>
             <select
               value={issue.category}
               onChange={(e: any) => setIssue({ ...issue, category: e.target.value })}
-              style={{ width: '100%', padding: '12px', backgroundColor: '#34495e', color: '#fff', border: '1px solid #4a5f7f', borderRadius: '6px' }}
+              style={{ width: '100%', padding: '12px', backgroundColor: '#34495e', color: '#fff', border: '1px solid var(--nl-border, #4a5f7f)', borderRadius: '6px' }}
             >
               {Object.entries(ISSUE_CATEGORIES).map(([key, val]) => (
                 <option key={key} value={key}>{val.icon} {val.label}</option>
@@ -101,13 +101,13 @@ function CreateIssueModal({ nodeId, nodeName, onClose, onCreate }: any) {
             </select>
           </div>
           <div style={{ flex: 1 }}>
-            <label style={{ display: 'block', color: '#bdc3c7', fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '6px' }}>
+            <label style={{ display: 'block', color: 'var(--nl-text-secondary, #bdc3c7)', fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '6px' }}>
               Priority
             </label>
             <select
               value={issue.priority}
               onChange={(e: any) => setIssue({ ...issue, priority: e.target.value })}
-              style={{ width: '100%', padding: '12px', backgroundColor: '#34495e', color: '#fff', border: '1px solid #4a5f7f', borderRadius: '6px' }}
+              style={{ width: '100%', padding: '12px', backgroundColor: '#34495e', color: '#fff', border: '1px solid var(--nl-border, #4a5f7f)', borderRadius: '6px' }}
             >
               {Object.entries(ISSUE_PRIORITIES).map(([key, val]) => (
                 <option key={key} value={key}>{val.icon} {val.label}</option>
@@ -118,7 +118,7 @@ function CreateIssueModal({ nodeId, nodeName, onClose, onCreate }: any) {
 
         {/* Description */}
         <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', color: '#bdc3c7', fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '6px' }}>
+          <label style={{ display: 'block', color: 'var(--nl-text-secondary, #bdc3c7)', fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '6px' }}>
             Description
           </label>
           <textarea
@@ -131,7 +131,7 @@ function CreateIssueModal({ nodeId, nodeName, onClose, onCreate }: any) {
               padding: '12px',
               backgroundColor: '#34495e',
               color: '#fff',
-              border: '1px solid #4a5f7f',
+              border: '1px solid var(--nl-border, #4a5f7f)',
               borderRadius: '6px',
               resize: 'vertical',
               boxSizing: 'border-box'
@@ -141,7 +141,7 @@ function CreateIssueModal({ nodeId, nodeName, onClose, onCreate }: any) {
 
         {/* Impact */}
         <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', color: '#bdc3c7', fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '6px' }}>
+          <label style={{ display: 'block', color: 'var(--nl-text-secondary, #bdc3c7)', fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '6px' }}>
             ⚠️ Impact Assessment
           </label>
           <textarea
@@ -154,7 +154,7 @@ function CreateIssueModal({ nodeId, nodeName, onClose, onCreate }: any) {
               padding: '12px',
               backgroundColor: '#34495e',
               color: '#fff',
-              border: '1px solid #4a5f7f',
+              border: '1px solid var(--nl-border, #4a5f7f)',
               borderRadius: '6px',
               resize: 'vertical',
               boxSizing: 'border-box'
@@ -165,7 +165,7 @@ function CreateIssueModal({ nodeId, nodeName, onClose, onCreate }: any) {
         {/* Assignee & Due Date */}
         <div style={{ display: 'flex', gap: '15px', marginBottom: '25px' }}>
           <div style={{ flex: 1 }}>
-            <label style={{ display: 'block', color: '#bdc3c7', fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '6px' }}>
+            <label style={{ display: 'block', color: 'var(--nl-text-secondary, #bdc3c7)', fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '6px' }}>
               Assignee
             </label>
             <input
@@ -173,18 +173,18 @@ function CreateIssueModal({ nodeId, nodeName, onClose, onCreate }: any) {
               value={issue.assignee}
               onChange={(e: any) => setIssue({ ...issue, assignee: e.target.value })}
               placeholder="Who should fix this?"
-              style={{ width: '100%', padding: '12px', backgroundColor: '#34495e', color: '#fff', border: '1px solid #4a5f7f', borderRadius: '6px', boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '12px', backgroundColor: '#34495e', color: '#fff', border: '1px solid var(--nl-border, #4a5f7f)', borderRadius: '6px', boxSizing: 'border-box' }}
             />
           </div>
           <div style={{ flex: 1 }}>
-            <label style={{ display: 'block', color: '#bdc3c7', fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '6px' }}>
+            <label style={{ display: 'block', color: 'var(--nl-text-secondary, #bdc3c7)', fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '6px' }}>
               Due Date
             </label>
             <input
               type="date"
               value={issue.dueDate}
               onChange={(e: any) => setIssue({ ...issue, dueDate: e.target.value })}
-              style={{ width: '100%', padding: '12px', backgroundColor: '#34495e', color: '#fff', border: '1px solid #4a5f7f', borderRadius: '6px', boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '12px', backgroundColor: '#34495e', color: '#fff', border: '1px solid var(--nl-border, #4a5f7f)', borderRadius: '6px', boxSizing: 'border-box' }}
             />
           </div>
         </div>

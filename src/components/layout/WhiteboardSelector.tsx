@@ -33,7 +33,7 @@ function WhiteboardSelector({
           padding: '8px 14px',
           background: activeBoard?.type === 'whiteboard' ? '#ecf0f1' : '#2c3e50',
           color: activeBoard?.type === 'whiteboard' ? '#2c3e50' : 'white',
-          border: '1px solid #4a5f7f',
+          border: '1px solid var(--nl-border, #4a5f7f)',
           borderRadius: '6px',
           cursor: 'pointer',
           fontSize: '12px',
@@ -56,10 +56,10 @@ function WhiteboardSelector({
           top: '100%',
           left: 0,
           marginTop: '4px',
-          background: '#1a2634',
-          border: '1px solid #34495e',
+          background: 'var(--nl-bg-panel, #1a2634)',
+          border: '1px solid var(--nl-border, #34495e)',
           borderRadius: '8px',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+          boxShadow: 'var(--nl-shadow-lg, 0 8px 24px rgba(0,0,0,0.4))',
           minWidth: '220px',
           zIndex: 5000,
           overflow: 'hidden'
@@ -74,7 +74,7 @@ function WhiteboardSelector({
               display: 'flex',
               alignItems: 'center',
               gap: '10px',
-              borderBottom: '1px solid #34495e'
+              borderBottom: '1px solid var(--nl-border, #34495e)'
             }}
           >
             <span>📋</span>
@@ -122,7 +122,7 @@ function WhiteboardSelector({
           ))}
           
           {/* Separator */}
-          <div style={{ height: '1px', background: '#34495e' }} />
+          <div style={{ height: '1px', background: 'var(--nl-bg-input, #34495e)' }} />
           
           {/* New Whiteboard */}
           {isCreating ? (
@@ -140,7 +140,7 @@ function WhiteboardSelector({
                 style={{
                   width: '100%',
                   padding: '8px',
-                  background: '#2c3e50',
+                  background: 'var(--nl-bg-panel, #2c3e50)',
                   color: 'white',
                   border: '1px solid #3498db',
                   borderRadius: '4px',

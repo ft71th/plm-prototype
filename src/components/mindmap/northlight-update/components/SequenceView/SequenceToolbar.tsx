@@ -92,7 +92,7 @@ export default function SequenceToolbar({
             placeholder="Namn..."
             style={{
               width: '100%', padding: '5px 8px',
-              background: '#1a2332', border: '1px solid var(--nl-border, #4a5f7f)', borderRadius: 4,
+              background: '#1a2332', border: '1px solid #4a5f7f', borderRadius: 4,
               color: '#e2e8f0', fontSize: 11, outline: 'none', boxSizing: 'border-box',
             }}
           />

@@ -3,6 +3,7 @@ import React from 'react';
 import { NorthlightLogo } from '../../NorthlightLogo';
 import { UserAvatars } from '../../collaboration';
 import WhiteboardSelector from './WhiteboardSelector';
+import type { NorthlightTheme } from '../../theme';
 
 function TopHeader({ 
   objectName, 
@@ -27,34 +28,67 @@ function TopHeader({
   onWhiteboardSelect,
   onNewWhiteboard,
   onDeleteWhiteboard,
-  UserAvatarsComponent
+  UserAvatarsComponent,
+  theme,
+  isDarkMode,
+  onToggleTheme,
 }: any) {
-    return (
+  const t = theme as NorthlightTheme;
+
+  const viewBtn = (mode: string, label: string, title: string, radius?: string) => (
+    <button
+      onClick={() => onViewModeChange(mode)}
+      style={{
+        padding: '6px 10px',
+        background: viewMode === mode ? t.accent : t.bgHeader,
+        color: viewMode === mode ? t.textInverse : t.textPrimary,
+        border: `1px solid ${t.border}`,
+        borderRadius: radius || '0',
+        cursor: 'pointer',
+        fontSize: '11px',
+        fontWeight: 'bold',
+      }}
+      title={title}
+    >
+      {label}
+    </button>
+  );
+
+  const selectStyle = {
+    padding: '8px',
+    background: t.bgInput,
+    color: t.textPrimary,
+    border: `1px solid ${t.border}`,
+    borderRadius: '4px',
+    fontSize: '12px',
+  };
+
+  return (
     <div style={{
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
       padding: '8px 15px',
-      background: '#2c3e50',
-      borderBottom: '2px solid #34495e',
+      background: t.bgHeader,
+      borderBottom: `2px solid ${t.bgHeaderBorder}`,
       height: '50px',
       position: 'relative',
       zIndex: 100,
-      gap: '15px'
+      gap: '15px',
     }}>
-      {/* LEFT SECTION - Menu & Project Name */}
+      {/* LEFT SECTION */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-        <button onClick={onMenuClick}>☰</button>
+        <button onClick={onMenuClick} style={{ background: 'none', border: 'none', color: t.textPrimary, fontSize: 18, cursor: 'pointer' }}>☰</button>
         <NorthlightLogo size={30} showText={false} animated={false} />
-        <span style={{ color: 'white', fontWeight: 'bold' }}>
+        <span style={{ color: t.textPrimary, fontWeight: 'bold' }}>
           🎯 {objectName}
         </span>
         <span style={{
-          background: '#3498db',
+          background: t.accent,
           padding: '2px 8px',
           borderRadius: '4px',
           fontSize: '11px',
-          color: 'white'
+          color: t.textInverse,
         }}>
           v{objectVersion}
         </span>
@@ -70,25 +104,25 @@ function TopHeader({
           style={{
             width: '100%',
             padding: '8px 12px',
-            background: '#34495e',
-            border: '1px solid #4a5f7f',
+            background: t.bgInput,
+            border: `1px solid ${t.border}`,
             borderRadius: '6px',
-            color: 'white',
-            fontSize: '13px'
+            color: t.textPrimary,
+            fontSize: '13px',
           }}
         />
       </div>
       
-      {/* RIGHT SECTION - Filters, Viewpoints, User */}
+      {/* RIGHT SECTION */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
         
-        {/* Filters Button */}
-        <button onClick={onFiltersToggle} style={{ /* filter button styles */ }}>
+        <button onClick={onFiltersToggle} style={{
+          background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: 4,
+          color: t.textPrimary, padding: '6px 10px', cursor: 'pointer', fontSize: 11,
+        }}>
           🎛️ Filters ▼
         </button>
       
-            
-      {/* Whiteboard Selector - replaces the old toggle */}
       <WhiteboardSelector
         whiteboards={whiteboards}
         activeId={activeWhiteboardId}
@@ -101,135 +135,33 @@ function TopHeader({
 
       {/* Viewpoint Toggle */}
       <div style={{ display: 'flex', gap: '2px' }}>
-        <button
-          onClick={() => onViewModeChange('plm')}
-          style={{
-            padding: '6px 10px',
-            background: viewMode === 'plm' ? '#3498db' : '#2c3e50',
-            color: 'white',
-            border: '1px solid #4a5f7f',
-            borderRadius: '6px 0 0 6px',
-            cursor: 'pointer',
-            fontSize: '11px',
-            fontWeight: 'bold'
-          }}
-          title="PLM View - Full details"
-        >
-          📋 PLM
-        </button>
-        <button
-          onClick={() => onViewModeChange('whiteboard')}
-          style={{
-            padding: '6px 10px',
-            background: viewMode === 'whiteboard' ? '#3498db' : '#2c3e50',
-            color: 'white',
-            border: '1px solid #4a5f7f',
-            borderRadius: '0',
-            cursor: 'pointer',
-            fontSize: '11px',
-            fontWeight: 'bold'
-          }}
-          title="Whiteboard - Simplified"
-        >
-          🎨 Simple
-        </button>
-        <button
-          onClick={() => onViewModeChange('freeform')}
-          style={{
-            padding: '6px 10px',
-            background: viewMode === 'freeform' ? '#3498db' : '#2c3e50',
-            color: 'white',
-            border: '1px solid #4a5f7f',
-            borderRadius: '0',
-            cursor: 'pointer',
-            fontSize: '11px',
-            fontWeight: 'bold'
-          }}
-          title="Freeform Drawing"
-        >
-          ✏️ Draw
-        </button>
-        <button
-          onClick={() => onViewModeChange('document')}
-          style={{
-            padding: '6px 10px',
-            background: viewMode === 'document' ? '#3498db' : '#2c3e50',
-            color: 'white',
-            border: '1px solid #4a5f7f',
-            borderRadius: '0',
-            cursor: 'pointer',
-            fontSize: '11px',
-            fontWeight: 'bold'
-          }}
-          title="Document View"
-        >
-          📄 Doc
-        </button>
-        <button
-          onClick={() => onViewModeChange('tasks')}
-          style={{
-            padding: '6px 10px',
-            background: viewMode === 'tasks' ? '#3498db' : '#2c3e50',
-            color: 'white',
-            border: '1px solid #4a5f7f',
-            borderRadius: '0',
-            cursor: 'pointer',
-            fontSize: '11px',
-            fontWeight: 'bold'
-          }}
-          title="Task Board"
-        >
-          ☑ Tasks
-        </button>
-        <button
-          onClick={() => onViewModeChange('gantt')}
-          style={{
-            padding: '6px 10px',
-            background: viewMode === 'gantt' ? '#3498db' : '#2c3e50',
-            color: 'white',
-            border: '1px solid #4a5f7f',
-            borderRadius: '0',
-            cursor: 'pointer',
-            fontSize: '11px',
-            fontWeight: 'bold'
-          }}
-          title="Gantt Timeline"
-        >
-          📊 Gantt
-        </button>
-        <button
-          onClick={() => onViewModeChange('3d')}
-          style={{
-            padding: '6px 10px',
-            background: viewMode === '3d' ? '#3498db' : '#2c3e50',
-            color: 'white',
-            border: '1px solid #4a5f7f',
-            borderRadius: '0',
-            cursor: 'pointer',
-            fontSize: '11px',
-            fontWeight: 'bold'
-          }}
-          title="3D Traceability View"
-        >
-          🔮 3D
-        </button>
-        <button
-          onClick={() => onViewModeChange('sequence')}
-          style={{
-            padding: '6px 10px',
-            background: viewMode === 'sequence' ? '#3498db' : '#2c3e50',
-            color: 'white',
-            border: '1px solid #4a5f7f',
-            borderRadius: '0 6px 6px 0',
-            cursor: 'pointer',
-            fontSize: '11px',
-            fontWeight: 'bold'
-          }}
-          title="Sequence Diagram"
-        >
-          📊 Seq
-        </button>
+        {viewBtn('plm', '📋 PLM', 'PLM View - Full details', '6px 0 0 6px')}
+        {viewBtn('whiteboard', '🎨 Simple', 'Whiteboard - Simplified')}
+        {viewBtn('freeform', '✏️ Draw', 'Freeform Drawing')}
+        {viewBtn('document', '📄 Doc', 'Document View')}
+        {viewBtn('tasks', '☑ Tasks', 'Task Board')}
+        {viewBtn('gantt', '📊 Gantt', 'Gantt Timeline')}
+        {viewBtn('3d', '🔮 3D', '3D Traceability View')}
+        {viewBtn('sequence', '📊 Seq', 'Sequence Diagram', '0 6px 6px 0')}
       </div>
+
+      {/* Theme Toggle */}
+      <button
+        onClick={onToggleTheme}
+        style={{
+          background: t.bgInput,
+          border: `1px solid ${t.border}`,
+          borderRadius: '6px',
+          padding: '6px 10px',
+          cursor: 'pointer',
+          fontSize: '14px',
+          color: t.textPrimary,
+          transition: 'background 0.2s',
+        }}
+        title={isDarkMode ? 'Byt till ljust tema' : 'Byt till mörkt tema'}
+      >
+        {isDarkMode ? '☀️' : '🌙'}
+      </button>
 
       {/* Filters Dropdown */}
       {filtersOpen && (
@@ -237,84 +169,37 @@ function TopHeader({
           position: 'absolute',
           top: '50px',
           right: '300px',
-          background: '#1a2634',
-          border: '1px solid #34495e',
+          background: t.bgPanel,
+          border: `1px solid ${t.border}`,
           borderRadius: '8px',
           padding: '15px',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+          boxShadow: t.shadowLg,
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
           gap: '10px',
           zIndex: 1000,
-          minWidth: '400px'
+          minWidth: '400px',
         }}>
-          <select
-            value={filters.type}
-            onChange={(e: any) => onFilterChange('type', e.target.value)}
-            style={{
-              padding: '8px',
-              background: '#2c3e50',
-              color: 'white',
-              border: '1px solid #4a5f7f',
-              borderRadius: '4px',
-              fontSize: '12px'
-            }}
-          >
+          <select value={filters.type} onChange={(e: any) => onFilterChange('type', e.target.value)} style={selectStyle}>
             <option value="all">All Types</option>
             <option value="customer">🟣 Customer</option>
             <option value="platform">🔷 Platform</option>
             <option value="project">🔶 Project</option>
             <option value="implementation">🟢 Implementation</option>
           </select>
-          
-          <select
-            value={filters.state}
-            onChange={(e: any) => onFilterChange('state', e.target.value)}
-            style={{
-              padding: '8px',
-              background: '#2c3e50',
-              color: 'white',
-              border: '1px solid #4a5f7f',
-              borderRadius: '4px',
-              fontSize: '12px'
-            }}
-          >
+          <select value={filters.state} onChange={(e: any) => onFilterChange('state', e.target.value)} style={selectStyle}>
             <option value="all">All States</option>
             <option value="open">📝 Open</option>
             <option value="frozen">🔒 Frozen</option>
             <option value="released">✅ Released</option>
           </select>
-          
-          <select
-            value={filters.priority}
-            onChange={(e: any) => onFilterChange('priority', e.target.value)}
-            style={{
-              padding: '8px',
-              background: '#2c3e50',
-              color: 'white',
-              border: '1px solid #4a5f7f',
-              borderRadius: '4px',
-              fontSize: '12px'
-            }}
-          >
+          <select value={filters.priority} onChange={(e: any) => onFilterChange('priority', e.target.value)} style={selectStyle}>
             <option value="all">All Priorities</option>
             <option value="high">🔴 High</option>
             <option value="medium">🟡 Medium</option>
             <option value="low">🟢 Low</option>
           </select>
-          
-          <select
-            value={filters.classification}
-            onChange={(e: any) => onFilterChange('classification', e.target.value)}
-            style={{
-              padding: '8px',
-              background: '#2c3e50',
-              color: 'white',
-              border: '1px solid #4a5f7f',
-              borderRadius: '4px',
-              fontSize: '12px'
-            }}
-          >
+          <select value={filters.classification} onChange={(e: any) => onFilterChange('classification', e.target.value)} style={selectStyle}>
             <option value="all">All Classifications</option>
             <option value="need">🎯 Need</option>
             <option value="capability">⚙️ Capability</option>
@@ -325,38 +210,36 @@ function TopHeader({
        
         {/* User & Logout */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          
-          {/* Online Users */}
           {UserAvatarsComponent && <UserAvatarsComponent style={{ marginRight: '10px' }} />}
-          
-          <span style={{ color: '#bdc3c7', fontSize: '12px' }}>
+          <span style={{ color: t.textSecondary, fontSize: '12px' }}>
             👤 {user?.name}
           </span>
           <button
             onClick={onChangePassword}
             style={{
               padding: '6px 10px',
-              background: '#34495e',
-              color: 'white',
-              border: '1px solid #4a5f7f',
+              background: t.bgInput,
+              color: t.textPrimary,
+              border: `1px solid ${t.border}`,
               borderRadius: '4px',
               cursor: 'pointer',
-              fontSize: '11px'
+              fontSize: '11px',
             }}
             title="Change Password"
           >
             🔐
           </button>
-          <button onClick={onLogout} style={{ /* logout styles */ }}>
+          <button onClick={onLogout} style={{
+            background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: 4,
+            color: t.textPrimary, padding: '6px 10px', cursor: 'pointer', fontSize: 11,
+          }}>
             Logout
           </button>
         </div>
-      </div>  {/* This is the existing closing div */}
+      </div>
       
     </div>
   );
 }
-
-// Left Icon Strip Component
 
 export default TopHeader;

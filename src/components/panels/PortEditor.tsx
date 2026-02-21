@@ -137,7 +137,7 @@ function PortEditor({ ports = [], onChange, disabled }: any) {
             <span style={{ 
               color: '#7f8c8d', 
               fontSize: '9px',
-              background: '#2c3e50',
+              background: 'var(--nl-bg-panel, #2c3e50)',
               padding: '2px 6px',
               borderRadius: '3px'
             }}>
@@ -233,7 +233,7 @@ function PortEditor({ ports = [], onChange, disabled }: any) {
             <span style={{ 
               color: '#7f8c8d', 
               fontSize: '9px',
-              background: '#2c3e50',
+              background: 'var(--nl-bg-panel, #2c3e50)',
               padding: '2px 6px',
               borderRadius: '3px'
             }}>
@@ -287,7 +287,7 @@ function PortEditor({ ports = [], onChange, disabled }: any) {
         <>
           {isAdding ? (
             <div style={{
-              background: '#34495e',
+              background: 'var(--nl-bg-input, #34495e)',
               padding: '10px',
               borderRadius: '6px'
             }}>
@@ -306,9 +306,9 @@ function PortEditor({ ports = [], onChange, disabled }: any) {
                 style={{
                   width: '100%',
                   padding: '8px',
-                  background: '#2c3e50',
+                  background: 'var(--nl-bg-panel, #2c3e50)',
                   color: 'white',
-                  border: '1px solid #4a5f7f',
+                  border: '1px solid var(--nl-border, #4a5f7f)',
                   borderRadius: '4px',
                   fontSize: '12px',
                   marginBottom: '8px'
@@ -375,7 +375,7 @@ function PortEditor({ ports = [], onChange, disabled }: any) {
               style={{
                 width: '100%',
                 padding: '8px',
-                background: '#34495e',
+                background: 'var(--nl-bg-input, #34495e)',
                 color: '#3498db',
                 border: '1px dashed #3498db',
                 borderRadius: '4px',

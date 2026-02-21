@@ -99,8 +99,8 @@ function IssuePanelModal({ node, issues, onClose, onAddIssue, onUpdateIssue, onD
   const inputStyle = {
     width: '100%',
     padding: '8px',
-    background: '#34495e',
-    border: '1px solid #4a5f7f',
+    background: 'var(--nl-bg-input, #34495e)',
+    border: '1px solid var(--nl-border, #4a5f7f)',
     borderRadius: '4px',
     color: 'white',
     fontSize: '13px'
@@ -115,7 +115,7 @@ function IssuePanelModal({ node, issues, onClose, onAddIssue, onUpdateIssue, onD
     display: 'block',
     marginBottom: '4px',
     fontSize: '11px',
-    color: '#bdc3c7',
+    color: 'var(--nl-text-secondary, #bdc3c7)',
     textTransform: 'uppercase'
   };
 
@@ -135,7 +135,7 @@ function IssuePanelModal({ node, issues, onClose, onAddIssue, onUpdateIssue, onD
       <div style={{
         width: '600px',
         maxHeight: '80vh',
-        background: '#2c3e50',
+        background: 'var(--nl-bg-panel, #2c3e50)',
         borderRadius: '12px',
         boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
         display: 'flex',
@@ -145,7 +145,7 @@ function IssuePanelModal({ node, issues, onClose, onAddIssue, onUpdateIssue, onD
         {/* Header */}
         <div style={{
           padding: '16px 20px',
-          background: '#34495e',
+          background: 'var(--nl-bg-input, #34495e)',
           borderBottom: '1px solid #4a5f7f',
           display: 'flex',
           justifyContent: 'space-between',
@@ -155,7 +155,7 @@ function IssuePanelModal({ node, issues, onClose, onAddIssue, onUpdateIssue, onD
             <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'white' }}>
               🐛 Issues for: {node.data.label}
             </div>
-            <div style={{ fontSize: '12px', color: '#bdc3c7', marginTop: '2px' }}>
+            <div style={{ fontSize: '12px', color: 'var(--nl-text-secondary, #bdc3c7)', marginTop: '2px' }}>
               {node.data.reqId} • {nodeIssues.length} issue{nodeIssues.length !== 1 ? 's' : ''}
             </div>
           </div>
@@ -355,7 +355,7 @@ function IssuePanelModal({ node, issues, onClose, onAddIssue, onUpdateIssue, onD
                   </div>
                   
                   {issue.description && (
-                    <div style={{ color: '#bdc3c7', fontSize: '13px', marginBottom: '8px' }}>
+                    <div style={{ color: 'var(--nl-text-secondary, #bdc3c7)', fontSize: '13px', marginBottom: '8px' }}>
                       {issue.description}
                     </div>
                   )}
@@ -396,8 +396,8 @@ function IssuePanelModal({ node, issues, onClose, onAddIssue, onUpdateIssue, onD
                         padding: '2px 8px',
                         borderRadius: '4px',
                         fontSize: '11px',
-                        background: '#2c3e50',
-                        color: '#bdc3c7'
+                        background: 'var(--nl-bg-panel, #2c3e50)',
+                        color: 'var(--nl-text-secondary, #bdc3c7)'
                       }}>
                         📅 {issue.dueDate}
                       </span>
@@ -411,7 +411,7 @@ function IssuePanelModal({ node, issues, onClose, onAddIssue, onUpdateIssue, onD
           {/* Add Issue Form */}
           {isAdding && (
             <div style={{
-              background: '#34495e',
+              background: 'var(--nl-bg-input, #34495e)',
               borderRadius: '8px',
               padding: '16px',
               border: '2px solid #27ae60'
@@ -511,7 +511,7 @@ function IssuePanelModal({ node, issues, onClose, onAddIssue, onUpdateIssue, onD
         {/* Footer */}
         <div style={{
           padding: '12px 16px',
-          background: '#34495e',
+          background: 'var(--nl-bg-input, #34495e)',
           borderTop: '1px solid #4a5f7f',
           display: 'flex',
           justifyContent: 'space-between'
@@ -535,8 +535,8 @@ function IssuePanelModal({ node, issues, onClose, onAddIssue, onUpdateIssue, onD
             onClick={onClose}
             style={{
               padding: '10px 20px',
-              background: '#34495e',
-              border: '1px solid #4a5f7f',
+              background: 'var(--nl-bg-input, #34495e)',
+              border: '1px solid var(--nl-border, #4a5f7f)',
               borderRadius: '6px',
               color: 'white',
               cursor: 'pointer'

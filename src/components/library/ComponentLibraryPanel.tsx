@@ -38,7 +38,7 @@ function ComponentLibraryPanel({ isOpen, onClose, nodes, onAddFromLibrary, libra
       flexDirection: 'column',
     }}>
       {/* Header */}
-      <div style={{ padding: '20px', borderBottom: '1px solid #34495e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ padding: '20px', borderBottom: '1px solid var(--nl-border, #34495e)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h3 style={{ margin: 0, color: '#fff', fontSize: '18px' }}>📚 Component Library</h3>
           <p style={{ margin: '5px 0 0', color: '#7f8c8d', fontSize: '12px' }}>Reusable components with version control</p>
@@ -47,18 +47,18 @@ function ComponentLibraryPanel({ isOpen, onClose, nodes, onAddFromLibrary, libra
       </div>
 
       {/* Search & Filter */}
-      <div style={{ padding: '15px', borderBottom: '1px solid #34495e' }}>
+      <div style={{ padding: '15px', borderBottom: '1px solid var(--nl-border, #34495e)' }}>
         <input
           type="text"
           placeholder="🔍 Search components..."
           value={searchTerm}
           onChange={(e: any) => setSearchTerm(e.target.value)}
-          style={{ width: '100%', padding: '10px', backgroundColor: '#34495e', color: '#fff', border: '1px solid #4a5f7f', borderRadius: '6px', marginBottom: '10px', boxSizing: 'border-box' }}
+          style={{ width: '100%', padding: '10px', backgroundColor: '#34495e', color: '#fff', border: '1px solid var(--nl-border, #4a5f7f)', borderRadius: '6px', marginBottom: '10px', boxSizing: 'border-box' }}
         />
         <select
           value={typeFilter}
           onChange={(e: any) => setTypeFilter(e.target.value)}
-          style={{ width: '100%', padding: '10px', backgroundColor: '#34495e', color: '#fff', border: '1px solid #4a5f7f', borderRadius: '6px' }}
+          style={{ width: '100%', padding: '10px', backgroundColor: '#34495e', color: '#fff', border: '1px solid var(--nl-border, #4a5f7f)', borderRadius: '6px' }}
         >
           <option value="all">All Types</option>
           <option value="system">🔷 Systems</option>
@@ -114,10 +114,10 @@ function ComponentLibraryPanel({ isOpen, onClose, nodes, onAddFromLibrary, libra
       </div>
 
       {/* Footer */}
-      <div style={{ padding: '15px', borderTop: '1px solid #34495e' }}>
+      <div style={{ padding: '15px', borderTop: '1px solid var(--nl-border, #34495e)' }}>
         <button
           onClick={onRefresh}
-          style={{ width: '100%', padding: '10px', backgroundColor: '#34495e', color: '#fff', border: '1px solid #4a5f7f', borderRadius: '6px', cursor: 'pointer' }}
+          style={{ width: '100%', padding: '10px', backgroundColor: '#34495e', color: '#fff', border: '1px solid var(--nl-border, #4a5f7f)', borderRadius: '6px', cursor: 'pointer' }}
         >
           🔄 Refresh Library
         </button>

@@ -27,7 +27,7 @@ function NewObjectModal({ onClose, onCreate }: any) {
       zIndex: 5000
     }}>
       <div style={{
-        background: '#2c3e50',
+        background: 'var(--nl-bg-panel, #2c3e50)',
         borderRadius: '12px',
         padding: '30px',
         width: '450px',
@@ -40,7 +40,7 @@ function NewObjectModal({ onClose, onCreate }: any) {
         <div style={{ marginBottom: '15px' }}>
           <label style={{
             display: 'block',
-            color: '#bdc3c7',
+            color: 'var(--nl-text-secondary, #bdc3c7)',
             fontSize: '11px',
             textTransform: 'uppercase',
             fontWeight: 'bold',
@@ -57,9 +57,9 @@ function NewObjectModal({ onClose, onCreate }: any) {
             style={{
               width: '100%',
               padding: '12px',
-              background: '#34495e',
+              background: 'var(--nl-bg-input, #34495e)',
               color: 'white',
-              border: '1px solid #4a5f7f',
+              border: '1px solid var(--nl-border, #4a5f7f)',
               borderRadius: '6px',
               fontSize: '14px'
             }}
@@ -69,7 +69,7 @@ function NewObjectModal({ onClose, onCreate }: any) {
         <div style={{ marginBottom: '15px' }}>
           <label style={{
             display: 'block',
-            color: '#bdc3c7',
+            color: 'var(--nl-text-secondary, #bdc3c7)',
             fontSize: '11px',
             textTransform: 'uppercase',
             fontWeight: 'bold',
@@ -85,9 +85,9 @@ function NewObjectModal({ onClose, onCreate }: any) {
             style={{
               width: '100%',
               padding: '12px',
-              background: '#34495e',
+              background: 'var(--nl-bg-input, #34495e)',
               color: 'white',
-              border: '1px solid #4a5f7f',
+              border: '1px solid var(--nl-border, #4a5f7f)',
               borderRadius: '6px',
               fontSize: '14px'
             }}
@@ -97,7 +97,7 @@ function NewObjectModal({ onClose, onCreate }: any) {
         <div style={{ marginBottom: '25px' }}>
           <label style={{
             display: 'block',
-            color: '#bdc3c7',
+            color: 'var(--nl-text-secondary, #bdc3c7)',
             fontSize: '11px',
             textTransform: 'uppercase',
             fontWeight: 'bold',
@@ -112,9 +112,9 @@ function NewObjectModal({ onClose, onCreate }: any) {
             style={{
               width: '100%',
               padding: '12px',
-              background: '#34495e',
+              background: 'var(--nl-bg-input, #34495e)',
               color: 'white',
-              border: '1px solid #4a5f7f',
+              border: '1px solid var(--nl-border, #4a5f7f)',
               borderRadius: '6px',
               fontSize: '14px',
               minHeight: '80px',
