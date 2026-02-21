@@ -133,10 +133,13 @@ export default function Whiteboard({ className = '', style = {}, projectId = nul
         }
       }
 
-      // 2. Try loading from backend (source of truth)
+      // 2. Try loading from backend (source of truth) with timeout
       if (projectId) {
         try {
-          const response = await apiFetch(`/projects/${projectId}/whiteboard`);
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 5000);
+          const response = await apiFetch(`/projects/${projectId}/whiteboard`, { signal: controller.signal })
+            .finally(() => clearTimeout(timeout));
           if (cancelled) return;
 
           const backendData = response?.data;
@@ -195,7 +198,13 @@ export default function Whiteboard({ className = '', style = {}, projectId = nul
 
     loadWhiteboard();
 
-    return () => { cancelled = true; };
+    // Safety: guarantee loading never hangs forever
+    const safetyTimer = setTimeout(() => {
+      setLoading(false);
+      console.warn('[Whiteboard] Safety timeout — forced loading=false');
+    }, 8000);
+
+    return () => { cancelled = true; clearTimeout(safetyTimer); };
   }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Autosave whenever elements change (debounced — 2s for backend, instant for cache)

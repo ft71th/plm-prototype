@@ -1,9 +1,10 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type {
   SequenceDiagram, SequenceParticipant, SequenceMessage,
   SequenceFragment, MessageType, FragmentType,
 } from '../sequenceTypes';
 import { LAYOUT, PARTICIPANT_COLORS } from '../sequenceTypes';
+import { apiFetch } from '../../../api';
 
 function uid() { return `sd-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }
 
@@ -22,31 +23,126 @@ function createEmptyDiagram(name = 'New Sequence Diagram'): SequenceDiagram {
   };
 }
 
-export default function useSequenceDiagram(projectId: string | null) {
-  const storageKey = `northlight_seqdiagrams_${projectId || 'default'}`;
+// Storage keys (localStorage as write-through cache)
+function getStorageKey(projectId: string | null) {
+  return `northlight_seqdiagrams_${projectId || 'default'}`;
+}
 
-  // Load diagrams from localStorage
-  const loadDiagrams = useCallback((): SequenceDiagram[] => {
+// Debounced backend save timer (module level to survive re-renders)
+let _backendSaveTimer: ReturnType<typeof setTimeout> | null = null;
+
+export default function useSequenceDiagram(projectId: string | null) {
+  const storageKey = getStorageKey(projectId);
+
+  // Load from localStorage cache (instant)
+  const loadFromCache = useCallback((): SequenceDiagram[] => {
     try {
       const raw = localStorage.getItem(storageKey);
       return raw ? JSON.parse(raw) : [];
     } catch { return []; }
   }, [storageKey]);
 
-  const [diagrams, setDiagrams] = useState<SequenceDiagram[]>(() => loadDiagrams());
+  const [diagrams, setDiagrams] = useState<SequenceDiagram[]>(() => loadFromCache());
   const [activeDiagramId, setActiveDiagramId] = useState<string | null>(
-    () => diagrams.length > 0 ? diagrams[0].id : null
+    () => {
+      const cached = loadFromCache();
+      return cached.length > 0 ? cached[0].id : null;
+    }
   );
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [selectedElementType, setSelectedElementType] = useState<'participant' | 'message' | 'fragment' | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const loadedProjectRef = useRef<string | null>(null);
 
-  // Persist
+  // ─── Save to backend (debounced) ───
+  const saveToBackend = useCallback((data: SequenceDiagram[], pid?: string | null) => {
+    const effectivePid = pid ?? projectId;
+    if (!effectivePid) return;
+
+    // Write-through cache to localStorage
+    try {
+      localStorage.setItem(getStorageKey(effectivePid), JSON.stringify(data));
+    } catch {}
+
+    // Debounced backend save
+    if (_backendSaveTimer) clearTimeout(_backendSaveTimer);
+    _backendSaveTimer = setTimeout(() => {
+      apiFetch(`/projects/${effectivePid}/sequences`, {
+        method: 'PUT',
+        body: JSON.stringify({ data }),
+      })
+        .then(() => console.log('[SequenceDiagram] Saved to backend'))
+        .catch((err: any) => console.warn('[SequenceDiagram] Backend save failed:', err.message));
+    }, 1000);
+  }, [projectId]);
+
+  // ─── Persist (write to state + cache + backend) ───
   const persist = useCallback((updated: SequenceDiagram[]) => {
     setDiagrams(updated);
-    try { localStorage.setItem(storageKey, JSON.stringify(updated)); } catch {}
-  }, [storageKey]);
+    saveToBackend(updated);
+  }, [saveToBackend]);
 
-  // Active diagram
+  // ─── Load from backend on mount / projectId change ───
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSequences() {
+      if (!projectId) {
+        const cached = loadFromCache();
+        setDiagrams(cached);
+        setActiveDiagramId(cached.length > 0 ? cached[0].id : null);
+        loadedProjectRef.current = projectId;
+        return;
+      }
+
+      setIsLoading(true);
+
+      // 1. Load from cache immediately (fast UX)
+      const cached = loadFromCache();
+      if (cached.length > 0) {
+        setDiagrams(cached);
+        setActiveDiagramId(prev => prev && cached.find(d => d.id === prev) ? prev : cached[0].id);
+        console.log(`[SequenceDiagram] Loaded ${cached.length} diagrams from cache`);
+      }
+
+      // 2. Try backend (source of truth)
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        const response = await apiFetch(`/projects/${projectId}/sequences`, { signal: controller.signal })
+          .finally(() => clearTimeout(timeout));
+        if (cancelled) return;
+
+        const backendData = response?.data;
+        if (Array.isArray(backendData) && backendData.length > 0) {
+          setDiagrams(backendData);
+          setActiveDiagramId(prev => prev && backendData.find((d: any) => d.id === prev) ? prev : backendData[0].id);
+          try { localStorage.setItem(storageKey, JSON.stringify(backendData)); } catch {}
+          console.log(`[SequenceDiagram] Loaded ${backendData.length} diagrams from backend`);
+        } else if (cached.length > 0) {
+          // Backend empty but cache has data — migrate
+          console.log(`[SequenceDiagram] Migrating ${cached.length} diagrams from cache to backend`);
+          saveToBackend(cached);
+        } else {
+          console.log(`[SequenceDiagram] No saved diagrams for project "${projectId}"`);
+        }
+      } catch (err: any) {
+        console.warn('[SequenceDiagram] Backend load failed, using cache:', err.message);
+      }
+
+      if (!cancelled) {
+        setIsLoading(false);
+        loadedProjectRef.current = projectId;
+      }
+    }
+
+    loadSequences();
+
+    const safetyTimer = setTimeout(() => setIsLoading(false), 8000);
+    return () => { cancelled = true; clearTimeout(safetyTimer); };
+  }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Active diagram ───
   const activeDiagram = useMemo(
     () => diagrams.find(d => d.id === activeDiagramId) || null,
     [diagrams, activeDiagramId]
@@ -238,7 +334,6 @@ export default function useSequenceDiagram(projectId: string | null) {
       setActiveDiagramId(d.id);
     }
 
-    // Find nodes that have edges between them (provides, contains, realizedBy, etc.)
     const relevantTypes = new Set(['system', 'subsystem', 'function', 'actor', 'hardware']);
     const relevantNodes = nodes.filter(n => relevantTypes.has(n.data?.itemType || n.data?.type));
     const connectedNodeIds = new Set<string>();
@@ -277,7 +372,6 @@ export default function useSequenceDiagram(projectId: string | null) {
         order++;
       });
 
-      // Map node IDs to participant IDs
       const nodeToParticipant: Record<string, string> = {};
       participants.forEach(p => { if (p.linkedNodeId) nodeToParticipant[p.linkedNodeId] = p.id; });
 
@@ -299,7 +393,6 @@ export default function useSequenceDiagram(projectId: string | null) {
     if (!activeDiagram) return '';
     const lines: string[] = [`@startuml ${activeDiagram.name}`];
     
-    // Participants
     activeDiagram.participants
       .sort((a, b) => a.order - b.order)
       .forEach(p => {
@@ -308,10 +401,8 @@ export default function useSequenceDiagram(projectId: string | null) {
       });
     lines.push('');
 
-    // Messages (sorted by order)
     const sorted = [...activeDiagram.messages].sort((a, b) => a.orderIndex - b.orderIndex);
     
-    // Track open fragments
     const fragmentStarts = new Map<number, SequenceFragment[]>();
     const fragmentEnds = new Map<number, SequenceFragment[]>();
     activeDiagram.fragments.forEach(f => {
@@ -326,7 +417,6 @@ export default function useSequenceDiagram(projectId: string | null) {
       const from = fId(m.fromId);
       const to = fId(m.toId);
 
-      // Open fragments at this index
       fragmentStarts.get(m.orderIndex)?.forEach(f => {
         if (f.type === 'alt') {
           lines.push(`alt ${f.sections?.[0]?.guard || f.label}`);
@@ -339,7 +429,6 @@ export default function useSequenceDiagram(projectId: string | null) {
       const guard = m.guard ? ` [${m.guard}]` : '';
       lines.push(`${from} ${arrow} ${to} :${guard} ${m.label}`);
 
-      // Close fragments at this index
       fragmentEnds.get(m.orderIndex)?.forEach(() => {
         lines.push('end');
       });
@@ -351,7 +440,7 @@ export default function useSequenceDiagram(projectId: string | null) {
 
   return {
     // Diagrams
-    diagrams, activeDiagram, activeDiagramId,
+    diagrams, activeDiagram, activeDiagramId, isLoading,
     setActiveDiagramId, createDiagram, deleteDiagram, renameDiagram,
     // Participants
     addParticipant, updateParticipant, removeParticipant, reorderParticipants,
