@@ -142,7 +142,8 @@ function TopHeader({
         {viewBtn('tasks', '☑ Tasks', 'Task Board')}
         {viewBtn('gantt', '📊 Gantt', 'Gantt Timeline')}
         {viewBtn('3d', '🔮 3D', '3D Traceability View')}
-        {viewBtn('sequence', '📊 Seq', 'Sequence Diagram', '0 6px 6px 0')}
+        {viewBtn('sequence', '📊 Seq', 'Sequence Diagram')}
+        {viewBtn('docs', '📑 Docs', 'Document Engine', '0 6px 6px 0')}
       </div>
 
       {/* Theme Toggle */}

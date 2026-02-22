@@ -85,6 +85,7 @@ import ChangePasswordModal from './components/modals/ChangePasswordModal';
 // ─── Extracted View Components ───
 import DocumentView from './components/views/DocumentView';
 import { SequenceView } from './components/SequenceView';
+import { DocumentEngine } from './components/DocumentEngine';
 
 // API Base URL - same as api.js
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -1019,7 +1020,7 @@ const createNewObject = (name, version, description) => {
       />
       
       {/* Left Icon Strip - hidden in freeform drawing mode */}
-      {viewMode !== 'freeform' && viewMode !== 'tasks' && viewMode !== 'gantt' && viewMode !== '3d' && viewMode !== 'sequence' && <LeftIconStrip
+      {viewMode !== 'freeform' && viewMode !== 'tasks' && viewMode !== 'gantt' && viewMode !== '3d' && viewMode !== 'sequence' && viewMode !== 'docs' && <LeftIconStrip
         onAddSystem={addSystemNode}
         onAddSubSystem={addSubSystemNode}
         onAddFunction={addFunctionNode}
@@ -1142,6 +1143,13 @@ const createNewObject = (name, version, description) => {
           edges={edges}
           style={{ marginTop: '50px', height: `${appHeight - 50}px` }}
         />
+      ) : viewMode === 'docs' ? (
+        <div style={{ marginTop: '50px', height: `${appHeight - 50}px`, overflow: 'hidden' }}>
+          <DocumentEngine
+            projectId={currentProject?.id || null}
+            theme={theme}
+          />
+        </div>
       ) : viewMode === 'freeform' ? (
         <Whiteboard style={{ marginTop: '50px', height: `${appHeight - 50}px` }} projectId={currentProject?.id || null} />
       ) : (
