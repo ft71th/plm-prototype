@@ -294,8 +294,8 @@ export default function Whiteboard({ className = '', style = {}, projectId = nul
           <div style={{
             position: 'absolute', inset: 0, display: 'flex',
             alignItems: 'center', justifyContent: 'center',
-            background: 'rgba(250,250,250,0.8)', zIndex: 100,
-            fontSize: '14px', color: '#666',
+            background: 'var(--nl-bg-canvas, rgba(250,250,250,0.8))', zIndex: 100,
+            fontSize: '14px', color: 'var(--nl-text-primary, #666)',
           }}>
             Loading whiteboard...
           </div>

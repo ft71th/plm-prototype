@@ -42,8 +42,8 @@ export default function SequenceProperties({
 
   const inputStyle: React.CSSProperties = {
     width: '100%', padding: '5px 8px',
-    background: '#f8fafc', border: '1px solid #d1d5db', borderRadius: 4,
-    color: '#1e293b', fontSize: 11, outline: 'none', boxSizing: 'border-box',
+    background: 'var(--nl-bg-input, #f8fafc)', border: '1px solid var(--nl-border, #d1d5db)', borderRadius: 4,
+    color: 'var(--nl-text-primary, #1e293b)', fontSize: 11, outline: 'none', boxSizing: 'border-box',
   };
 
   const labelStyle: React.CSSProperties = {

@@ -101,7 +101,7 @@ interface TaskProviderProps {
   children: React.ReactNode;
 }
 
-export function TaskProvider({ projectId, currentUser, children }: TaskProviderProps) {
+export function TaskProvider({ projectId, currentUser, isDarkMode: appDarkMode, children }: TaskProviderProps) {
   const [boards, setBoards] = useState<TaskBoard[]>([]);
   const [activeBoard, setActiveBoard] = useState<TaskBoard | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);

@@ -118,7 +118,7 @@ function LeftIconStrip({
   return (
     <div style={{
       position: 'fixed',
-      left: 10, top: 70,
+      left: 10, top: 55,
       display: 'flex',
       flexDirection: 'column',
       zIndex: 2500,

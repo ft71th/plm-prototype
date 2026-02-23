@@ -322,7 +322,7 @@ return (
               width: '100%',
               padding: '10px',
               background: isEditable ? 'var(--nl-bg-input, #34495e)' : 'var(--nl-bg-panel, #2c3e50)',
-              color: isEditable ? 'white' : '#7f8c8d',
+              color: isEditable ? 'var(--nl-text-primary, white)' : 'var(--nl-text-muted, #7f8c8d)',
               border: '1px solid var(--nl-border, #4a5f7f)',
               borderRadius: '6px',
               fontSize: '14px',

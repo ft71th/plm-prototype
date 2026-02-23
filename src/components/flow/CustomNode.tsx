@@ -638,13 +638,13 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
             marginTop: '4px',
             fontSize: '10px',
             fontWeight: 'bold',
-            color: '#333',
+            color: 'var(--nl-text-primary, #333)',
             textAlign: 'center',
             maxWidth: `${nodeWidth + 40}px`,
             wordBreak: 'break-word',
             overflowWrap: 'break-word',
             lineHeight: '1.3',
-            textShadow: '0 0 3px #fff, 0 0 3px #fff',
+            textShadow: '0 0 3px var(--nl-bg-canvas, #fff), 0 0 3px var(--nl-bg-canvas, #fff)',
           }}>
             {data.label}
           </div>
@@ -681,38 +681,83 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
         />
 
         {/* Port handles if any */}
-        {inputPorts.map((port, index) => (
-          <Handle
-            key={port.id}
-            type="target"
-            position={Position.Left}
-            id={port.id}
-            style={{
-              background: '#27ae60',
-              width: 8,
-              height: 8,
-              top: getHandlePosition(index, inputPorts.length),
-              border: '2px solid #fff'
-            }}
+        {inputPorts.map((port, index) => {
+          const topPos = getHandlePosition(index, inputPorts.length);
+          const portLabel = port.name + (port.width ? `[${port.width-1}:0]` : '');
+          return (
+            <React.Fragment key={port.id}>
+              <Handle
+                type="target"
+                position={Position.Left}
+                id={port.id}
+                style={{
+                  background: '#27ae60',
+                  width: 8,
+                  height: 8,
+                  top: topPos,
+                  border: '2px solid #fff'
+                }}
+                title={port.name}
+              />
+              <div style={{
+                position: 'absolute',
+                left: '14px',
+                top: topPos,
+                transform: 'translateY(-50%)',
+                fontSize: '9px',
+                color: '#27ae60',
+                background: 'rgba(255,255,255,0.85)',
+                padding: '1px 4px',
+                borderRadius: '3px',
+                whiteSpace: 'nowrap',
+                fontWeight: '600',
+                pointerEvents: 'none',
+                zIndex: 10
+              }}>
+                {portLabel}
+              </div>
+            </React.Fragment>
+          );
+        })}
+        {outputPorts.map((port, index) => {
+          const topPos = getHandlePosition(index, outputPorts.length);
+          const portLabel = port.name + (port.width ? `[${port.width-1}:0]` : '');
+          return (
+            <React.Fragment key={port.id}>
+              <Handle
+                type="source"
+                position={Position.Right}
+                id={port.id}
+                style={{
+                  background: '#e67e22',
+                  width: 8,
+                  height: 8,
+                  top: topPos,
+                  border: '2px solid #fff'
+                }}
             title={port.name}
-          />
-        ))}
-        {outputPorts.map((port, index) => (
-          <Handle
-            key={port.id}
-            type="source"
-            position={Position.Right}
-            id={port.id}
-            style={{
-              background: '#e67e22',
-              width: 8,
-              height: 8,
-              top: getHandlePosition(index, outputPorts.length),
-              border: '2px solid #fff'
-            }}
-            title={port.name}
-          />
-        ))}
+              />
+              <div style={{
+                position: 'absolute',
+                right: '14px',
+                top: topPos,
+                transform: 'translateY(-50%)',
+                fontSize: '9px',
+                color: '#e67e22',
+                background: 'rgba(255,255,255,0.85)',
+                padding: '1px 4px',
+                borderRadius: '3px',
+                whiteSpace: 'nowrap',
+                textAlign: 'right',
+                fontWeight: '600',
+                pointerEvents: 'none',
+                zIndex: 10
+              }}>
+                {portLabel}
+              </div>
+            </React.Fragment>
+          );
+        })}
         <ExtraHandles color="#795548" skipLeftRight={ports.length > 0} />
       </div>
       </>
@@ -1024,11 +1069,14 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
                     top: topPos,
                     transform: 'translateY(-50%)',
                     fontSize: '10px',
-                    color: '#fff',
-                    textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                    color: '#27ae60',
+                    background: 'rgba(255,255,255,0.85)',
+                    padding: '1px 4px',
+                    borderRadius: '3px',
                     whiteSpace: 'nowrap',
-                    fontWeight: '500',
-                    pointerEvents: 'none'
+                    fontWeight: '600',
+                    pointerEvents: 'none',
+                    zIndex: 10
                   }}>
                     {portLabel}
                   </div>
@@ -1060,12 +1108,15 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
                     top: topPos,
                     transform: 'translateY(-50%)',
                     fontSize: '10px',
-                    color: '#fff',
-                    textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                    color: '#e67e22',
+                    background: 'rgba(255,255,255,0.85)',
+                    padding: '1px 4px',
+                    borderRadius: '3px',
                     whiteSpace: 'nowrap',
                     textAlign: 'right',
-                    fontWeight: '500',
-                    pointerEvents: 'none'
+                    fontWeight: '600',
+                    pointerEvents: 'none',
+                    zIndex: 10
                   }}>
                     {portLabel}
                   </div>

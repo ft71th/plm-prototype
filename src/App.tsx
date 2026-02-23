@@ -164,7 +164,8 @@ export default function App(): React.ReactElement {
         dimensionTimerRef.current = setTimeout(() => {
           setEdges(eds => eds.map(e => ({ ...e })));
           dimensionMeasuredRef.current = true;
-          setEdgesHidden(false); // Show edges now that handles are correct
+          // Use rAF to ensure DOM is settled before showing edges
+          requestAnimationFrame(() => setEdgesHidden(false));
         }, 100);
       }
     }
@@ -289,13 +290,23 @@ export default function App(): React.ReactElement {
   // old positions for a few frames before updateNodeInternals fires.
   useEffect(() => {
     let fallback: any;
+    let raf: any;
     if (prevViewModeRef.current !== null && prevViewModeRef.current !== viewMode) {
       setEdgesHidden(true);
       dimensionMeasuredRef.current = false;
-      fallback = setTimeout(() => setEdgesHidden(false), 500);
+      raf = requestAnimationFrame(() => {
+        fallback = setTimeout(() => {
+          if (!dimensionMeasuredRef.current) {
+            setEdgesHidden(false);
+          }
+        }, 300);
+      });
     }
     prevViewModeRef.current = viewMode;
-    return () => { if (fallback) clearTimeout(fallback); };
+    return () => { 
+      if (fallback) clearTimeout(fallback); 
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, [viewMode]);
 
 
@@ -723,7 +734,7 @@ export default function App(): React.ReactElement {
         },
       };
     });
-  }, [nodes, searchText, typeFilter, statusFilter, priorityFilter, stateFilter, reqTypeFilter, classificationFilter, handleNodeLabelChange, viewMode, issues]);
+  }, [nodes, searchText, typeFilter, statusFilter, priorityFilter, stateFilter, reqTypeFilter, classificationFilter, handleNodeLabelChange, viewMode, issues, isDarkMode]);
 
   const filteredCount = processedNodes.filter(n => n.data.isFiltered).length;
 
@@ -1203,6 +1214,7 @@ const createNewObject = (name, version, description) => {
         multiSelectionKeyCode={['Shift', 'Meta', 'Control']}
         selectionOnDrag={true}
         selectionMode={SelectionMode.Partial}
+        autoPanSpeed={15}
         panOnDrag={[1, 2]}
         selectionKeyCode={null}
         nodeTypes={nodeTypes}

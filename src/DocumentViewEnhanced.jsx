@@ -348,7 +348,7 @@ export default function DocumentViewEnhanced({
     <div style={{
       position: 'fixed',
       top: '50px',
-      left: '60px',
+      left: 0,
       right: 0,
       bottom: 0,
       background: '#1a1a2e',
@@ -369,12 +369,12 @@ export default function DocumentViewEnhanced({
           textAlign: 'center',
           marginBottom: '30px',
           paddingBottom: '20px',
-          borderBottom: '2px solid #34495e',
+          borderBottom: '2px solid var(--nl-border, #34495e)',
         }}>
-          <h1 style={{ fontSize: '28px', color: '#ecf0f1', margin: '0 0 10px 0' }}>
+          <h1 style={{ fontSize: '28px', color: 'var(--nl-text-primary, #ecf0f1)', margin: '0 0 10px 0' }}>
             📄 System Documentation
           </h1>
-          <p style={{ color: '#7f8c8d', fontSize: '13px', marginBottom: '16px' }}>
+          <p style={{ color: 'var(--nl-text-secondary, #7f8c8d)', fontSize: '13px', marginBottom: '16px' }}>
             {nodes.length} items • {edges.length} relationships • {requirementLinks.length} requirement links • {blocks.length} blocks
           </p>
           

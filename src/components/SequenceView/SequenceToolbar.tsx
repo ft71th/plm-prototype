@@ -52,7 +52,7 @@ export default function SequenceToolbar({
 
   return (
     <div style={{
-      position: 'fixed', left: 10, top: 70,
+      position: 'fixed', left: 10, top: 55,
       display: 'flex', flexDirection: 'column', gap: 6,
       zIndex: 2500,
       background: 'rgba(44, 62, 80, 0.92)',
