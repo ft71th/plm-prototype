@@ -170,7 +170,7 @@ function ProjectSelector({ user, onSelectProject, onLogout }) {
             color: '#7f8c8d',
             textAlign: 'center',
             padding: '60px',
-            background: 'var(--nl-bg-panel, #2c3e50)',
+            background: '#2c3e50',
             borderRadius: '12px'
           }}>
             <p style={{ fontSize: '18px', marginBottom: '10px' }}>No projects yet</p>
@@ -187,7 +187,7 @@ function ProjectSelector({ user, onSelectProject, onLogout }) {
                 key={project.id}
                 onClick={() => handleOpenProject(project)}
                 style={{
-                  background: 'var(--nl-bg-panel, #2c3e50)',
+                  background: '#2c3e50',
                   padding: '20px',
                   borderRadius: '12px',
                   cursor: 'pointer',
@@ -275,7 +275,7 @@ function ProjectSelector({ user, onSelectProject, onLogout }) {
           zIndex: 5000
         }}>
           <div style={{
-            background: 'var(--nl-bg-panel, #2c3e50)',
+            background: '#2c3e50',
             padding: '30px',
             borderRadius: '12px',
             width: '100%',
@@ -301,8 +301,8 @@ function ProjectSelector({ user, onSelectProject, onLogout }) {
                   style={{
                     width: '100%',
                     padding: '12px',
-                    background: 'var(--nl-bg-input, #34495e)',
-                    border: '1px solid var(--nl-border, #4a5f7f)',
+                    background: '#34495e',
+                    border: '1px solid #4a5f7f',
                     borderRadius: '6px',
                     color: 'white',
                     fontSize: '14px',
@@ -323,8 +323,8 @@ function ProjectSelector({ user, onSelectProject, onLogout }) {
                   style={{
                     width: '100%',
                     padding: '12px',
-                    background: 'var(--nl-bg-input, #34495e)',
-                    border: '1px solid var(--nl-border, #4a5f7f)',
+                    background: '#34495e',
+                    border: '1px solid #4a5f7f',
                     borderRadius: '6px',
                     color: 'white',
                     fontSize: '14px',

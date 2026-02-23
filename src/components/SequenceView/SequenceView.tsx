@@ -345,7 +345,7 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
   return (
     <div ref={containerRef} style={{
       position: 'relative', width: '100%', height: '100%',
-      background: '#f8fafc', overflow: 'hidden',
+      background: 'var(--nl-bg-canvas, #f8fafc)', overflow: 'hidden',
       ...style,
     }}>
       {/* Diagram selector (top bar) */}
@@ -357,8 +357,8 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
           <button
             onClick={() => setShowDiagramMenu(!showDiagramMenu)}
             style={{
-              padding: '6px 12px', background: '#ffffff', border: '1px solid #d1d5db',
-              borderRadius: 6, color: '#1e293b', fontSize: 12, cursor: 'pointer',
+              padding: '6px 12px', background: 'var(--nl-bg-panel, #ffffff)', border: '1px solid var(--nl-border, #d1d5db)',
+              borderRadius: 6, color: 'var(--nl-text-primary, #1e293b)', fontSize: 12, cursor: 'pointer',
               display: 'flex', alignItems: 'center', gap: 6,
               boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
             }}
@@ -370,7 +370,7 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
           {showDiagramMenu && (
             <div style={{
               position: 'absolute', top: '100%', left: 0, marginTop: 4,
-              background: '#ffffff', border: '1px solid #d1d5db', borderRadius: 6,
+              background: 'var(--nl-bg-panel, #ffffff)', border: '1px solid var(--nl-border, #d1d5db)', borderRadius: 6,
               minWidth: 220, zIndex: 3000, boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
             }}>
               {sd.diagrams.map(d => (
@@ -388,13 +388,13 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
                       onBlur={() => { sd.renameDiagram(d.id, renameText); setRenamingId(null); }}
                       onKeyDown={e => { if (e.key === 'Enter') { sd.renameDiagram(d.id, renameText); setRenamingId(null); } }}
                       autoFocus
-                      style={{ background: '#f8fafc', border: '1px solid #3b82f6', borderRadius: 3, color: '#1e293b', fontSize: 11, padding: '2px 6px', outline: 'none', width: '70%' }}
+                      style={{ background: 'var(--nl-bg-canvas, #f8fafc)', border: '1px solid #3b82f6', borderRadius: 3, color: 'var(--nl-text-primary, #1e293b)', fontSize: 11, padding: '2px 6px', outline: 'none', width: '70%' }}
                     />
                   ) : (
                     <span
                       onClick={() => { sd.setActiveDiagramId(d.id); setShowDiagramMenu(false); }}
                       onDoubleClick={() => { setRenamingId(d.id); setRenameText(d.name); }}
-                      style={{ color: '#1e293b', fontSize: 11, flex: 1 }}
+                      style={{ color: 'var(--nl-text-primary, #1e293b)', fontSize: 11, flex: 1 }}
                     >
                       {d.name}
                     </span>
@@ -587,8 +587,8 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
               position: 'fixed',
               left: screenX - 80, top: screenY - 12,
               width: 160, padding: '4px 8px',
-              background: '#ffffff', border: '2px solid #3b82f6', borderRadius: 4,
-              color: '#1e293b', fontSize: 12, textAlign: 'center', outline: 'none',
+              background: 'var(--nl-bg-panel, #ffffff)', border: '2px solid #3b82f6', borderRadius: 4,
+              color: 'var(--nl-text-primary, #1e293b)', fontSize: 12, textAlign: 'center', outline: 'none',
               zIndex: 3000,
               boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
             }}
@@ -600,12 +600,12 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
       {showNodePicker && (
         <div style={{
           position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-          background: '#ffffff', border: '1px solid #d1d5db', borderRadius: 10,
+          background: 'var(--nl-bg-panel, #ffffff)', border: '1px solid var(--nl-border, #d1d5db)', borderRadius: 10,
           padding: 20, width: 340, maxHeight: 400, overflowY: 'auto', zIndex: 3500,
           boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-            <span style={{ color: '#1e293b', fontSize: 14, fontWeight: 600 }}>Välj PLM-nod</span>
+            <span style={{ color: 'var(--nl-text-primary, #1e293b)', fontSize: 14, fontWeight: 600 }}>Välj PLM-nod</span>
             <button onClick={() => setShowNodePicker(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 16 }}>×</button>
           </div>
           {nodes
@@ -632,7 +632,7 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
                               n.data?.itemType === 'actor' ? '#2ecc71' : '#795548',
                 }} />
                 <div>
-                  <div style={{ color: '#1e293b', fontSize: 12 }}>{n.data?.label}</div>
+                  <div style={{ color: 'var(--nl-text-primary, #1e293b)', fontSize: 12 }}>{n.data?.label}</div>
                   <div style={{ color: '#94a3b8', fontSize: 9 }}>{n.data?.itemType || n.data?.type} · {n.data?.reqId || n.id}</div>
                 </div>
               </div>

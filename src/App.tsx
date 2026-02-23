@@ -204,6 +204,34 @@ export default function App(): React.ReactElement {
 
   const theme = useMemo(() => getTheme(isDarkMode), [isDarkMode]);
 
+  // ─── Sync CSS variables to :root for global inheritance ───
+  useEffect(() => {
+    const root = document.documentElement;
+    Object.entries({
+      '--nl-bg-app': theme.bgApp,
+      '--nl-bg-header': theme.bgHeader,
+      '--nl-bg-header-border': theme.bgHeaderBorder,
+      '--nl-bg-sidebar': theme.bgSidebar,
+      '--nl-bg-canvas': theme.bgCanvas,
+      '--nl-bg-panel': theme.bgPanel,
+      '--nl-bg-input': theme.bgInput,
+      '--nl-bg-hover': theme.bgHover,
+      '--nl-bg-accent': theme.bgAccent,
+      '--nl-bg-overlay': theme.bgOverlay,
+      '--nl-text-primary': theme.textPrimary,
+      '--nl-text-secondary': theme.textSecondary,
+      '--nl-text-muted': theme.textMuted,
+      '--nl-text-inverse': theme.textInverse,
+      '--nl-border': theme.border,
+      '--nl-border-light': theme.borderLight,
+      '--nl-border-focus': theme.borderFocus,
+      '--nl-accent': theme.accent,
+      '--nl-shadow': theme.shadow,
+      '--nl-shadow-lg': theme.shadowLg,
+    }).forEach(([key, value]) => root.style.setProperty(key, value));
+    root.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
+  }, [theme, isDarkMode]);
+
   // ─── Custom Hooks ───
   const {
     nodeId, setNodeId, generateItemId, setCountersFromNodes, incrementCounter, counters
@@ -289,24 +317,19 @@ export default function App(): React.ReactElement {
   // Nodes change size when mode switches → handles move → edges draw to
   // old positions for a few frames before updateNodeInternals fires.
   useEffect(() => {
-    let fallback: any;
-    let raf: any;
+    let timeout: any;
     if (prevViewModeRef.current !== null && prevViewModeRef.current !== viewMode) {
       setEdgesHidden(true);
       dimensionMeasuredRef.current = false;
-      raf = requestAnimationFrame(() => {
-        fallback = setTimeout(() => {
-          if (!dimensionMeasuredRef.current) {
-            setEdgesHidden(false);
-          }
-        }, 300);
-      });
+      // Fixed delay: hide edges briefly during view switch, then force show
+      timeout = setTimeout(() => {
+        setEdges(eds => eds.map(e => ({ ...e }))); // force edge recalc
+        dimensionMeasuredRef.current = true;
+        requestAnimationFrame(() => setEdgesHidden(false));
+      }, 150);
     }
     prevViewModeRef.current = viewMode;
-    return () => { 
-      if (fallback) clearTimeout(fallback); 
-      if (raf) cancelAnimationFrame(raf);
-    };
+    return () => { if (timeout) clearTimeout(timeout); };
   }, [viewMode]);
 
 
@@ -334,6 +357,7 @@ export default function App(): React.ReactElement {
     // Set project info
     setCurrentProject(projectData.project || projectData);
     setObjectName(projectData.project?.name || projectData.name || 'New Project');
+    setObjectDescription(projectData.project?.description || projectData.description || '');
     setObjectVersion(projectData.project?.version || projectData.version || '1.0');
     
     // Load nodes and edges if present

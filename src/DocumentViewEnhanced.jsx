@@ -431,7 +431,7 @@ export default function DocumentViewEnhanced({
             margin: '20px 0',
             border: '2px dashed #34495e',
             borderRadius: '8px',
-            color: '#7f8c8d',
+            color: 'var(--nl-text-muted, #7f8c8d)',
             cursor: 'pointer',
             fontSize: '13px',
             transition: 'all 0.2s',
@@ -448,7 +448,7 @@ export default function DocumentViewEnhanced({
           paddingTop: '15px',
           borderTop: '2px solid #34495e',
           textAlign: 'center',
-          color: '#7f8c8d',
+          color: 'var(--nl-text-muted, #7f8c8d)',
           fontSize: '11px',
         }}>
           Generated on {new Date().toLocaleDateString()} • Northlight PLM
@@ -658,7 +658,7 @@ function BlockWrapper({
         />
       )}
       {block.type === 'divider' && (
-        <div style={{ borderTop: '1px solid #34495e', margin: '16px 0' }} />
+        <div style={{ borderTop: '1px solid var(--nl-border, #34495e)', margin: '16px 0' }} />
       )}
       {block.type === 'postit' && (
         <PostItBlock
@@ -697,7 +697,7 @@ function TextBlock({ block, onUpdate }) {
           background: '#2c3e50',
           border: '1px solid #3498db',
           borderRadius: '6px',
-          color: '#ecf0f1',
+          color: 'var(--nl-text-primary, #ecf0f1)',
           fontSize: '14px',
           lineHeight: '1.6',
           resize: 'vertical',
@@ -713,7 +713,7 @@ function TextBlock({ block, onUpdate }) {
       onClick={() => setEditing(true)}
       style={{
         padding: '8px 10px',
-        color: '#bdc3c7',
+        color: 'var(--nl-text-secondary, #bdc3c7)',
         fontSize: '14px',
         lineHeight: '1.6',
         cursor: 'text',
@@ -769,7 +769,7 @@ function HeadingBlock({ block, onUpdate }) {
             background: '#2c3e50',
             border: '1px solid #3498db',
             borderRadius: '4px',
-            color: '#ecf0f1',
+            color: 'var(--nl-text-primary, #ecf0f1)',
             fontSize,
             fontWeight: 'bold',
           }}
@@ -790,7 +790,7 @@ function HeadingBlock({ block, onUpdate }) {
       onMouseOver={e => e.currentTarget.style.background = 'rgba(52, 152, 219, 0.05)'}
       onMouseOut={e => e.currentTarget.style.background = 'transparent'}
     >
-      <Tag style={{ color: '#ecf0f1', fontSize, fontWeight: 'bold', margin: '8px 0 4px 0' }}>
+      <Tag style={{ color: 'var(--nl-text-primary, #ecf0f1)', fontSize, fontWeight: 'bold', margin: '8px 0 4px 0' }}>
         {block.data.content || <span style={{ color: '#555', fontStyle: 'italic' }}>Untitled heading</span>}
       </Tag>
     </div>
@@ -993,11 +993,11 @@ function NodeBlock({
           {d.reqId || node.id}
         </span>
         
-        <span style={{ color: '#ecf0f1', fontSize: '14px', fontWeight: 'bold', flex: 1 }}>
+        <span style={{ color: 'var(--nl-text-primary, #ecf0f1)', fontSize: '14px', fontWeight: 'bold', flex: 1 }}>
           {d.label}
         </span>
 
-        <span style={{ fontSize: '11px', color: '#7f8c8d' }}>
+        <span style={{ fontSize: '11px', color: 'var(--nl-text-muted, #7f8c8d)' }}>
           v{d.version || '1.0'}
         </span>
 
@@ -1015,12 +1015,12 @@ function NodeBlock({
 
         {nodeLinks.length > 0 && <LinkBadge count={nodeLinks.length} />}
 
-        <span style={{ fontSize: '10px', color: '#7f8c8d' }}>{expanded ? '▲' : '▼'}</span>
+        <span style={{ fontSize: '10px', color: 'var(--nl-text-muted, #7f8c8d)' }}>{expanded ? '▲' : '▼'}</span>
       </div>
 
       {/* Expanded content */}
       {expanded && (
-        <div style={{ padding: '0 14px 14px', borderTop: '1px solid #34495e' }}>
+        <div style={{ padding: '0 14px 14px', borderTop: '1px solid var(--nl-border, #34495e)' }}>
           {/* Inline editing */}
           {editing ? (
             <div style={{ marginTop: '10px' }}>
@@ -1071,7 +1071,7 @@ function NodeBlock({
           ) : (
             <div style={{ marginTop: '10px' }}>
               {d.description && (
-                <p style={{ color: '#bdc3c7', fontSize: '13px', lineHeight: '1.6', margin: '0 0 8px 0' }}>
+                <p style={{ color: 'var(--nl-text-secondary, #bdc3c7)', fontSize: '13px', lineHeight: '1.6', margin: '0 0 8px 0' }}>
                   {d.description}
                 </p>
               )}
@@ -1084,7 +1084,7 @@ function NodeBlock({
                   marginBottom: '8px',
                 }}>
                   <strong style={{ color: '#f1c40f' }}>💡 Rationale:</strong>
-                  <span style={{ color: '#bdc3c7', marginLeft: '6px' }}>{d.rationale}</span>
+                  <span style={{ color: 'var(--nl-text-secondary, #bdc3c7)', marginLeft: '6px' }}>{d.rationale}</span>
                 </div>
               )}
 
@@ -1150,7 +1150,7 @@ function TableBlock({ block, nodes, edges, requirementLinks, healthIssues, onUpd
   if (isHealthMode) {
     return (
       <div style={{ ...tableContainerStyle }}>
-        <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#ecf0f1', marginBottom: '10px' }}>
+        <div style={{ fontSize: '13px', fontWeight: 'bold', color: 'var(--nl-text-primary, #ecf0f1)', marginBottom: '10px' }}>
           🏥 Link Health Check
         </div>
         {healthIssues.length === 0 ? (
@@ -1164,7 +1164,7 @@ function TableBlock({ block, nodes, edges, requirementLinks, healthIssues, onUpd
               borderRadius: '4px',
               marginBottom: '4px',
               fontSize: '11px',
-              color: '#bdc3c7',
+              color: 'var(--nl-text-secondary, #bdc3c7)',
             }}>
               {issue.icon} <strong>{issue.type}</strong>: {issue.message}
             </div>
@@ -1203,7 +1203,7 @@ function TableBlock({ block, nodes, edges, requirementLinks, healthIssues, onUpd
             <option key={p} value={p}>{p}</option>
           ))}
         </select>
-        <span style={{ fontSize: '11px', color: '#7f8c8d', alignSelf: 'center' }}>
+        <span style={{ fontSize: '11px', color: 'var(--nl-text-muted, #7f8c8d)', alignSelf: 'center' }}>
           {filteredNodes.length} items
         </span>
       </div>
@@ -1260,7 +1260,7 @@ function TableBlock({ block, nodes, edges, requirementLinks, healthIssues, onUpd
           </tbody>
         </table>
         {filteredNodes.length > 50 && (
-          <div style={{ color: '#7f8c8d', fontSize: '11px', padding: '6px' }}>
+          <div style={{ color: 'var(--nl-text-muted, #7f8c8d)', fontSize: '11px', padding: '6px' }}>
             Showing 50 of {filteredNodes.length} items
           </div>
         )}
@@ -1289,7 +1289,7 @@ function LinkMapBlock({
       padding: '12px',
       marginBottom: '8px',
     }}>
-      <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#ecf0f1', marginBottom: '10px' }}>
+      <div style={{ fontSize: '13px', fontWeight: 'bold', color: 'var(--nl-text-primary, #ecf0f1)', marginBottom: '10px' }}>
         🗺️ Link Map: {node.data?.reqId || nodeId} — {node.data?.label}
       </div>
       <NodeLinkSection
@@ -1384,10 +1384,10 @@ const CommandPaletteModal = React.forwardRef(({ search, onSearchChange, commands
             >
               <span style={{ fontSize: '18px', width: '24px', textAlign: 'center' }}>{cmd.icon}</span>
               <div style={{ flex: 1 }}>
-                <div style={{ color: '#ecf0f1', fontSize: '13px', fontWeight: 'bold' }}>{cmd.label}</div>
-                <div style={{ color: '#7f8c8d', fontSize: '11px' }}>{cmd.description}</div>
+                <div style={{ color: 'var(--nl-text-primary, #ecf0f1)', fontSize: '13px', fontWeight: 'bold' }}>{cmd.label}</div>
+                <div style={{ color: 'var(--nl-text-muted, #7f8c8d)', fontSize: '11px' }}>{cmd.description}</div>
               </div>
-              <span style={{ color: '#7f8c8d', fontSize: '11px', fontFamily: 'monospace' }}>{cmd.cmd}</span>
+              <span style={{ color: 'var(--nl-text-muted, #7f8c8d)', fontSize: '11px', fontFamily: 'monospace' }}>{cmd.cmd}</span>
             </div>
           ))}
         </div>
@@ -1479,7 +1479,7 @@ function NodePickerModal({ nodes, onSelect, onClose }) {
                 gap: '10px',
                 padding: '8px 16px',
                 cursor: 'pointer',
-                borderBottom: '1px solid #34495e',
+                borderBottom: '1px solid var(--nl-border, #34495e)',
               }}
               onMouseOver={e => e.currentTarget.style.background = '#3498db22'}
               onMouseOut={e => e.currentTarget.style.background = 'transparent'}
@@ -1497,16 +1497,16 @@ function NodePickerModal({ nodes, onSelect, onClose }) {
               <span style={{ color: '#3498db', fontSize: '11px', fontFamily: 'monospace' }}>
                 {n.data?.reqId || n.id}
               </span>
-              <span style={{ color: '#ecf0f1', fontSize: '12px', flex: 1 }}>
+              <span style={{ color: 'var(--nl-text-primary, #ecf0f1)', fontSize: '12px', flex: 1 }}>
                 {n.data?.label}
               </span>
-              <span style={{ color: '#7f8c8d', fontSize: '10px' }}>
+              <span style={{ color: 'var(--nl-text-muted, #7f8c8d)', fontSize: '10px' }}>
                 v{n.data?.version || '1.0'}
               </span>
             </div>
           ))}
           {filtered.length === 0 && (
-            <div style={{ padding: '20px', textAlign: 'center', color: '#7f8c8d' }}>No matching nodes</div>
+            <div style={{ padding: '20px', textAlign: 'center', color: 'var(--nl-text-muted, #7f8c8d)' }}>No matching nodes</div>
           )}
         </div>
       </div>
@@ -1522,7 +1522,7 @@ function EditableField({ label, value, onChange, multiline = false }) {
   const Tag = multiline ? 'textarea' : 'input';
   return (
     <div style={{ marginBottom: '8px' }}>
-      <label style={{ display: 'block', fontSize: '10px', color: '#7f8c8d', marginBottom: '3px', textTransform: 'uppercase' }}>
+      <label style={{ display: 'block', fontSize: '10px', color: 'var(--nl-text-muted, #7f8c8d)', marginBottom: '3px', textTransform: 'uppercase' }}>
         {label}
       </label>
       <Tag
@@ -1534,7 +1534,7 @@ function EditableField({ label, value, onChange, multiline = false }) {
           background: '#2c3e50',
           border: '1px solid #4a5f7f',
           borderRadius: '4px',
-          color: '#ecf0f1',
+          color: 'var(--nl-text-primary, #ecf0f1)',
           fontSize: '12px',
           boxSizing: 'border-box',
           ...(multiline ? { minHeight: '50px', resize: 'vertical', fontFamily: 'inherit' } : {}),
@@ -1547,7 +1547,7 @@ function EditableField({ label, value, onChange, multiline = false }) {
 function EditableSelect({ label, value, options, onChange }) {
   return (
     <div style={{ flex: 1 }}>
-      <label style={{ display: 'block', fontSize: '10px', color: '#7f8c8d', marginBottom: '3px', textTransform: 'uppercase' }}>
+      <label style={{ display: 'block', fontSize: '10px', color: 'var(--nl-text-muted, #7f8c8d)', marginBottom: '3px', textTransform: 'uppercase' }}>
         {label}
       </label>
       <select
@@ -1559,7 +1559,7 @@ function EditableSelect({ label, value, options, onChange }) {
           background: '#2c3e50',
           border: '1px solid #4a5f7f',
           borderRadius: '4px',
-          color: '#ecf0f1',
+          color: 'var(--nl-text-primary, #ecf0f1)',
           fontSize: '12px',
         }}
       >
@@ -1574,10 +1574,10 @@ function EmptyState({ onAddBlock }) {
     <div style={{
       textAlign: 'center',
       padding: '60px 20px',
-      color: '#7f8c8d',
+      color: 'var(--nl-text-muted, #7f8c8d)',
     }}>
       <div style={{ fontSize: '40px', marginBottom: '12px' }}>📝</div>
-      <div style={{ fontSize: '16px', marginBottom: '8px', color: '#ecf0f1' }}>
+      <div style={{ fontSize: '16px', marginBottom: '8px', color: 'var(--nl-text-primary, #ecf0f1)' }}>
         Empty Document
       </div>
       <div style={{ fontSize: '13px', marginBottom: '20px' }}>
@@ -1649,7 +1649,7 @@ const gutterBtnStyle = {
   background: '#34495e',
   border: '1px solid #4a5f7f',
   borderRadius: '4px',
-  color: '#bdc3c7',
+  color: 'var(--nl-text-secondary, #bdc3c7)',
   cursor: 'pointer',
   fontSize: '10px',
   padding: 0,
@@ -1685,7 +1685,7 @@ const thStyle = {
   padding: '6px 10px',
   textAlign: 'left',
   borderBottom: '2px solid #34495e',
-  color: '#7f8c8d',
+  color: 'var(--nl-text-muted, #7f8c8d)',
   fontSize: '10px',
   textTransform: 'uppercase',
   fontWeight: 'bold',
@@ -1694,5 +1694,5 @@ const thStyle = {
 const tdStyle = {
   padding: '6px 10px',
   borderBottom: '1px solid #34495e22',
-  color: '#bdc3c7',
+  color: 'var(--nl-text-secondary, #bdc3c7)',
 };
