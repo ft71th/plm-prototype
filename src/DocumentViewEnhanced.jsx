@@ -429,7 +429,7 @@ export default function DocumentViewEnhanced({
             textAlign: 'center',
             padding: '20px',
             margin: '20px 0',
-            border: '2px dashed #34495e',
+            border: '2px dashed var(--nl-border, #34495e)',
             borderRadius: '8px',
             color: 'var(--nl-text-muted, #7f8c8d)',
             cursor: 'pointer',
@@ -446,7 +446,7 @@ export default function DocumentViewEnhanced({
         <div style={{
           marginTop: '30px',
           paddingTop: '15px',
-          borderTop: '2px solid #34495e',
+          borderTop: '2px solid var(--nl-border, #34495e)',
           textAlign: 'center',
           color: 'var(--nl-text-muted, #7f8c8d)',
           fontSize: '11px',
@@ -694,7 +694,7 @@ function TextBlock({ block, onUpdate }) {
           width: '100%',
           minHeight: '60px',
           padding: '10px',
-          background: '#2c3e50',
+          background: 'var(--nl-bg-input, #2c3e50)',
           border: '1px solid #3498db',
           borderRadius: '6px',
           color: 'var(--nl-text-primary, #ecf0f1)',
@@ -746,8 +746,8 @@ function HeadingBlock({ block, onUpdate }) {
           onChange={e => onUpdate(block.id, { level: parseInt(e.target.value) })}
           style={{
             padding: '4px',
-            background: '#34495e',
-            border: '1px solid #4a5f7f',
+            background: 'var(--nl-border, #34495e)',
+            border: '1px solid var(--nl-border-light, #4a5f7f)',
             borderRadius: '4px',
             color: 'white',
             fontSize: '11px',
@@ -766,7 +766,7 @@ function HeadingBlock({ block, onUpdate }) {
           style={{
             flex: 1,
             padding: '6px 10px',
-            background: '#2c3e50',
+            background: 'var(--nl-bg-input, #2c3e50)',
             border: '1px solid #3498db',
             borderRadius: '4px',
             color: 'var(--nl-text-primary, #ecf0f1)',
@@ -1159,7 +1159,7 @@ function TableBlock({ block, nodes, edges, requirementLinks, healthIssues, onUpd
           healthIssues.map((issue, i) => (
             <div key={i} style={{
               padding: '6px 10px',
-              background: '#2c3e50',
+              background: 'var(--nl-bg-input, #2c3e50)',
               borderLeft: `3px solid ${issue.severity === 'critical' ? '#e74c3c' : '#f39c12'}`,
               borderRadius: '4px',
               marginBottom: '4px',
@@ -1341,7 +1341,7 @@ const CommandPaletteModal = React.forwardRef(({ search, onSearchChange, commands
       zIndex: 6000,
     }} onClick={onClose}>
       <div style={{
-        background: '#2c3e50',
+        background: 'var(--nl-bg-input, #2c3e50)',
         borderRadius: '10px',
         width: '450px',
         boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
@@ -1358,8 +1358,8 @@ const CommandPaletteModal = React.forwardRef(({ search, onSearchChange, commands
             style={{
               width: '100%',
               padding: '10px 14px',
-              background: '#34495e',
-              border: '1px solid #4a5f7f',
+              background: 'var(--nl-border, #34495e)',
+              border: '1px solid var(--nl-border-light, #4a5f7f)',
               borderRadius: '6px',
               color: 'white',
               fontSize: '14px',
@@ -1427,7 +1427,7 @@ function NodePickerModal({ nodes, onSelect, onClose }) {
       zIndex: 6000,
     }} onClick={onClose}>
       <div style={{
-        background: '#2c3e50',
+        background: 'var(--nl-bg-input, #2c3e50)',
         borderRadius: '10px',
         width: '500px',
         maxHeight: '60vh',
@@ -1443,8 +1443,8 @@ function NodePickerModal({ nodes, onSelect, onClose }) {
             style={{
               flex: 1,
               padding: '8px 12px',
-              background: '#34495e',
-              border: '1px solid #4a5f7f',
+              background: 'var(--nl-border, #34495e)',
+              border: '1px solid var(--nl-border-light, #4a5f7f)',
               borderRadius: '6px',
               color: 'white',
               fontSize: '13px',
@@ -1455,8 +1455,8 @@ function NodePickerModal({ nodes, onSelect, onClose }) {
             onChange={e => setTypeFilter(e.target.value)}
             style={{
               padding: '8px',
-              background: '#34495e',
-              border: '1px solid #4a5f7f',
+              background: 'var(--nl-border, #34495e)',
+              border: '1px solid var(--nl-border-light, #4a5f7f)',
               borderRadius: '6px',
               color: 'white',
               fontSize: '12px',
@@ -1531,8 +1531,8 @@ function EditableField({ label, value, onChange, multiline = false }) {
         style={{
           width: '100%',
           padding: '6px 8px',
-          background: '#2c3e50',
-          border: '1px solid #4a5f7f',
+          background: 'var(--nl-bg-input, #2c3e50)',
+          border: '1px solid var(--nl-border-light, #4a5f7f)',
           borderRadius: '4px',
           color: 'var(--nl-text-primary, #ecf0f1)',
           fontSize: '12px',
@@ -1556,8 +1556,8 @@ function EditableSelect({ label, value, options, onChange }) {
         style={{
           width: '100%',
           padding: '6px 8px',
-          background: '#2c3e50',
-          border: '1px solid #4a5f7f',
+          background: 'var(--nl-bg-input, #2c3e50)',
+          border: '1px solid var(--nl-border-light, #4a5f7f)',
           borderRadius: '4px',
           color: 'var(--nl-text-primary, #ecf0f1)',
           fontSize: '12px',
@@ -1646,8 +1646,8 @@ const gutterBtnStyle = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: '#34495e',
-  border: '1px solid #4a5f7f',
+  background: 'var(--nl-border, #34495e)',
+  border: '1px solid var(--nl-border-light, #4a5f7f)',
   borderRadius: '4px',
   color: 'var(--nl-text-secondary, #bdc3c7)',
   cursor: 'pointer',
@@ -1665,8 +1665,8 @@ const tableContainerStyle = {
 
 const tinyInputStyle = {
   padding: '5px 8px',
-  background: '#2c3e50',
-  border: '1px solid #4a5f7f',
+  background: 'var(--nl-bg-input, #2c3e50)',
+  border: '1px solid var(--nl-border-light, #4a5f7f)',
   borderRadius: '4px',
   color: 'white',
   fontSize: '11px',
@@ -1674,8 +1674,8 @@ const tinyInputStyle = {
 
 const tinySelectStyle = {
   padding: '5px 6px',
-  background: '#2c3e50',
-  border: '1px solid #4a5f7f',
+  background: 'var(--nl-bg-input, #2c3e50)',
+  border: '1px solid var(--nl-border-light, #4a5f7f)',
   borderRadius: '4px',
   color: 'white',
   fontSize: '11px',
@@ -1684,7 +1684,7 @@ const tinySelectStyle = {
 const thStyle = {
   padding: '6px 10px',
   textAlign: 'left',
-  borderBottom: '2px solid #34495e',
+  borderBottom: '2px solid var(--nl-border, #34495e)',
   color: 'var(--nl-text-muted, #7f8c8d)',
   fontSize: '10px',
   textTransform: 'uppercase',
@@ -1693,6 +1693,6 @@ const thStyle = {
 
 const tdStyle = {
   padding: '6px 10px',
-  borderBottom: '1px solid #34495e22',
+  borderBottom: '1px solid var(--nl-border, #34495e22)',
   color: 'var(--nl-text-secondary, #bdc3c7)',
 };

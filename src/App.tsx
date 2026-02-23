@@ -1141,7 +1141,7 @@ const createNewObject = (name, version, description) => {
         user={user?.name || 'unknown'}
       />
       ) : viewMode === 'tasks' ? (
-        <TaskProvider projectId={currentProject?.id || 'default'} currentUser={user?.name || 'user'}>
+        <TaskProvider projectId={currentProject?.id || 'default'} currentUser={user?.name || 'user'} isDarkMode={isDarkMode}>
           <div style={{ 
             marginTop: '50px', 
             height: `${appHeight - 50}px`,
@@ -1154,7 +1154,7 @@ const createNewObject = (name, version, description) => {
           </div>
         </TaskProvider>
       ) : viewMode === 'gantt' ? (
-        <TaskProvider projectId={currentProject?.id || 'default'} currentUser={user?.name || 'user'}>
+        <TaskProvider projectId={currentProject?.id || 'default'} currentUser={user?.name || 'user'} isDarkMode={isDarkMode}>
           <div style={{ 
             marginTop: '50px', 
             height: `${appHeight - 50}px`,

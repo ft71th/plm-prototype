@@ -271,7 +271,7 @@ export default function Whiteboard({ className = '', style = {}, projectId = nul
         width: '100%',
         height: '100%',
         overflow: 'hidden',
-        background: '#fafafa',
+        background: 'var(--nl-bg-canvas, #fafafa)',
         margin: 0,
         padding: 0,
         ...style,
