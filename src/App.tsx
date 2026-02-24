@@ -95,18 +95,23 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
  * handle positions after nodes are loaded. Without this, handles are at (0,0) 
  * until a manual resize triggers ResizeObserver.
  */
-function HandleUpdater({ nodeIds }: { nodeIds: string[] }) {
+function HandleUpdater({ nodeIds, viewMode }: { nodeIds: string[], viewMode?: string }) {
   const updateNodeInternals = useUpdateNodeInternals();
   const prevCountRef = React.useRef(0);
+  const prevViewModeRef = React.useRef(viewMode);
 
   React.useEffect(() => {
     if (nodeIds.length === 0) return;
-    // Only trigger when node count changes (project load / import)
-    if (nodeIds.length === prevCountRef.current) return;
+    const countChanged = nodeIds.length !== prevCountRef.current;
+    const viewChanged = viewMode !== prevViewModeRef.current;
     prevCountRef.current = nodeIds.length;
+    prevViewModeRef.current = viewMode;
 
-    // Need multiple passes — DOM elements may not be ready on first frame
-    const timers = [150, 400, 800].map(delay =>
+    if (!countChanged && !viewChanged) return;
+
+    // On view switch: fast update so edges snap to new handle positions
+    const delays = viewChanged ? [50, 200] : [150, 400, 800];
+    const timers = delays.map(delay =>
       setTimeout(() => {
         nodeIds.forEach(id => {
           try { updateNodeInternals(id); } catch(e) { /* node may not exist yet */ }
@@ -115,7 +120,7 @@ function HandleUpdater({ nodeIds }: { nodeIds: string[] }) {
     );
 
     return () => timers.forEach(clearTimeout);
-  }, [nodeIds, updateNodeInternals]);
+  }, [nodeIds, viewMode, updateNodeInternals]);
 
   return null;
 }
@@ -147,29 +152,11 @@ export default function App(): React.ReactElement {
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
   // Track whether initial node dimensions have been measured by ResizeObserver.
-  const dimensionMeasuredRef = useRef(false);
-  const dimensionTimerRef = useRef<any>(null);
-  
-  // Hide edges briefly during PLM↔Simple transitions to avoid visual glitch.
-  const [edgesHidden, setEdgesHidden] = useState(false);
-  const prevViewModeRef = useRef<string | null>(null);
+  // (Edge hiding removed — edges render instantly on view switch)
   
   const handleNodesChange = useCallback((changes: any[]) => {
     onNodesChange(changes);
-    
-    if (!dimensionMeasuredRef.current) {
-      const hasDimensionChange = changes.some((c: any) => c.type === 'dimensions');
-      if (hasDimensionChange) {
-        if (dimensionTimerRef.current) clearTimeout(dimensionTimerRef.current);
-        dimensionTimerRef.current = setTimeout(() => {
-          setEdges(eds => eds.map(e => ({ ...e })));
-          dimensionMeasuredRef.current = true;
-          // Use rAF to ensure DOM is settled before showing edges
-          requestAnimationFrame(() => setEdgesHidden(false));
-        }, 100);
-      }
-    }
-  }, [onNodesChange, setEdges]);
+  }, [onNodesChange]);
   
   // ─── Zustand Store (UI, filters, project, auth, selection) ───
   const {
@@ -313,24 +300,7 @@ export default function App(): React.ReactElement {
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
   const [showImport, setShowImport] = useState(false);
 
-  // Hide edges during PLM↔Simple view transitions to prevent visual glitch.
-  // Nodes change size when mode switches → handles move → edges draw to
-  // old positions for a few frames before updateNodeInternals fires.
-  useEffect(() => {
-    let timeout: any;
-    if (prevViewModeRef.current !== null && prevViewModeRef.current !== viewMode) {
-      setEdgesHidden(true);
-      dimensionMeasuredRef.current = false;
-      // Fixed delay: hide edges briefly during view switch, then force show
-      timeout = setTimeout(() => {
-        setEdges(eds => eds.map(e => ({ ...e }))); // force edge recalc
-        dimensionMeasuredRef.current = true;
-        requestAnimationFrame(() => setEdgesHidden(false));
-      }, 150);
-    }
-    prevViewModeRef.current = viewMode;
-    return () => { if (timeout) clearTimeout(timeout); };
-  }, [viewMode]);
+
 
 
    // Handle login
@@ -350,9 +320,6 @@ export default function App(): React.ReactElement {
   // Handle project selection
   const handleSelectProject = (projectData) => {
     console.log('Opening project:', projectData);
-    
-    // Reset dimension measurement guard so edges refresh for new project's nodes
-    dimensionMeasuredRef.current = false;
     
     // Set project info
     setCurrentProject(projectData.project || projectData);
@@ -710,6 +677,19 @@ export default function App(): React.ReactElement {
     libraryItems, setLibraryItems,
     fetchLibraryItems, saveNodeToLibrary, addLibraryItemToCanvas,
   } = useLibrary({ nodeId, setNodeId, setNodes });
+
+  // Strip saved dimensions on view switch so ReactFlow measures fresh
+  const prevViewForDims = React.useRef(viewMode);
+  React.useEffect(() => {
+    if (prevViewForDims.current !== viewMode) {
+      prevViewForDims.current = viewMode;
+      setNodes(nds => nds.map(n => ({
+        ...n,
+        width: undefined,
+        height: undefined,
+      })));
+    }
+  }, [viewMode, setNodes]);
 
   const processedNodes = useMemo(() => {
     return nodes.map((node) => {
@@ -1193,7 +1173,6 @@ const createNewObject = (name, version, description) => {
         nodes={processedNodes}
         edges={edges.map(e => ({
           ...e,
-          hidden: edgesHidden,
           data: { 
             ...e.data, 
             showLabel: showRelationshipLabels,
@@ -1299,7 +1278,7 @@ const createNewObject = (name, version, description) => {
         }}
       >
         <Controls style={{ bottom: 20, left: 70 }} />
-        <HandleUpdater nodeIds={nodes.map(n => n.id)} />
+        <HandleUpdater nodeIds={nodes.map(n => n.id)} viewMode={viewMode} />
         <MiniMap 
           style={{ 
             position: 'absolute',
