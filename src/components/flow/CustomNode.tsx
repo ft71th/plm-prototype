@@ -548,268 +548,133 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
   }
 
   
-    // WHITEBOARD MODE - HARDWARE NODES (Icon-centric with port labels inside)
+    // WHITEBOARD MODE - HARDWARE NODES (Blue card, resizable)
   if (data.isWhiteboardMode && (data.itemType === 'hardware' || data.type === 'hardware')) {
     const ports = data.ports || [];
     const inputPorts = ports.filter(p => p.direction === 'input' || p.type === 'input');
     const outputPorts = ports.filter(p => p.direction === 'output' || p.type === 'output');
     
-    // ── Sizing ──
     const iconSize = data.hwIconSize || 64;
     const maxPorts = Math.max(inputPorts.length, outputPorts.length, 1);
     const portRowHeight = 22;
-    const portBlockHeight = maxPorts * portRowHeight;
     const contentPadding = 10;
-    const imageHeight = Math.max(iconSize, portBlockHeight);
+    const imageHeight = Math.max(iconSize, maxPorts * portRowHeight);
     const labelHeight = 24;
-    const nodeContentHeight = contentPadding + imageHeight + labelHeight + contentPadding;
+    const minH = contentPadding + imageHeight + labelHeight + contentPadding;
 
-    // Port label widths
     const charWidth = 7;
-    const getPortLabelWidth = (p) => {
-      const name = p.name + (p.width ? `[${p.width-1}:0]` : '');
-      return name.length * charWidth + 16;
-    };
-    const maxInputLabelW = inputPorts.length > 0 
-      ? Math.max(...inputPorts.map(getPortLabelWidth)) : 0;
-    const maxOutputLabelW = outputPorts.length > 0 
-      ? Math.max(...outputPorts.map(getPortLabelWidth)) : 0;
-    
-    const gapBetween = 8;
-    const sidePadding = 12;
-    const nodeWidth = Math.max(
-      140,
-      sidePadding + maxInputLabelW + (maxInputLabelW > 0 ? gapBetween : 0) 
-        + iconSize + 10 
-        + (maxOutputLabelW > 0 ? gapBetween : 0) + maxOutputLabelW + sidePadding
-    );
+    const portLabelW = (p) => (p.name + (p.width ? `[${p.width-1}:0]` : '')).length * charWidth + 16;
+    const maxInW = inputPorts.length > 0 ? Math.max(...inputPorts.map(portLabelW)) : 0;
+    const maxOutW = outputPorts.length > 0 ? Math.max(...outputPorts.map(portLabelW)) : 0;
+    const gap = 8, pad = 12;
+    const minW = Math.max(140, pad + maxInW + (maxInW>0?gap:0) + iconSize + 10 + (maxOutW>0?gap:0) + maxOutW + pad);
 
-    // Port vertical positions (px from top of node)
-    const getPortY = (index, total) => {
-      const blockTop = contentPadding + (imageHeight - total * portRowHeight) / 2;
-      return blockTop + index * portRowHeight + portRowHeight / 2;
+    // Port Y as percentage of node height
+    const getPortPct = (index, total) => {
+      if (total === 1) return '50%';
+      const topPct = (contentPadding + (imageHeight - total * portRowHeight) / 2) / minH * 100;
+      const rangePct = ((total - 1) * portRowHeight) / minH * 100;
+      return `${topPct + (rangePct / (total - 1)) * index + (portRowHeight / 2 / minH * 100)}%`;
     };
 
     return (
       <>
       <NodeResizer
-        color="#795548"
+        color="#3498db"
         isVisible={selected}
-        minWidth={nodeWidth}
-        minHeight={nodeContentHeight}
+        minWidth={minW}
+        minHeight={minH}
         onResizeEnd={(event, params) => {
           if (data.onChange) {
             data.onChange(id, 'nodeWidth', params.width);
             data.onChange(id, 'nodeHeight', params.height);
-            data.onChange(id, 'hwIconSize', Math.max(32, Math.min(params.width * 0.4, params.height - 50)));
           }
         }}
-        handleStyle={{ width: '8px', height: '8px', borderRadius: '2px' }}
+        handleStyle={{ width: '10px', height: '10px', borderRadius: '2px' }}
       />
       <div 
         style={{
-          width: data.nodeWidth ? `${Math.max(data.nodeWidth, nodeWidth)}px` : `${nodeWidth}px`,
-          minHeight: `${nodeContentHeight}px`,
-          background: selected 
-            ? 'rgba(52, 152, 219, 0.25)' 
-            : 'rgba(52, 152, 219, 0.08)',
-          border: selected ? '2px solid #3498db' : '1.5px solid rgba(52, 152, 219, 0.3)',
+          width: '100%',
+          height: '100%',
+          minWidth: `${minW}px`,
+          minHeight: `${minH}px`,
+          background: selected ? 'rgba(52,152,219,0.25)' : 'rgba(52,152,219,0.08)',
+          border: selected ? '2px solid #3498db' : '1.5px solid rgba(52,152,219,0.3)',
           borderRadius: '10px',
           position: 'relative',
           cursor: 'pointer',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          transition: 'all 0.2s ease',
-          boxShadow: selected 
-            ? '0 0 20px rgba(52, 152, 219, 0.4)' 
-            : '0 2px 8px rgba(0,0,0,0.1)',
+          transition: 'background 0.2s, border-color 0.2s',
+          boxShadow: selected ? '0 0 16px rgba(52,152,219,0.35)' : '0 2px 8px rgba(0,0,0,0.08)',
+          boxSizing: 'border-box',
         }}>
 
-        {/* Main content row: input labels | image | output labels */}
+        {/* Content row: input labels | image | output labels */}
         <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: '100%',
-          padding: `${contentPadding}px ${sidePadding}px 0`,
-          boxSizing: 'border-box',
-          minHeight: `${imageHeight}px`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: '100%', padding: `${contentPadding}px ${pad}px 0`,
+          boxSizing: 'border-box', flex: 1,
         }}>
-          {/* Input port labels (left side) */}
           {inputPorts.length > 0 && (
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: `${portRowHeight - 14}px`,
-              marginRight: `${gapBetween}px`,
-              alignItems: 'flex-end',
-            }}>
-              {inputPorts.map(port => {
-                const portLabel = port.name + (port.width ? `[${port.width-1}:0]` : '');
-                return (
-                  <div key={port.id} style={{
-                    fontSize: '10px',
-                    color: '#27ae60',
-                    fontWeight: '600',
-                    whiteSpace: 'nowrap',
-                    height: '14px',
-                    lineHeight: '14px',
-                  }}>
-                    {portLabel}
-                  </div>
-                );
-              })}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: `${portRowHeight-14}px`, marginRight: `${gap}px`, alignItems: 'flex-end' }}>
+              {inputPorts.map(port => (
+                <div key={port.id} style={{ fontSize: '10px', color: '#27ae60', fontWeight: '600', whiteSpace: 'nowrap', height: '14px', lineHeight: '14px' }}>
+                  {port.name + (port.width ? `[${port.width-1}:0]` : '')}
+                </div>
+              ))}
             </div>
           )}
 
-          {/* Icon / Image */}
           <div style={{ flexShrink: 0 }}>
             {(data.hwCustomIcon || data.hwIcon?.startsWith('data:') || data.hwIcon?.startsWith('http')) ? (
-              <img 
-                src={data.hwCustomIcon || data.hwIcon} 
-                alt={data.label || 'Hardware'}
-                style={{ 
-                  width: `${iconSize}px`, 
-                  height: `${iconSize}px`, 
-                  objectFit: 'contain',
-                  filter: selected 
-                    ? 'drop-shadow(0 0 8px rgba(52, 152, 219, 0.8))' 
-                    : 'drop-shadow(0 2px 4px rgba(0,0,0,0.15))',
-                  borderRadius: '6px',
-                  background: 'white',
-                  padding: '2px',
-                }}
-              />
+              <img src={data.hwCustomIcon || data.hwIcon} alt={data.label || 'HW'}
+                style={{ width: `${iconSize}px`, height: `${iconSize}px`, objectFit: 'contain',
+                  filter: selected ? 'drop-shadow(0 0 6px rgba(52,152,219,0.7))' : 'drop-shadow(0 1px 3px rgba(0,0,0,0.12))',
+                  borderRadius: '6px', background: 'white', padding: '2px' }} />
             ) : (
-              <span style={{ 
-                fontSize: `${iconSize * 0.75}px`,
-                lineHeight: 1,
-                filter: selected 
-                  ? 'drop-shadow(0 0 8px rgba(52, 152, 219, 0.8))' 
-                  : 'drop-shadow(0 2px 4px rgba(0,0,0,0.15))'
-              }}>
+              <span style={{ fontSize: `${iconSize*0.75}px`, lineHeight: 1,
+                filter: selected ? 'drop-shadow(0 0 6px rgba(52,152,219,0.7))' : 'drop-shadow(0 1px 3px rgba(0,0,0,0.12))' }}>
                 {data.hwIcon || '📦'}
               </span>
             )}
           </div>
 
-          {/* Output port labels (right side) */}
           {outputPorts.length > 0 && (
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: `${portRowHeight - 14}px`,
-              marginLeft: `${gapBetween}px`,
-              alignItems: 'flex-start',
-            }}>
-              {outputPorts.map(port => {
-                const portLabel = port.name + (port.width ? `[${port.width-1}:0]` : '');
-                return (
-                  <div key={port.id} style={{
-                    fontSize: '10px',
-                    color: '#e67e22',
-                    fontWeight: '600',
-                    whiteSpace: 'nowrap',
-                    height: '14px',
-                    lineHeight: '14px',
-                  }}>
-                    {portLabel}
-                  </div>
-                );
-              })}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: `${portRowHeight-14}px`, marginLeft: `${gap}px`, alignItems: 'flex-start' }}>
+              {outputPorts.map(port => (
+                <div key={port.id} style={{ fontSize: '10px', color: '#e67e22', fontWeight: '600', whiteSpace: 'nowrap', height: '14px', lineHeight: '14px' }}>
+                  {port.name + (port.width ? `[${port.width-1}:0]` : '')}
+                </div>
+              ))}
             </div>
           )}
         </div>
 
-        {/* Label below */}
-        <div style={{
-          fontSize: '11px',
-          fontWeight: 'bold',
-          color: 'var(--nl-text-primary, #333)',
-          textAlign: 'center',
-          padding: '4px 8px',
-          maxWidth: '100%',
-          wordBreak: 'break-word',
-          lineHeight: '1.3',
-        }}>
+        {/* Label */}
+        <div style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--nl-text-primary, #333)',
+          textAlign: 'center', padding: '4px 8px', maxWidth: '100%', wordBreak: 'break-word', lineHeight: '1.3' }}>
           {data.label}
         </div>
 
-        {/* ── Handles ── */}
-        {/* Default handles (hidden when ports exist) */}
-        <Handle
-          type="target"
-          position={Position.Left}
-          id="default-target"
-          style={{
-            background: '#27ae60',
-            width: '10px',
-            height: '10px',
-            left: '-5px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            border: '2px solid #fff',
-            opacity: ports.length > 0 ? 0 : 1,
-          }}
-        />
-        <Handle
-          type="source"
-          position={Position.Right}
-          id="default-source"
-          style={{
-            background: '#e67e22',
-            width: '10px',
-            height: '10px',
-            right: '-5px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            border: '2px solid #fff',
-            opacity: ports.length > 0 ? 0 : 1,
-          }}
-        />
+        {/* Default handles */}
+        <Handle type="target" position={Position.Left} id="default-target"
+          style={{ background: '#27ae60', width: 10, height: 10, left: '-5px', top: '50%', transform: 'translateY(-50%)', border: '2px solid #fff', opacity: inputPorts.length > 0 ? 0.3 : 1 }} />
+        <Handle type="source" position={Position.Right} id="default-source"
+          style={{ background: '#e67e22', width: 10, height: 10, right: '-5px', top: '50%', transform: 'translateY(-50%)', border: '2px solid #fff', opacity: outputPorts.length > 0 ? 0.3 : 1 }} />
 
-        {/* Port-specific handles */}
-        {inputPorts.map((port, index) => {
-          const topPx = getPortY(index, inputPorts.length);
-          return (
-            <Handle
-              key={port.id}
-              type="target"
-              position={Position.Left}
-              id={port.id}
-              style={{
-                background: '#27ae60',
-                width: 10,
-                height: 10,
-                top: `${topPx}px`,
-                left: '-5px',
-                border: '2px solid #fff',
-              }}
-              title={port.name}
-            />
-          );
-        })}
-        {outputPorts.map((port, index) => {
-          const topPx = getPortY(index, outputPorts.length);
-          return (
-            <Handle
-              key={port.id}
-              type="source"
-              position={Position.Right}
-              id={port.id}
-              style={{
-                background: '#e67e22',
-                width: 10,
-                height: 10,
-                top: `${topPx}px`,
-                right: '-5px',
-                border: '2px solid #fff',
-              }}
-              title={port.name}
-            />
-          );
-        })}
+        {/* Port handles */}
+        {inputPorts.map((port, index) => (
+          <Handle key={port.id} type="target" position={Position.Left} id={port.id}
+            style={{ background: '#27ae60', width: 10, height: 10, top: getPortPct(index, inputPorts.length), left: '-5px', border: '2px solid #fff' }}
+            title={port.name} />
+        ))}
+        {outputPorts.map((port, index) => (
+          <Handle key={port.id} type="source" position={Position.Right} id={port.id}
+            style={{ background: '#e67e22', width: 10, height: 10, top: getPortPct(index, outputPorts.length), right: '-5px', border: '2px solid #fff' }}
+            title={port.name} />
+        ))}
         <ExtraHandles color="#795548" skipLeftRight={ports.length > 0} />
       </div>
       </>

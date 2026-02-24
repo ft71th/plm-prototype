@@ -3,14 +3,34 @@ const fs = require('fs');
 const file = 'src/components/flow/CustomNode.tsx';
 let c = fs.readFileSync(file, 'utf8');
 
-const startMarker = '    // WHITEBOARD MODE - HARDWARE NODES (Icon-centric design)\n  if (data.isWhiteboardMode && (data.itemType === \'hardware\' || data.type === \'hardware\')) {';
+// Normalize to LF for matching
+const hadCRLF = c.includes('\r\n');
+if (hadCRLF) c = c.replace(/\r\n/g, '\n');
+
+const startPatterns = [
+  'Icon-centric with port labels inside',
+  'Icon-centric design',
+  'Blue card with port labels inside',
+];
+
+let startIdx = -1;
+for (const pat of startPatterns) {
+  const marker = `    // WHITEBOARD MODE - HARDWARE NODES (${pat})\n  if (data.isWhiteboardMode && (data.itemType === 'hardware' || data.type === 'hardware')) {`;
+  startIdx = c.indexOf(marker);
+  if (startIdx !== -1) { console.log('  Found marker:', pat); break; }
+}
+
 const endMarker = '        <ExtraHandles color="#795548" skipLeftRight={ports.length > 0} />\n      </div>\n      </>\n    );\n  }';
+const endIdx = startIdx !== -1 ? c.indexOf(endMarker, startIdx) : -1;
 
-const startIdx = c.indexOf(startMarker);
-const endIdx = c.indexOf(endMarker, startIdx);
-
-if (startIdx === -1) { console.log('❌ Start marker not found'); process.exit(1); }
-if (endIdx === -1) { console.log('❌ End marker not found'); process.exit(1); }
+if (startIdx === -1) { 
+  console.log('Start not found. Searching...');
+  const i = c.indexOf('HARDWARE NODES');
+  if (i !== -1) console.log(JSON.stringify(c.substring(i-10, i+120)));
+  else console.log('"HARDWARE NODES" not in file');
+  process.exit(1);
+}
+if (endIdx === -1) { console.log('End marker not found'); process.exit(1); }
 
 const endOfSection = endIdx + endMarker.length;
 
@@ -20,7 +40,6 @@ const newCode = `    // WHITEBOARD MODE - HARDWARE NODES (Blue card with port la
     const inputPorts = ports.filter(p => p.direction === 'input' || p.type === 'input');
     const outputPorts = ports.filter(p => p.direction === 'output' || p.type === 'output');
     
-    // ── Sizing ──
     const iconSize = data.hwIconSize || 64;
     const maxPorts = Math.max(inputPorts.length, outputPorts.length, 1);
     const portRowHeight = 22;
@@ -30,7 +49,6 @@ const newCode = `    // WHITEBOARD MODE - HARDWARE NODES (Blue card with port la
     const labelHeight = 24;
     const nodeContentHeight = contentPadding + imageHeight + labelHeight + contentPadding;
 
-    // Port label widths
     const charWidth = 7;
     const getPortLabelWidth = (p) => {
       const name = p.name + (p.width ? \`[\${p.width-1}:0]\` : '');
@@ -50,7 +68,6 @@ const newCode = `    // WHITEBOARD MODE - HARDWARE NODES (Blue card with port la
         + (maxOutputLabelW > 0 ? gapBetween : 0) + maxOutputLabelW + sidePadding
     );
 
-    // Port Y positions (px from top of node)
     const getPortY = (index, total) => {
       const blockTop = contentPadding + (imageHeight - total * portRowHeight) / 2;
       return blockTop + index * portRowHeight + portRowHeight / 2;
@@ -58,7 +75,6 @@ const newCode = `    // WHITEBOARD MODE - HARDWARE NODES (Blue card with port la
 
     return (
       <>
-      {/* Hidden resizer just to make ReactFlow track dimensions */}
       <NodeResizer color="#795548" isVisible={false} minWidth={nodeWidth} minHeight={nodeContentHeight} />
       <div 
         style={{
@@ -80,7 +96,6 @@ const newCode = `    // WHITEBOARD MODE - HARDWARE NODES (Blue card with port la
             : '0 2px 8px rgba(0,0,0,0.08)',
         }}>
 
-        {/* Main content: input labels | image | output labels */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -90,7 +105,6 @@ const newCode = `    // WHITEBOARD MODE - HARDWARE NODES (Blue card with port la
           boxSizing: 'border-box',
           minHeight: \`\${imageHeight}px\`,
         }}>
-          {/* Input port labels */}
           {inputPorts.length > 0 && (
             <div style={{
               display: 'flex', flexDirection: 'column',
@@ -110,7 +124,6 @@ const newCode = `    // WHITEBOARD MODE - HARDWARE NODES (Blue card with port la
             </div>
           )}
 
-          {/* Icon / Image */}
           <div style={{ flexShrink: 0 }}>
             {(data.hwCustomIcon || data.hwIcon?.startsWith('data:') || data.hwIcon?.startsWith('http')) ? (
               <img 
@@ -137,7 +150,6 @@ const newCode = `    // WHITEBOARD MODE - HARDWARE NODES (Blue card with port la
             )}
           </div>
 
-          {/* Output port labels */}
           {outputPorts.length > 0 && (
             <div style={{
               display: 'flex', flexDirection: 'column',
@@ -158,7 +170,6 @@ const newCode = `    // WHITEBOARD MODE - HARDWARE NODES (Blue card with port la
           )}
         </div>
 
-        {/* Label */}
         <div style={{
           fontSize: '11px', fontWeight: 'bold',
           color: 'var(--nl-text-primary, #333)',
@@ -168,8 +179,6 @@ const newCode = `    // WHITEBOARD MODE - HARDWARE NODES (Blue card with port la
           {data.label}
         </div>
 
-        {/* ── Handles ── */}
-        {/* Default left target — always visible */}
         <Handle type="target" position={Position.Left} id="default-target"
           style={{
             background: '#27ae60', width: 10, height: 10,
@@ -178,7 +187,6 @@ const newCode = `    // WHITEBOARD MODE - HARDWARE NODES (Blue card with port la
             opacity: inputPorts.length > 0 ? 0.3 : 1,
           }}
         />
-        {/* Default right source — always visible */}
         <Handle type="source" position={Position.Right} id="default-source"
           style={{
             background: '#e67e22', width: 10, height: 10,
@@ -188,7 +196,6 @@ const newCode = `    // WHITEBOARD MODE - HARDWARE NODES (Blue card with port la
           }}
         />
 
-        {/* Port-specific handles on the border edge */}
         {inputPorts.map((port, index) => {
           const topPx = getPortY(index, inputPorts.length);
           return (
@@ -222,6 +229,9 @@ const newCode = `    // WHITEBOARD MODE - HARDWARE NODES (Blue card with port la
   }`;
 
 c = c.substring(0, startIdx) + newCode + c.substring(endOfSection);
-fs.writeFileSync(file, c, 'utf8');
 
-console.log('✅ HW node v2: auto-sized, no manual resize, handles on edge');
+// Restore CRLF if original had it
+if (hadCRLF) c = c.replace(/\n/g, '\r\n');
+
+fs.writeFileSync(file, c, 'utf8');
+console.log('✅ HW node: auto-sized, no resize, handles on edge');
