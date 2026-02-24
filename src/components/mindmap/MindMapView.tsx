@@ -40,9 +40,28 @@ const CSTYLES: Record<string, { bg: string; border: string; icon: string }> = {
 
 export default function MindMapView({ projectId, nodes: plmNodes, edges: plmEdges, style }: MindMapViewProps) {
   const mm = useMindMapData(projectId, HVAS_SAMPLE_DATA);
-  const { colors, themeMode } = useStore();
+  const { isDarkMode } = useStore();
   const svgRef = useRef<SVGSVGElement>(null);
-  const isDark = themeMode === 'dark';
+  const isDark = isDarkMode;
+
+  // Color palette derived from dark/light mode
+  const colors = isDark ? {
+    canvasBg: '#0f172a', canvasDot: 'rgba(255,255,255,0.08)',
+    text: '#e2e8f0', textMuted: 'rgba(255,255,255,0.5)', textSecondary: '#94a3b8',
+    surface: '#1e293b', surfaceHover: '#334155', surfaceOverlay: 'rgba(15,23,42,0.95)',
+    nodeBackground: '#1e293b', nodeText: '#e2e8f0',
+    border: '#334155', borderStrong: '#475569', borderSubtle: '#1e293b',
+    shadowStrong: 'rgba(0,0,0,0.4)',
+    primary: '#3b82f6', primarySubtle: 'rgba(59,130,246,0.15)',
+  } : {
+    canvasBg: '#f8fafc', canvasDot: 'rgba(0,0,0,0.08)',
+    text: '#1e293b', textMuted: 'rgba(0,0,0,0.5)', textSecondary: '#64748b',
+    surface: '#ffffff', surfaceHover: '#f1f5f9', surfaceOverlay: 'rgba(255,255,255,0.95)',
+    nodeBackground: '#ffffff', nodeText: '#1e293b',
+    border: '#e2e8f0', borderStrong: '#cbd5e1', borderSubtle: '#f1f5f9',
+    shadowStrong: 'rgba(0,0,0,0.1)',
+    primary: '#3b82f6', primarySubtle: 'rgba(59,130,246,0.1)',
+  };
 
   // Pan state — right-click (2) or middle-click (1)
   const [isPanning, setIsPanning] = useState(false);
@@ -517,6 +536,7 @@ export default function MindMapView({ projectId, nodes: plmNodes, edges: plmEdge
         zoom={mm.viewport.zoom}
         searchTerm={mm.searchTerm}
         mapEntries={mm.mapEntries}
+        colors={colors}
         onSearchChange={mm.setSearchTerm}
         onLayoutChange={mm.setLayout}
         onZoomIn={() => mm.setViewport(v => ({ ...v, zoom: Math.min(2.5, v.zoom+0.1) }))}

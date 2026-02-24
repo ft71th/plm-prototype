@@ -86,6 +86,7 @@ import ChangePasswordModal from './components/modals/ChangePasswordModal';
 import DocumentView from './components/views/DocumentView';
 import { SequenceView } from './components/SequenceView';
 import { DocumentEngine } from './components/DocumentEngine';
+import { MindMapView } from './components/mindmap';
 
 // API Base URL - same as api.js
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -1063,7 +1064,7 @@ const createNewObject = (name, version, description) => {
       />
       
       {/* Left Icon Strip - hidden in freeform drawing mode */}
-      {viewMode !== 'freeform' && viewMode !== 'tasks' && viewMode !== 'gantt' && viewMode !== '3d' && viewMode !== 'sequence' && viewMode !== 'docs' && <LeftIconStrip
+      {viewMode !== 'freeform' && viewMode !== 'tasks' && viewMode !== 'gantt' && viewMode !== '3d' && viewMode !== 'sequence' && viewMode !== 'docs' && viewMode !== 'mindmap' && <LeftIconStrip
         onAddSystem={addSystemNode}
         onAddSubSystem={addSubSystemNode}
         onAddFunction={addFunctionNode}
@@ -1185,6 +1186,14 @@ const createNewObject = (name, version, description) => {
       )}
       {viewMode === 'sequence' && (
         <SequenceView
+          projectId={currentProject?.id || null}
+          nodes={nodes}
+          edges={edges}
+          style={{ marginTop: '50px', height: `${appHeight - 50}px` }}
+        />
+      )}
+      {viewMode === 'mindmap' && (
+        <MindMapView
           projectId={currentProject?.id || null}
           nodes={nodes}
           edges={edges}

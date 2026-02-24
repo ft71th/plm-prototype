@@ -252,7 +252,7 @@ export default function DocumentEngine({ projectId, theme }: Props) {
               {tmpls.map(tmpl => (
                 <div
                   key={tmpl.id}
-                  onClick={() => { setSelectedTemplate(tmpl); setScreen('create'); }}
+                  onClick={() => { setSelectedTemplate(tmpl); setCreateTitle(tmpl.name); setScreen('create'); }}
                   style={{
                     padding: '14px',
                     background: t.bgCard,
