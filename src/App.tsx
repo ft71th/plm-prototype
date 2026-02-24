@@ -116,48 +116,20 @@ function HandleUpdater({ nodeIds, viewMode, onReady }: { nodeIds: string[], view
     };
 
     if (viewChanged) {
-      // Edges are empty during transition (React-level, not CSS).
-      // Use MutationObserver to detect when React finishes DOM updates.
-      // After 200ms of no mutations → nodes are rendered → update handles.
-      const nodesContainer = document.querySelector('.react-flow__nodes');
-      let debounceTimer: any = null;
-      let mo: MutationObserver | null = null;
-      let done = false;
-
-      const finalize = () => {
-        if (done) return;
-        done = true;
-        if (mo) mo.disconnect();
-        if (debounceTimer) clearTimeout(debounceTimer);
-        // Update handle positions, then signal edges can be restored
+      // Edges are empty (React-level) during transition.
+      // React's synchronous render of 84 nodes blocks the main thread.
+      // Any setTimeout will fire AFTER that render completes.
+      // So even a short timeout guarantees nodes have their new dimensions.
+      const t1 = setTimeout(() => {
         updateAll();
-        // Wait one frame for ReactFlow to process the handle updates,
-        // then tell parent to show edges on the NEXT render
+        // Wait one frame for ReactFlow to process handle updates
         requestAnimationFrame(() => {
           if (onReady) onReady();
         });
-      };
-
-      const resetDebounce = () => {
-        if (debounceTimer) clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(finalize, 200);
-      };
-
-      if (nodesContainer) {
-        mo = new MutationObserver(resetDebounce);
-        mo.observe(nodesContainer, {
-          childList: true, subtree: true,
-          attributes: true, characterData: true
-        });
-      }
-
-      // Start debounce — if no mutations at all, fires after 200ms
-      resetDebounce();
-
-      return () => {
-        if (mo) mo.disconnect();
-        if (debounceTimer) clearTimeout(debounceTimer);
-      };
+      }, 50);
+      // Safety: second pass for late-loading content (images, etc.)
+      const t2 = setTimeout(updateAll, 500);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
     } else {
       // Node count change (project load): staggered updates
       const t1 = setTimeout(() => { updateAll(); if (onReady) onReady(); }, 200);
