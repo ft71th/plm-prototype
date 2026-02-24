@@ -104,12 +104,15 @@ function HandleUpdater({ nodeIds, viewMode, onReady }: { nodeIds: string[], view
     if (nodeIds.length === 0) return;
     const countChanged = nodeIds.length !== prevCountRef.current;
     const viewChanged = viewMode !== prevViewRef.current;
-    prevCountRef.current = nodeIds.length;
-    prevViewRef.current = viewMode;
 
     if (!countChanged && !viewChanged) return;
 
+    // Refs updated INSIDE updateAll, not here. Critical for StrictMode:
+    //   Run 1: starts timeout → cleanup clears it (refs still stale)
+    //   Run 2: still sees change → starts NEW timeout (this one fires)
     const updateAll = () => {
+      prevCountRef.current = nodeIds.length;
+      prevViewRef.current = viewMode;
       nodeIds.forEach(id => {
         try { updateNodeInternals(id); } catch(e) {}
       });
