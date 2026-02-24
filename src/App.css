@@ -37,6 +37,12 @@
   }
 }
 
+
+/* Hide edges during view mode transition (prevents stale edge positions) */
+.react-flow[data-transitioning] .react-flow__edges {
+  visibility: hidden;
+}
+
 /* Node Resizer Styles */
 .react-flow__resize-control {
   background: #3498db !important;

@@ -197,4 +197,4 @@ function CustomEdge({
   );
 }
 
-export default CustomEdge;
+export default React.memo(CustomEdge);

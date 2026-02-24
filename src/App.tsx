@@ -95,27 +95,23 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
  * handle positions after nodes are loaded. Without this, handles are at (0,0) 
  * until a manual resize triggers ResizeObserver.
  */
-function HandleUpdater({ nodeIds, onReady }: { nodeIds: string[], onReady?: () => void }) {
+function HandleUpdater({ nodeIds }: { nodeIds: string[] }) {
   const updateNodeInternals = useUpdateNodeInternals();
   const prevCountRef = React.useRef(0);
 
   React.useEffect(() => {
     if (nodeIds.length === 0) return;
-    const countChanged = nodeIds.length !== prevCountRef.current;
-    if (!countChanged) return;
+    if (nodeIds.length === prevCountRef.current) return;
 
-    const updateAll = () => {
+    // Single batched call instead of 84 individual calls.
+    // ReactFlow v11.8+ accepts an array of IDs.
+    const t1 = setTimeout(() => {
       prevCountRef.current = nodeIds.length;
-      nodeIds.forEach(id => {
-        try { updateNodeInternals(id); } catch(e) {}
-      });
-    };
-
-    // Node count change (initial load, add/remove nodes): staggered updates
-    const t1 = setTimeout(() => { updateAll(); if (onReady) onReady(); }, 200);
-    const t2 = setTimeout(updateAll, 800);
+      updateNodeInternals(nodeIds);
+    }, 200);
+    const t2 = setTimeout(() => updateNodeInternals(nodeIds), 800);
     return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [nodeIds, updateNodeInternals, onReady]);
+  }, [nodeIds, updateNodeInternals]);
 
   return null;
 }
@@ -673,26 +669,6 @@ export default function App(): React.ReactElement {
     fetchLibraryItems, saveNodeToLibrary, addLibraryItemToCanvas,
   } = useLibrary({ nodeId, setNodeId, setNodes });
 
-  // Wrap setViewMode to hide edges SYNCHRONOUSLY before React re-renders.
-  // This prevents edges from flashing at wrong positions during the render cycle.
-  // State-based edge hiding: edges are removed from React tree during transition.
-  // This guarantees they never render with wrong handle positions.
-  const [edgesVisible, setEdgesVisible] = useState(true);
-
-  const edgeTimerRef = useRef<any>(null);
-
-  const handleViewModeChange = useCallback((newMode: string) => {
-    setEdgesVisible(false);
-    setViewMode(newMode);
-    if (edgeTimerRef.current) clearTimeout(edgeTimerRef.current);
-    edgeTimerRef.current = setTimeout(() => setEdgesVisible(true), 300);
-  }, [setViewMode]);
-
-  const handleEdgesReady = useCallback(() => {
-    setEdgesVisible(true);
-  }, []);
-
-
   // ── Stable node callbacks (avoid new refs per node per render) ──
   const handleDeleteNode = useCallback((nodeId: string) => {
     setNodes((nds) => nds.filter((n) => n.id !== nodeId));
@@ -721,6 +697,9 @@ export default function App(): React.ReactElement {
     }
   }, [edges, setSelectedEdge, setEdgePanelPosition]);
 
+  // Canvas views keep ReactFlow mounted; non-canvas views hide it via CSS.
+  const isCanvasView = viewMode === 'plm' || viewMode === 'whiteboard' || viewMode === 'simple';
+
   // Stable nodeIds — prevents HandleUpdater effect from re-running on every render.
   // IDs only change when nodes are added/removed, not during view switch re-renders.
   const nodeIdStr = nodes.map(n => n.id).join(',');
@@ -728,7 +707,6 @@ export default function App(): React.ReactElement {
 
     // ── Memoized edges (prevents 74 new objects per render) ──
   const processedEdges = useMemo(() => {
-    if (!edgesVisible) return [];
     const isWb = viewMode === 'whiteboard';
     return edges.map(e => ({
       ...e,
@@ -740,7 +718,7 @@ export default function App(): React.ReactElement {
         onEdgeDoubleClick: handleEdgeDoubleClickCb,
       }
     }));
-  }, [edges, edgesVisible, showRelationshipLabels, viewMode, handleEdgeLabelChange, handleEdgeDoubleClickCb]);
+  }, [edges, showRelationshipLabels, viewMode, handleEdgeLabelChange, handleEdgeDoubleClickCb]);
 
   const processedNodes = useMemo(() => {
     return nodes.map((node) => {
@@ -1062,7 +1040,12 @@ const createNewObject = (name, version, description) => {
           if (filterType === 'classification') setClassificationFilter(value);
         }}
         viewMode={viewMode}
-        onViewModeChange={handleViewModeChange}
+        onViewModeChange={(newMode: string) => {
+          const el = document.querySelector('.react-flow');
+          if (el) el.setAttribute('data-transitioning', 'true');
+          setViewMode(newMode);
+          setTimeout(() => { if (el) el.removeAttribute('data-transitioning'); }, 350);
+        }}
         whiteboards={whiteboards}
         activeWhiteboardId={activeWhiteboardId}
         showWhiteboardDropdown={showWhiteboardDropdown}
@@ -1122,7 +1105,7 @@ const createNewObject = (name, version, description) => {
         />
       
       {/* Show Document View, Tasks Board, Freeform Whiteboard, OR PLM Canvas */}
-      {viewMode === 'document' ? (
+      {viewMode === 'document' && (
       <DocumentViewEnhanced 
         nodes={nodes} 
         edges={edges} 
@@ -1165,7 +1148,8 @@ const createNewObject = (name, version, description) => {
         healthIssues={linkHealthIssues}
         user={user?.name || 'unknown'}
       />
-      ) : viewMode === 'tasks' ? (
+      )}
+      {viewMode === 'tasks' && (
         <TaskProvider projectId={currentProject?.id || 'default'} currentUser={user?.name || 'user'} isDarkMode={isDarkMode}>
           <div style={{ 
             marginTop: '50px', 
@@ -1178,7 +1162,8 @@ const createNewObject = (name, version, description) => {
             />
           </div>
         </TaskProvider>
-      ) : viewMode === 'gantt' ? (
+      )}
+      {viewMode === 'gantt' && (
         <TaskProvider projectId={currentProject?.id || 'default'} currentUser={user?.name || 'user'} isDarkMode={isDarkMode}>
           <div style={{ 
             marginTop: '50px', 
@@ -1188,7 +1173,8 @@ const createNewObject = (name, version, description) => {
             <GanttView />
           </div>
         </TaskProvider>
-      ) : viewMode === '3d' ? (
+      )}
+      {viewMode === '3d' && (
         <TraceabilityView3D 
           projectId={currentProject?.id || null}
           nodes={nodes}
@@ -1196,24 +1182,29 @@ const createNewObject = (name, version, description) => {
           requirementLinks={requirementLinks}
           style={{ marginTop: '50px', height: `${appHeight - 50}px` }} 
         />
-      ) : viewMode === 'sequence' ? (
+      )}
+      {viewMode === 'sequence' && (
         <SequenceView
           projectId={currentProject?.id || null}
           nodes={nodes}
           edges={edges}
           style={{ marginTop: '50px', height: `${appHeight - 50}px` }}
         />
-      ) : viewMode === 'docs' ? (
+      )}
+      {viewMode === 'docs' && (
         <div style={{ marginTop: '50px', height: `${appHeight - 50}px`, overflow: 'hidden' }}>
           <DocumentEngine
             projectId={currentProject?.id || null}
             theme={theme}
           />
         </div>
-      ) : viewMode === 'freeform' ? (
+      )}
+      {viewMode === 'freeform' && (
         <Whiteboard style={{ marginTop: '50px', height: `${appHeight - 50}px` }} projectId={currentProject?.id || null} />
-      ) : (
-      
+      )}
+
+      {/* ReactFlow canvas — always mounted, hidden via CSS when non-canvas view active */}
+      <div style={{ display: isCanvasView ? undefined : 'none', width: '100%', height: '100%' }}>
       <ReactFlow
         nodes={processedNodes}
         edges={processedEdges}
@@ -1302,7 +1293,7 @@ const createNewObject = (name, version, description) => {
         }}
       >
         <Controls style={{ bottom: 20, left: 70 }} />
-        <HandleUpdater nodeIds={memoNodeIds} onReady={handleEdgesReady} />
+        <HandleUpdater nodeIds={memoNodeIds} />
         <MiniMap 
           style={{ 
             position: 'absolute',
@@ -1361,7 +1352,7 @@ const createNewObject = (name, version, description) => {
           </defs>
         </svg>
       </ReactFlow>
-      )}
+      </div>
 
       {/* Floating Panel for Text Annotations */}
       {selectedNode && selectedNode.data?.itemType === 'textAnnotation' && (

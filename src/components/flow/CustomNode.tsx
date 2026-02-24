@@ -1,6 +1,6 @@
 import type { PLMNode, PLMEdge, NodeData, Issue, IssueMap, HardwareType, Port } from '../../types';
 import React, { useState, useEffect, useRef } from 'react';
-import { Handle, Position, useUpdateNodeInternals } from 'reactflow';
+import { Handle, Position } from 'reactflow';
 import { NodeResizer } from '@reactflow/node-resizer';
 
 // Extra handles for 4-side connectivity (top/bottom + reverse left/right)
@@ -45,38 +45,31 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
   const [label, setLabel] = useState(data.label);
   const isHighlighted = data.isHighlighted;
   const wbContainerRef = useRef<HTMLDivElement>(null);
-  const updateNodeInternals = useUpdateNodeInternals();
 
-  // Force ReactFlow to recalculate handle positions after the node renders.
-  // This is critical for whiteboard/simple mode where nodes have dynamic sizes
-  // (content-based width, minHeight, etc.) that aren't known at first render.
-  // Without this, ReactFlow caches stale handle positions from initial measurement.
-  useEffect(() => {
-    const timer = requestAnimationFrame(() => {
-      updateNodeInternals(id);
-    });
-    return () => cancelAnimationFrame(timer);
-  }, [id, updateNodeInternals, data.label, data.nodeWidth, data.nodeHeight]);
+  // Handle position updates are done centrally by HandleUpdater.
+  // Removed per-node updateNodeInternals to prevent 84 individual re-renders.
 
   // Auto-heal: if the rendered node is larger than stored dimensions,
-  // update React Flow so edges connect to the correct positions
+  // update React Flow so edges connect to the correct positions.
+  // Debounced to avoid cascade during view mode transitions.
   useEffect(() => {
     if (!data.isWhiteboardMode || !wbContainerRef.current || !data.onChange) return;
-    const timer = requestAnimationFrame(() => {
-      const el = wbContainerRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const zoom = rect.width > 0 && el.offsetWidth > 0 ? rect.width / el.offsetWidth : 1;
-      const actualW = el.offsetWidth;
-      const actualH = el.offsetHeight;
-      const storedW = data.nodeWidth || 0;
-      const storedH = data.nodeHeight || 0;
-      if (actualW > storedW + 5 || actualH > storedH + 5) {
-        data.onChange(id, 'nodeWidth', actualW);
-        data.onChange(id, 'nodeHeight', actualH);
-      }
-    });
-    return () => cancelAnimationFrame(timer);
+    // Wait for layout to stabilize after view switch before measuring
+    const timer = setTimeout(() => {
+      requestAnimationFrame(() => {
+        const el = wbContainerRef.current;
+        if (!el) return;
+        const actualW = el.offsetWidth;
+        const actualH = el.offsetHeight;
+        const storedW = data.nodeWidth || 0;
+        const storedH = data.nodeHeight || 0;
+        if (actualW > storedW + 5 || actualH > storedH + 5) {
+          data.onChange(id, 'nodeWidth', actualW);
+          data.onChange(id, 'nodeHeight', actualH);
+        }
+      });
+    }, 500);
+    return () => clearTimeout(timer);
   }, [data.isWhiteboardMode]);
 
   const getBorderColor = () => {
@@ -1556,4 +1549,4 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
   );
 }
 
-export default CustomNode;
+export default React.memo(CustomNode);
