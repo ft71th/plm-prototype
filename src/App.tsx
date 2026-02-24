@@ -678,19 +678,6 @@ export default function App(): React.ReactElement {
     fetchLibraryItems, saveNodeToLibrary, addLibraryItemToCanvas,
   } = useLibrary({ nodeId, setNodeId, setNodes });
 
-  // Strip saved dimensions on view switch so ReactFlow measures fresh
-  const prevViewForDims = React.useRef(viewMode);
-  React.useEffect(() => {
-    if (prevViewForDims.current !== viewMode) {
-      prevViewForDims.current = viewMode;
-      setNodes(nds => nds.map(n => ({
-        ...n,
-        width: undefined,
-        height: undefined,
-      })));
-    }
-  }, [viewMode, setNodes]);
-
   const processedNodes = useMemo(() => {
     return nodes.map((node) => {
       const searchLower = searchText.toLowerCase();
