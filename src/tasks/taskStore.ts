@@ -217,8 +217,28 @@ export function discoverProjectIds(): string[] {
 // Board CRUD
 // ---------------------------------------------------------------------------
 
+// Repair corrupted emoji icons (UTF-8 → Latin-1 encoding issue)
+const ICON_BY_NAME: Record<string, string> = {};
+DEFAULT_CATEGORIES.forEach(c => { ICON_BY_NAME[c.name] = c.icon; });
+
+function repairCategoryIcons(boards: TaskBoard[]): TaskBoard[] {
+  let repaired = false;
+  for (const board of boards) {
+    for (const cat of (board.categories || [])) {
+      const correct = ICON_BY_NAME[cat.name];
+      if (correct && cat.icon !== correct) {
+        cat.icon = correct;
+        repaired = true;
+      }
+    }
+  }
+  return boards;
+}
+
 export function getBoards(projectId: string): TaskBoard[] {
-  return boardsCache.get(projectId) || [];
+  const boards = boardsCache.get(projectId) || [];
+  const fixed = repairCategoryIcons(boards);
+  return fixed;
 }
 
 export function saveBoards(projectId: string, boards: TaskBoard[]): void {

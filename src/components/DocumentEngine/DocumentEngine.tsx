@@ -2,11 +2,14 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useDocuments, type DocTemplate, type Document } from './useDocuments';
 import { renderSection } from './SectionRenderers';
+import { exportPDF, exportDOCX } from './exportDocument';
 import type { NorthlightTheme } from '../../theme';
 
 interface Props {
   projectId: string | null;
   theme: NorthlightTheme;
+  nodes?: any[];
+  edges?: any[];
 }
 
 type Screen = 'list' | 'templates' | 'editor' | 'create';
@@ -28,7 +31,7 @@ const STATUS_STYLES: Record<string, { bg: string; color: string; label: string }
   released: { bg: '#8b5cf6', color: '#fff', label: 'Released' },
 };
 
-export default function DocumentEngine({ projectId, theme }: Props) {
+export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [], edges: plmEdges = [] }: Props) {
   const t = theme;
   const {
     templates, documents, activeDoc,
@@ -475,6 +478,34 @@ export default function DocumentEngine({ projectId, theme }: Props) {
             )}
 
             <button
+              onClick={() => exportPDF(activeDoc, sections, metaFields, plmNodes, plmEdges)}
+              style={{
+                width: '100%', padding: '6px',
+                background: '#ef4444', color: '#fff',
+                border: 'none', borderRadius: '4px',
+                cursor: 'pointer', fontSize: '11px', marginBottom: '6px',
+                fontWeight: 600,
+              }}
+            >
+              📄 Export PDF
+            </button>
+
+            <button
+              onClick={() => exportDOCX(activeDoc, sections, metaFields, plmNodes, plmEdges)}
+              style={{
+                width: '100%', padding: '6px',
+                background: '#2563eb', color: '#fff',
+                border: 'none', borderRadius: '4px',
+                cursor: 'pointer', fontSize: '11px', marginBottom: '6px',
+                fontWeight: 600,
+              }}
+            >
+              📝 Export Word
+            </button>
+
+            <div style={{ borderTop: `1px solid ${t.border}`, margin: '8px 0' }} />
+
+            <button
               onClick={() => {
                 const changes = prompt('Version changes:');
                 if (changes !== null) createNewVersion(activeDoc.id, changes);
@@ -606,7 +637,9 @@ export default function DocumentEngine({ projectId, theme }: Props) {
                   activeDoc.section_data?.[sec.id],
                   handleSectionChange,
                   isReadOnly,
-                  t
+                  t,
+                  plmNodes,
+                  plmEdges
                 )}
               </div>
             ))}

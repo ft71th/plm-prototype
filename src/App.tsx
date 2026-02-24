@@ -698,9 +698,6 @@ export default function App(): React.ReactElement {
     }
   }, [edges, setSelectedEdge, setEdgePanelPosition]);
 
-  // Canvas views keep ReactFlow mounted; non-canvas views hide it via CSS.
-  const isCanvasView = viewMode === 'plm' || viewMode === 'whiteboard' || viewMode === 'simple';
-
   // Stable nodeIds — prevents HandleUpdater effect from re-running on every render.
   // IDs only change when nodes are added/removed, not during view switch re-renders.
   const nodeIdStr = nodes.map(n => n.id).join(',');
@@ -1045,7 +1042,7 @@ const createNewObject = (name, version, description) => {
           const el = document.querySelector('.react-flow');
           if (el) el.setAttribute('data-transitioning', 'true');
           setViewMode(newMode);
-          setTimeout(() => { if (el) el.removeAttribute('data-transitioning'); }, 350);
+          setTimeout(() => { if (el) el.removeAttribute('data-transitioning'); }, 400);
         }}
         whiteboards={whiteboards}
         activeWhiteboardId={activeWhiteboardId}
@@ -1106,7 +1103,7 @@ const createNewObject = (name, version, description) => {
         />
       
       {/* Show Document View, Tasks Board, Freeform Whiteboard, OR PLM Canvas */}
-      {viewMode === 'document' && (
+      {viewMode === 'document' ? (
       <DocumentViewEnhanced 
         nodes={nodes} 
         edges={edges} 
@@ -1149,8 +1146,7 @@ const createNewObject = (name, version, description) => {
         healthIssues={linkHealthIssues}
         user={user?.name || 'unknown'}
       />
-      )}
-      {viewMode === 'tasks' && (
+      ) : viewMode === 'tasks' ? (
         <TaskProvider projectId={currentProject?.id || 'default'} currentUser={user?.name || 'user'} isDarkMode={isDarkMode}>
           <div style={{ 
             marginTop: '50px', 
@@ -1163,8 +1159,7 @@ const createNewObject = (name, version, description) => {
             />
           </div>
         </TaskProvider>
-      )}
-      {viewMode === 'gantt' && (
+      ) : viewMode === 'gantt' ? (
         <TaskProvider projectId={currentProject?.id || 'default'} currentUser={user?.name || 'user'} isDarkMode={isDarkMode}>
           <div style={{ 
             marginTop: '50px', 
@@ -1174,8 +1169,7 @@ const createNewObject = (name, version, description) => {
             <GanttView />
           </div>
         </TaskProvider>
-      )}
-      {viewMode === '3d' && (
+      ) : viewMode === '3d' ? (
         <TraceabilityView3D 
           projectId={currentProject?.id || null}
           nodes={nodes}
@@ -1183,37 +1177,33 @@ const createNewObject = (name, version, description) => {
           requirementLinks={requirementLinks}
           style={{ marginTop: '50px', height: `${appHeight - 50}px` }} 
         />
-      )}
-      {viewMode === 'sequence' && (
+      ) : viewMode === 'sequence' ? (
         <SequenceView
           projectId={currentProject?.id || null}
           nodes={nodes}
           edges={edges}
           style={{ marginTop: '50px', height: `${appHeight - 50}px` }}
         />
-      )}
-      {viewMode === 'mindmap' && (
+      ) : viewMode === 'docs' ? (
+        <div style={{ marginTop: '50px', height: `${appHeight - 50}px`, overflow: 'hidden' }}>
+          <DocumentEngine
+            projectId={currentProject?.id || null}
+            theme={theme}
+            nodes={processedNodes}
+            edges={processedEdges}
+          />
+        </div>
+      ) : viewMode === 'mindmap' ? (
         <MindMapView
           projectId={currentProject?.id || null}
           nodes={nodes}
           edges={edges}
           style={{ marginTop: '50px', height: `${appHeight - 50}px` }}
         />
-      )}
-      {viewMode === 'docs' && (
-        <div style={{ marginTop: '50px', height: `${appHeight - 50}px`, overflow: 'hidden' }}>
-          <DocumentEngine
-            projectId={currentProject?.id || null}
-            theme={theme}
-          />
-        </div>
-      )}
-      {viewMode === 'freeform' && (
+      ) : viewMode === 'freeform' ? (
         <Whiteboard style={{ marginTop: '50px', height: `${appHeight - 50}px` }} projectId={currentProject?.id || null} />
-      )}
-
-      {/* ReactFlow canvas — always mounted, hidden via CSS when non-canvas view active */}
-      <div style={{ display: isCanvasView ? undefined : 'none', width: '100%', height: '100%' }}>
+      ) : (
+      
       <ReactFlow
         nodes={processedNodes}
         edges={processedEdges}
@@ -1361,7 +1351,7 @@ const createNewObject = (name, version, description) => {
           </defs>
         </svg>
       </ReactFlow>
-      </div>
+      )}
 
       {/* Floating Panel for Text Annotations */}
       {selectedNode && selectedNode.data?.itemType === 'textAnnotation' && (

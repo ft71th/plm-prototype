@@ -586,6 +586,377 @@ export function ReferenceListSection({ section, data, onChange, readOnly, theme:
 }
 
 // ═══════════════════════════════════════════════════════════
+// DYNAMIC REQUIREMENTS TABLE — auto-populated from PLM nodes
+// ═══════════════════════════════════════════════════════════
+
+// All node types that can appear in PLM canvas
+const ALL_NODE_TYPES = ['requirement', 'system', 'subsystem', 'function', 'testcase', 'testrun', 'testresult', 'parameter', 'hardware', 'usecase', 'actor'] as const;
+const REQ_TYPES = ['customer', 'platform', 'project', 'implementation'] as const;
+const CLASSIFICATIONS = ['need', 'capability', 'requirement'] as const;
+
+const TYPE_LABELS: Record<string, { label: string; icon: string; color: string }> = {
+  customer:       { label: 'Customer',       icon: '👤', color: '#9b59b6' },
+  platform:       { label: 'Platform',       icon: '🏗️', color: '#2c3e50' },
+  project:        { label: 'Project',        icon: '📁', color: '#e67e22' },
+  implementation: { label: 'Implementation', icon: '⚙️', color: '#f1c40f' },
+  need:           { label: 'Need',           icon: '🎯', color: '#e74c3c' },
+  capability:     { label: 'Capability',     icon: '⚙️', color: '#3498db' },
+  requirement:    { label: 'Requirement',    icon: '📋', color: '#8e44ad' },
+  system:         { label: 'System',         icon: '🖥️', color: '#1abc9c' },
+  subsystem:      { label: 'Sub-system',     icon: '📦', color: '#3498db' },
+  function:       { label: 'Function',       icon: '⚡', color: '#00bcd4' },
+  testcase:       { label: 'Test Case',      icon: '🧪', color: '#27ae60' },
+  hardware:       { label: 'Hardware',       icon: '🔧', color: '#795548' },
+  parameter:      { label: 'Parameter',      icon: '📊', color: '#607d8b' },
+};
+
+// Resolve which node types this section should include
+function resolveNodeFilter(sectionFilter: Record<string, any> | undefined) {
+  if (!sectionFilter) return { reqTypes: null, classifications: null, nodeTypes: null, priorities: null };
+  return {
+    reqTypes:        sectionFilter.reqTypes || null,        // e.g. ['customer']
+    classifications: sectionFilter.classifications || null, // e.g. ['need', 'capability']
+    nodeTypes:       sectionFilter.nodeTypes || null,       // e.g. ['requirement', 'system']
+    priorities:      sectionFilter.priorities || null,      // e.g. ['high', 'medium']
+  };
+}
+
+function DynamicRequirementsTable({ section, data, onChange, theme: t, nodes = [], edges = [] }: SectionProps & { nodes?: any[], edges?: any[] }) {
+  // Template-defined defaults
+  const defaults = resolveNodeFilter(section.filter);
+
+  // UI state — initialized from template defaults, user can override
+  const [activeReqTypes, setActiveReqTypes] = useState<Set<string>>(
+    new Set(defaults.reqTypes || REQ_TYPES)
+  );
+  const [activeClassifications, setActiveClassifications] = useState<Set<string>>(
+    new Set(defaults.classifications || CLASSIFICATIONS)
+  );
+  const [includeNonReq, setIncludeNonReq] = useState<boolean>(
+    defaults.nodeTypes ? defaults.nodeTypes.some((t: string) => !['requirement'].includes(t)) : false
+  );
+  const [sortBy, setSortBy] = useState<string>('reqId');
+  const [showFilters, setShowFilters] = useState<boolean>(false);
+
+  // All requirement-type nodes from PLM
+  const allReqNodes = (nodes || []).filter(n => {
+    const d = n.data || {};
+    const itemType = d.itemType || d.type || '';
+    const reqType = d.reqType || '';
+    const classification = d.classification || '';
+
+    // Is it a requirement node?
+    if (itemType === 'requirement' || d.reqId) return true;
+    if (['customer', 'platform', 'project', 'implementation'].includes(reqType)) return true;
+    if (['need', 'capability', 'requirement'].includes(classification)) return true;
+
+    // Include non-requirement node types if toggled
+    if (includeNonReq && ['system', 'subsystem', 'function', 'hardware', 'parameter'].includes(itemType)) return true;
+
+    return false;
+  });
+
+  // Apply active filters
+  const filtered = allReqNodes.filter(n => {
+    const d = n.data || {};
+    const reqType = d.reqType || '';
+    const classification = d.classification || 'requirement';
+    const itemType = d.itemType || d.type || '';
+
+    // Requirement nodes: filter by reqType and classification
+    if (itemType === 'requirement' || d.reqId || ['customer', 'platform', 'project', 'implementation'].includes(reqType)) {
+      if (reqType && !activeReqTypes.has(reqType)) return false;
+      if (classification && !activeClassifications.has(classification)) return false;
+      return true;
+    }
+
+    // Non-requirement nodes pass through if includeNonReq is on
+    return includeNonReq;
+  });
+
+  // Sort
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortBy === 'reqId') return (a.data?.reqId || '').localeCompare(b.data?.reqId || '');
+    if (sortBy === 'priority') {
+      const p: Record<string, number> = { high: 0, medium: 1, low: 2 };
+      return (p[a.data?.priority] ?? 9) - (p[b.data?.priority] ?? 9);
+    }
+    if (sortBy === 'label') return (a.data?.label || '').localeCompare(b.data?.label || '');
+    if (sortBy === 'reqType') return (a.data?.reqType || '').localeCompare(b.data?.reqType || '');
+    return 0;
+  });
+
+  // Get unique reqTypes and classifications present in data
+  const presentReqTypes = [...new Set(allReqNodes.map(n => n.data?.reqType).filter(Boolean))] as string[];
+  const presentClassifications = [...new Set(allReqNodes.map(n => n.data?.classification).filter(Boolean))] as string[];
+
+  // Find connected nodes (traceability)
+  const getConnected = (nodeId: string, direction: 'source' | 'target') => {
+    return (edges || [])
+      .filter(e => direction === 'source' ? e.source === nodeId : e.target === nodeId)
+      .map(e => {
+        const connId = direction === 'source' ? e.target : e.source;
+        const connNode = (nodes || []).find(n => n.id === connId);
+        return connNode?.data?.label || connId;
+      });
+  };
+
+  // Toggle helpers
+  const toggleSet = (set: Set<string>, val: string, setter: (s: Set<string>) => void) => {
+    const next = new Set(set);
+    if (next.has(val)) next.delete(val); else next.add(val);
+    setter(next);
+  };
+
+  const priorityBadge = (p: string) => {
+    const styles: Record<string, { bg: string; color: string; label: string }> = {
+      high: { bg: '#fee2e2', color: '#dc2626', label: 'High' },
+      medium: { bg: '#fef3c7', color: '#d97706', label: 'Medium' },
+      low: { bg: '#dcfce7', color: '#16a34a', label: 'Low' },
+    };
+    const s = styles[p] || { bg: '#f1f5f9', color: '#64748b', label: p || '—' };
+    return (
+      <span style={{ background: s.bg, color: s.color, padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600 }}>
+        {s.label}
+      </span>
+    );
+  };
+
+  const stateBadge = (state: string) => {
+    const styles: Record<string, { bg: string; color: string }> = {
+      frozen: { bg: '#dbeafe', color: '#2563eb' },
+      released: { bg: '#dcfce7', color: '#16a34a' },
+      draft: { bg: '#f1f5f9', color: '#64748b' },
+    };
+    const s = styles[state] || styles.draft;
+    return (
+      <span style={{ background: s.bg, color: s.color, padding: '2px 8px', borderRadius: '4px', fontSize: '11px' }}>
+        {state || 'draft'}
+      </span>
+    );
+  };
+
+  // Filter pill component
+  const FilterPill = ({ value, active, onClick, color }: { value: string; active: boolean; onClick: () => void; color?: string }) => {
+    const info = TYPE_LABELS[value] || { label: value, icon: '📄', color: '#64748b' };
+    return (
+      <button onClick={onClick} style={{
+        display: 'inline-flex', alignItems: 'center', gap: '4px',
+        padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 500,
+        cursor: 'pointer', transition: 'all 0.15s',
+        background: active ? `${color || info.color}20` : 'transparent',
+        border: `1px solid ${active ? (color || info.color) : t.border}`,
+        color: active ? (color || info.color) : t.textSecondary,
+        opacity: active ? 1 : 0.6,
+      }}>
+        <span style={{ fontSize: '12px' }}>{info.icon}</span>
+        {info.label}
+        {active && <span style={{ marginLeft: '2px' }}>✓</span>}
+      </button>
+    );
+  };
+
+  if (allReqNodes.length === 0) {
+    return (
+      <div style={{
+        padding: '32px', textAlign: 'center',
+        background: `${t.accent}08`, border: `2px dashed ${t.border}`, borderRadius: '8px',
+      }}>
+        <div style={{ fontSize: '28px', marginBottom: '8px' }}>📋</div>
+        <div style={{ fontSize: '14px', color: t.textSecondary, marginBottom: '4px' }}>
+          No requirements found in PLM canvas
+        </div>
+        <div style={{ fontSize: '12px', color: t.textSecondary, opacity: 0.7 }}>
+          Add requirement nodes in the PLM or Simple view to auto-populate this table
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Toolbar */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', flexWrap: 'wrap',
+      }}>
+        <div style={{ fontSize: '12px', color: t.textSecondary, fontWeight: 600 }}>
+          {sorted.length} of {allReqNodes.length} requirement{allReqNodes.length !== 1 ? 's' : ''}
+        </div>
+
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '4px',
+            background: showFilters ? `${t.accent}15` : 'transparent',
+            border: `1px solid ${showFilters ? t.accent : t.border}`,
+            borderRadius: '4px', padding: '4px 10px', fontSize: '11px',
+            color: showFilters ? t.accent : t.textSecondary, cursor: 'pointer',
+          }}
+        >
+          🔽 Filters {filtered.length < allReqNodes.length && `(${allReqNodes.length - filtered.length} hidden)`}
+        </button>
+
+        {/* Template default indicator */}
+        {section.filter && (
+          <span style={{ fontSize: '10px', color: t.textSecondary, opacity: 0.6, fontStyle: 'italic' }}>
+            Template default: {section.filter.reqTypes?.join(', ') || section.filter.classifications?.join(', ') || 'all'}
+          </span>
+        )}
+
+        <div style={{ flex: 1 }} />
+
+        <select
+          value={sortBy}
+          onChange={e => setSortBy(e.target.value)}
+          style={{
+            background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px',
+            color: t.textPrimary, padding: '4px 8px', fontSize: '12px',
+          }}
+        >
+          <option value="reqId">Sort by ID</option>
+          <option value="reqType">Sort by Type</option>
+          <option value="priority">Sort by Priority</option>
+          <option value="label">Sort by Name</option>
+        </select>
+      </div>
+
+      {/* Filter panel */}
+      {showFilters && (
+        <div style={{
+          background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '8px',
+          padding: '12px 16px', marginBottom: '12px',
+          display: 'flex', flexDirection: 'column', gap: '10px',
+        }}>
+          {/* Requirement types */}
+          {presentReqTypes.length > 0 && (
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: t.textSecondary, marginBottom: '6px' }}>
+                Requirement Type
+              </div>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {presentReqTypes.map(rt => (
+                  <FilterPill
+                    key={rt} value={rt}
+                    active={activeReqTypes.has(rt)}
+                    onClick={() => toggleSet(activeReqTypes, rt, setActiveReqTypes)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Classification */}
+          {presentClassifications.length > 0 && (
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: t.textSecondary, marginBottom: '6px' }}>
+                Classification
+              </div>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {presentClassifications.map(cl => (
+                  <FilterPill
+                    key={cl} value={cl}
+                    active={activeClassifications.has(cl)}
+                    onClick={() => toggleSet(activeClassifications, cl, setActiveClassifications)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Include non-requirement nodes */}
+          <div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: t.textSecondary, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={includeNonReq}
+                onChange={e => setIncludeNonReq(e.target.checked)}
+                style={{ accentColor: t.accent }}
+              />
+              Include system, subsystem, function, hardware & parameter nodes
+            </label>
+          </div>
+        </div>
+      )}
+
+      {/* Table */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+        <thead>
+          <tr style={{ background: `${t.accent}15` }}>
+            {['ID', 'Requirement', 'Type', 'Priority', 'Status', 'Version', 'Traces To'].map(h => (
+              <th key={h} style={{
+                padding: '8px 10px', textAlign: 'left', fontWeight: 600,
+                color: t.textPrimary, borderBottom: `2px solid ${t.border}`, fontSize: '11px',
+                whiteSpace: 'nowrap',
+              }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((node, idx) => {
+            const d = node.data || {};
+            const tracesTo = getConnected(node.id, 'source');
+            const reqType = d.reqType || '';
+            const typeInfo = TYPE_LABELS[reqType] || TYPE_LABELS[d.classification] || TYPE_LABELS[d.itemType] || { label: d.classification || d.itemType || 'requirement', icon: '📋', color: '#8e44ad' };
+            return (
+              <tr key={node.id} style={{
+                background: idx % 2 === 0 ? 'transparent' : `${t.accent}05`,
+                borderBottom: `1px solid ${t.border}`,
+              }}>
+                <td style={{ padding: '8px 10px', fontFamily: 'monospace', fontWeight: 600, color: '#3b82f6', whiteSpace: 'nowrap' }}>
+                  {d.reqId || node.id.slice(0, 8)}
+                </td>
+                <td style={{ padding: '8px 10px', color: t.textPrimary, maxWidth: '300px' }}>
+                  <div style={{ fontWeight: 500 }}>{d.label}</div>
+                  {d.description && (
+                    <div style={{ fontSize: '11px', color: t.textSecondary, marginTop: '2px' }}>
+                      {d.description}
+                    </div>
+                  )}
+                </td>
+                <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '4px',
+                    background: `${typeInfo.color}18`, color: typeInfo.color,
+                    padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 500,
+                  }}>
+                    {typeInfo.icon} {typeInfo.label}
+                  </span>
+                </td>
+                <td style={{ padding: '8px 10px' }}>
+                  {priorityBadge(d.priority)}
+                </td>
+                <td style={{ padding: '8px 10px' }}>
+                  {stateBadge(d.state)}
+                </td>
+                <td style={{ padding: '8px 10px', fontFamily: 'monospace', fontSize: '11px', color: t.textSecondary }}>
+                  {d.version ? `v${d.version}` : '—'}
+                </td>
+                <td style={{ padding: '8px 10px', fontSize: '11px', color: t.textSecondary, maxWidth: '200px' }}>
+                  {tracesTo.length > 0
+                    ? tracesTo.map((name, i) => (
+                        <span key={i} style={{
+                          background: `${t.accent}15`, padding: '1px 6px', borderRadius: '3px',
+                          marginRight: '4px', display: 'inline-block', marginBottom: '2px',
+                        }}>{name}</span>
+                      ))
+                    : <span style={{ opacity: 0.5 }}>—</span>
+                  }
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      <div style={{ marginTop: '8px', fontSize: '10px', color: t.textSecondary, opacity: 0.6, fontStyle: 'italic' }}>
+        Auto-populated from PLM canvas · {new Date().toLocaleDateString()}
+      </div>
+    </div>
+  );
+
+}
+
+// ═══════════════════════════════════════════════════════════
 // PLACEHOLDER for PLM-linked sections
 // ═══════════════════════════════════════════════════════════
 export function PlaceholderSection({ section, theme: t }: { section: SectionDef, theme: any }) {
@@ -619,7 +990,7 @@ export function PlaceholderSection({ section, theme: t }: { section: SectionDef,
 // ═══════════════════════════════════════════════════════════
 // SECTION DISPATCHER
 // ═══════════════════════════════════════════════════════════
-export function renderSection(section: SectionDef, data: any, onChange: (id: string, d: any) => void, readOnly: boolean, theme: any) {
+export function renderSection(section: SectionDef, data: any, onChange: (id: string, d: any) => void, readOnly: boolean, theme: any, nodes?: any[], edges?: any[]) {
   const props = { section, data, onChange, readOnly, theme };
 
   switch (section.type) {
@@ -628,7 +999,7 @@ export function renderSection(section: SectionDef, data: any, onChange: (id: str
     case 'dynamic_table':
       return section.data_source === 'manual'
         ? <ManualTableSection {...props} />
-        : <PlaceholderSection section={section} theme={theme} />;
+        : <DynamicRequirementsTable {...props} nodes={nodes} edges={edges} />;
     case 'manual_table':
       return <ManualTableSection {...props} />;
     case 'risk_matrix':
