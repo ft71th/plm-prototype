@@ -109,25 +109,34 @@ function HandleUpdater({ nodeIds, viewMode }: { nodeIds: string[], viewMode?: st
 
     if (!countChanged && !viewChanged) return;
 
-    const updateAll = () => {
+    const updateAllAndShowEdges = () => {
       nodeIds.forEach(id => {
         try { updateNodeInternals(id); } catch(e) {}
       });
+      // Show edges after handle positions are recalculated
+      requestAnimationFrame(() => {
+        const el = document.querySelector('.react-flow__edges') as HTMLElement | null;
+        if (el) el.style.visibility = '';
+      });
     };
 
-    // Use requestIdleCallback to wait until browser is done rendering,
-    // then update handles. Falls back to setTimeout for Safari.
-    const rIC = (window as any).requestIdleCallback || ((cb: any) => setTimeout(cb, 100));
-    const cIC = (window as any).cancelIdleCallback || clearTimeout;
-    
-    // First pass: after browser finishes current render work
-    const idle1 = rIC(() => updateAll(), { timeout: 500 });
-    // Second pass: catch any late-rendering nodes
-    const idle2 = rIC(() => updateAll(), { timeout: 2000 });
-    // Safety fallback for project load (nodes might not exist on first idle)
-    const timer = countChanged ? setTimeout(updateAll, 1000) : null;
-
-    return () => { cIC(idle1); cIC(idle2); if (timer) clearTimeout(timer); };
+    if (viewChanged) {
+      // Edges are already hidden by handleViewModeChange (synchronous DOM).
+      // Wait for nodes to finish rendering, then batch-update handles.
+      // Double-rAF ensures browser has painted new node layout.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          updateAllAndShowEdges();
+          // Safety pass for late-rendering nodes (images, etc.)
+          setTimeout(updateAllAndShowEdges, 400);
+        });
+      });
+    } else {
+      // Node count change (project load): staggered updates
+      const t1 = setTimeout(updateAllAndShowEdges, 200);
+      const t2 = setTimeout(updateAllAndShowEdges, 800);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
+    }
   }, [nodeIds, viewMode, updateNodeInternals]);
 
   return null;
@@ -686,6 +695,16 @@ export default function App(): React.ReactElement {
     fetchLibraryItems, saveNodeToLibrary, addLibraryItemToCanvas,
   } = useLibrary({ nodeId, setNodeId, setNodes });
 
+  // Wrap setViewMode to hide edges SYNCHRONOUSLY before React re-renders.
+  // This prevents edges from flashing at wrong positions during the render cycle.
+  const handleViewModeChange = useCallback((newMode: string) => {
+    // Synchronous DOM manipulation — happens BEFORE React starts re-rendering
+    const edgeEl = document.querySelector('.react-flow__edges') as HTMLElement | null;
+    if (edgeEl) edgeEl.style.visibility = 'hidden';
+    setViewMode(newMode);
+  }, [setViewMode]);
+
+
   // ── Stable node callbacks (avoid new refs per node per render) ──
   const handleDeleteNode = useCallback((nodeId: string) => {
     setNodes((nds) => nds.filter((n) => n.id !== nodeId));
@@ -1049,7 +1068,7 @@ const createNewObject = (name, version, description) => {
           if (filterType === 'classification') setClassificationFilter(value);
         }}
         viewMode={viewMode}
-        onViewModeChange={setViewMode}
+        onViewModeChange={handleViewModeChange}
         whiteboards={whiteboards}
         activeWhiteboardId={activeWhiteboardId}
         showWhiteboardDropdown={showWhiteboardDropdown}
