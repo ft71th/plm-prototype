@@ -375,8 +375,11 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
           borderStyle: 'none',
           minHeight: '100px',           // Taller for stick figure + name
           minWidth: '80px',            // Wider for stick figure
-          padding: '10px',
-          background: 'transparent',    // Transparent background
+          paddingTop: '10px',
+          paddingRight: '10px',
+          paddingBottom: '10px',
+          paddingLeft: '10px',
+          backgroundColor: 'transparent',    // Transparent background
         };
       default:
         return {
@@ -692,12 +695,11 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
           justifyContent: 'center',
           minWidth: '100px',
           minHeight: '120px',
-          backgroundColor: 'transparent',
           position: 'relative',
           cursor: 'pointer',
           padding: '10px',
           borderRadius: '8px',
-          background: selected ? 'rgba(46, 204, 113, 0.1)' : 'transparent',
+          backgroundColor: selected ? 'rgba(46, 204, 113, 0.1)' : 'transparent',
           border: selected ? '2px solid #2ecc71' : '2px solid transparent',
           transition: 'all 0.2s ease',
         }}>
@@ -852,8 +854,9 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
             minHeight: `${nodeHeight}px`,
             backgroundColor: getWhiteboardColor(),
             borderRadius: getNodeShape().borderRadius || '8px',
+            borderWidth: selected ? '3px' : '2px',
             borderStyle: getNodeShape().borderStyle || 'solid',
-            border: selected ? '3px solid #3498db' : '2px solid rgba(255,255,255,0.3)',
+            borderColor: selected ? '#3498db' : 'rgba(255,255,255,0.3)',
             boxShadow: selected ? '0 0 20px rgba(52, 152, 219, 0.5)' : '0 4px 12px rgba(0,0,0,0.2)',
             position: 'relative',
             cursor: 'pointer',
@@ -1134,9 +1137,13 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
   return (
     <div 
       style={{
-        padding: '15px',
+        paddingTop: '15px',
+        paddingRight: '15px',
+        paddingBottom: '15px',
         paddingLeft: (isSystemItem() || isTestItem() || isParameterItem() || isHardwareItem() || isUseCaseItem() || isActorItem()) ? '20px' : '15px',
-        border: '3px solid ' + getBorderColor(),
+        borderTop: '3px solid ' + getBorderColor(),
+        borderRight: '3px solid ' + getBorderColor(),
+        borderBottom: '3px solid ' + getBorderColor(),
         borderLeft: (isSystemItem() || isTestItem() || isParameterItem() || isHardwareItem() || isUseCaseItem() || isActorItem()) ? `6px solid ${getSystemAccentColor()}` : '3px solid ' + getBorderColor(),
         backgroundColor: (isSystemItem() || isTestItem() || isParameterItem() || isHardwareItem() || isUseCaseItem() || isActorItem()) ? '#1a2634' : '#2c3e50',
         minWidth: '180px',
