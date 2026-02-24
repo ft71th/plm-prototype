@@ -125,50 +125,39 @@ function HandleUpdater({ nodeIds, viewMode }: { nodeIds: string[], viewMode?: st
 
     if (viewChanged) {
       // Edges + labels are hidden by handleViewModeChange.
-      // We need to wait until ReactFlow's ResizeObserver has measured
-      // all nodes (can take seconds for 84+ nodes). Use our own
-      // ResizeObserver on the nodes container with a debounce:
-      // when no resize events fire for 150ms, nodes are done.
+      // Use MutationObserver to detect when React finishes updating nodes.
+      // When no DOM mutations for 200ms → nodes are rendered → update handles.
       const nodesContainer = document.querySelector('.react-flow__nodes');
       let debounceTimer: any = null;
-      let ro: ResizeObserver | null = null;
-      let safetyTimer: any = null;
+      let mo: MutationObserver | null = null;
+      let done = false;
 
       const finalize = () => {
-        if (ro) ro.disconnect();
-        if (safetyTimer) clearTimeout(safetyTimer);
+        if (done) return;
+        done = true;
+        if (mo) mo.disconnect();
         if (debounceTimer) clearTimeout(debounceTimer);
         updateAllAndShow();
       };
 
+      const resetDebounce = () => {
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(finalize, 200);
+      };
+
       if (nodesContainer) {
-        ro = new ResizeObserver(() => {
-          // Each time a node resizes, reset the debounce timer
-          if (debounceTimer) clearTimeout(debounceTimer);
-          debounceTimer = setTimeout(finalize, 150);
-        });
-
-        // Observe all current node wrappers
-        nodesContainer.querySelectorAll('.react-flow__node').forEach(node => {
-          ro!.observe(node);
-        });
-
-        // Also kick off observation after React renders new nodes
-        requestAnimationFrame(() => {
-          if (nodesContainer && ro) {
-            nodesContainer.querySelectorAll('.react-flow__node').forEach(node => {
-              ro!.observe(node);
-            });
-          }
+        mo = new MutationObserver(resetDebounce);
+        mo.observe(nodesContainer, {
+          childList: true, subtree: true,
+          attributes: true, characterData: true
         });
       }
 
-      // Safety fallback: always show edges after 6s max
-      safetyTimer = setTimeout(finalize, 6000);
+      // Start debounce immediately — if no mutations, fires after 200ms
+      resetDebounce();
 
       return () => {
-        if (ro) ro.disconnect();
-        if (safetyTimer) clearTimeout(safetyTimer);
+        if (mo) mo.disconnect();
         if (debounceTimer) clearTimeout(debounceTimer);
       };
     } else {
