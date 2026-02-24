@@ -95,7 +95,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
  * handle positions after nodes are loaded. Without this, handles are at (0,0) 
  * until a manual resize triggers ResizeObserver.
  */
-function HandleUpdater({ nodeIds, viewMode }: { nodeIds: string[], viewMode?: string }) {
+function HandleUpdater({ nodeIds, viewMode, onReady }: { nodeIds: string[], viewMode?: string, onReady?: () => void }) {
   const updateNodeInternals = useUpdateNodeInternals();
   const prevCountRef = React.useRef(0);
   const prevViewRef = React.useRef(viewMode);
@@ -109,24 +109,16 @@ function HandleUpdater({ nodeIds, viewMode }: { nodeIds: string[], viewMode?: st
 
     if (!countChanged && !viewChanged) return;
 
-    const showEdges = () => {
-      const edgeSvg = document.querySelector('.react-flow__edges') as HTMLElement | null;
-      const edgeLabels = document.querySelector('.react-flow__edgelabel-renderer') as HTMLElement | null;
-      if (edgeSvg) edgeSvg.style.visibility = '';
-      if (edgeLabels) edgeLabels.style.visibility = '';
-    };
-
-    const updateAllAndShow = () => {
+    const updateAll = () => {
       nodeIds.forEach(id => {
         try { updateNodeInternals(id); } catch(e) {}
       });
-      requestAnimationFrame(showEdges);
     };
 
     if (viewChanged) {
-      // Edges + labels are hidden by handleViewModeChange.
-      // Use MutationObserver to detect when React finishes updating nodes.
-      // When no DOM mutations for 200ms → nodes are rendered → update handles.
+      // Edges are empty during transition (React-level, not CSS).
+      // Use MutationObserver to detect when React finishes DOM updates.
+      // After 200ms of no mutations → nodes are rendered → update handles.
       const nodesContainer = document.querySelector('.react-flow__nodes');
       let debounceTimer: any = null;
       let mo: MutationObserver | null = null;
@@ -137,7 +129,13 @@ function HandleUpdater({ nodeIds, viewMode }: { nodeIds: string[], viewMode?: st
         done = true;
         if (mo) mo.disconnect();
         if (debounceTimer) clearTimeout(debounceTimer);
-        updateAllAndShow();
+        // Update handle positions, then signal edges can be restored
+        updateAll();
+        // Wait one frame for ReactFlow to process the handle updates,
+        // then tell parent to show edges on the NEXT render
+        requestAnimationFrame(() => {
+          if (onReady) onReady();
+        });
       };
 
       const resetDebounce = () => {
@@ -153,7 +151,7 @@ function HandleUpdater({ nodeIds, viewMode }: { nodeIds: string[], viewMode?: st
         });
       }
 
-      // Start debounce immediately — if no mutations, fires after 200ms
+      // Start debounce — if no mutations at all, fires after 200ms
       resetDebounce();
 
       return () => {
@@ -162,11 +160,11 @@ function HandleUpdater({ nodeIds, viewMode }: { nodeIds: string[], viewMode?: st
       };
     } else {
       // Node count change (project load): staggered updates
-      const t1 = setTimeout(updateAllAndShow, 200);
-      const t2 = setTimeout(updateAllAndShow, 800);
+      const t1 = setTimeout(() => { updateAll(); if (onReady) onReady(); }, 200);
+      const t2 = setTimeout(updateAll, 800);
       return () => { clearTimeout(t1); clearTimeout(t2); };
     }
-  }, [nodeIds, viewMode, updateNodeInternals]);
+  }, [nodeIds, viewMode, updateNodeInternals, onReady]);
 
   return null;
 }
@@ -726,15 +724,18 @@ export default function App(): React.ReactElement {
 
   // Wrap setViewMode to hide edges SYNCHRONOUSLY before React re-renders.
   // This prevents edges from flashing at wrong positions during the render cycle.
+  // State-based edge hiding: edges are removed from React tree during transition.
+  // This guarantees they never render with wrong handle positions.
+  const [edgesVisible, setEdgesVisible] = useState(true);
+
   const handleViewModeChange = useCallback((newMode: string) => {
-    // Synchronous DOM manipulation — happens BEFORE React starts re-rendering.
-    // Must hide BOTH the SVG edge paths AND the HTML edge label overlay.
-    const edgeSvg = document.querySelector('.react-flow__edges') as HTMLElement | null;
-    const edgeLabels = document.querySelector('.react-flow__edgelabel-renderer') as HTMLElement | null;
-    if (edgeSvg) edgeSvg.style.visibility = 'hidden';
-    if (edgeLabels) edgeLabels.style.visibility = 'hidden';
+    setEdgesVisible(false); // Remove edges from React tree
     setViewMode(newMode);
   }, [setViewMode]);
+
+  const handleEdgesReady = useCallback(() => {
+    setEdgesVisible(true); // Restore edges — will compute from current handle positions
+  }, []);
 
 
   // ── Stable node callbacks (avoid new refs per node per render) ──
@@ -767,6 +768,7 @@ export default function App(): React.ReactElement {
 
   // ── Memoized edges (prevents 74 new objects per render) ──
   const processedEdges = useMemo(() => {
+    if (!edgesVisible) return [];
     const isWb = viewMode === 'whiteboard';
     return edges.map(e => ({
       ...e,
@@ -778,7 +780,7 @@ export default function App(): React.ReactElement {
         onEdgeDoubleClick: handleEdgeDoubleClickCb,
       }
     }));
-  }, [edges, showRelationshipLabels, viewMode, handleEdgeLabelChange, handleEdgeDoubleClickCb]);
+  }, [edges, edgesVisible, showRelationshipLabels, viewMode, handleEdgeLabelChange, handleEdgeDoubleClickCb]);
 
   const processedNodes = useMemo(() => {
     return nodes.map((node) => {
@@ -1340,7 +1342,7 @@ const createNewObject = (name, version, description) => {
         }}
       >
         <Controls style={{ bottom: 20, left: 70 }} />
-        <HandleUpdater nodeIds={nodes.map(n => n.id)} viewMode={viewMode} />
+        <HandleUpdater nodeIds={nodes.map(n => n.id)} viewMode={viewMode} onReady={handleEdgesReady} />
         <MiniMap 
           style={{ 
             position: 'absolute',
