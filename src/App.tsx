@@ -95,30 +95,34 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
  * handle positions after nodes are loaded. Without this, handles are at (0,0) 
  * until a manual resize triggers ResizeObserver.
  */
-function HandleUpdater({ nodeIds, viewMode, onReady }: { nodeIds: string[], viewMode?: string, onReady?: () => void }) {
+function HandleUpdater({ nodeIds, onReady }: { nodeIds: string[], onReady?: () => void }) {
   const updateNodeInternals = useUpdateNodeInternals();
   const prevCountRef = React.useRef(0);
-  const prevViewRef = React.useRef(viewMode);
 
   React.useEffect(() => {
     if (nodeIds.length === 0) return;
     const countChanged = nodeIds.length !== prevCountRef.current;
-    const viewChanged = viewMode !== prevViewRef.current;
+    console.log(`[HU] effect run: viewMode=${viewMode}, prev=${prevViewRef.current}, viewChanged=${viewChanged}, countChanged=${countChanged}, t=${performance.now().toFixed(0)}ms`);
 
-    if (!countChanged && !viewChanged) return;
+    // Only react to node count changes (initial load, add/remove nodes).
+    // View mode changes are handled by handleViewModeChange directly.
+    if (!countChanged) return;
+
+    console.log(`[HU] change detected! scheduling work, t=${performance.now().toFixed(0)}ms`);
 
     // Refs updated INSIDE updateAll, not here. Critical for StrictMode:
     //   Run 1: starts timeout → cleanup clears it (refs still stale)
     //   Run 2: still sees change → starts NEW timeout (this one fires)
     const updateAll = () => {
+      console.log(`[HU] updateAll executing, t=${performance.now().toFixed(0)}ms`);
       prevCountRef.current = nodeIds.length;
-      prevViewRef.current = viewMode;
       nodeIds.forEach(id => {
         try { updateNodeInternals(id); } catch(e) {}
       });
     };
 
     if (viewChanged) {
+      console.log(`[HU] viewChanged branch, scheduling setTimeout(50), t=${performance.now().toFixed(0)}ms`);
       // Edges are empty (React-level) during transition.
       // React's synchronous render of 84 nodes blocks the main thread.
       // Any setTimeout will fire AFTER that render completes.
@@ -127,19 +131,20 @@ function HandleUpdater({ nodeIds, viewMode, onReady }: { nodeIds: string[], view
         updateAll();
         // Wait one frame for ReactFlow to process handle updates
         requestAnimationFrame(() => {
+          console.log(`[HU] rAF fired, calling onReady, t=${performance.now().toFixed(0)}ms`);
           if (onReady) onReady();
         });
       }, 50);
       // Safety: second pass for late-loading content (images, etc.)
       const t2 = setTimeout(updateAll, 500);
-      return () => { clearTimeout(t1); clearTimeout(t2); };
+      return () => { console.log(`[HU] cleanup: clearing timeouts, t=${performance.now().toFixed(0)}ms`); clearTimeout(t1); clearTimeout(t2); };
     } else {
       // Node count change (project load): staggered updates
       const t1 = setTimeout(() => { updateAll(); if (onReady) onReady(); }, 200);
       const t2 = setTimeout(updateAll, 800);
       return () => { clearTimeout(t1); clearTimeout(t2); };
     }
-  }, [nodeIds, viewMode, updateNodeInternals, onReady]);
+  }, [nodeIds, updateNodeInternals, onReady]);
 
   return null;
 }
@@ -704,11 +709,13 @@ export default function App(): React.ReactElement {
   const [edgesVisible, setEdgesVisible] = useState(true);
 
   const handleViewModeChange = useCallback((newMode: string) => {
+    console.log(`[EDGES] handleViewModeChange: ${newMode}, setting edgesVisible=false, t=${performance.now().toFixed(0)}ms`);
     setEdgesVisible(false); // Remove edges from React tree
     setViewMode(newMode);
   }, [setViewMode]);
 
   const handleEdgesReady = useCallback(() => {
+    console.log(`[EDGES] handleEdgesReady: setting edgesVisible=true, t=${performance.now().toFixed(0)}ms`);
     setEdgesVisible(true); // Restore edges — will compute from current handle positions
   }, []);
 
@@ -741,10 +748,16 @@ export default function App(): React.ReactElement {
     }
   }, [edges, setSelectedEdge, setEdgePanelPosition]);
 
-  // ── Memoized edges (prevents 74 new objects per render) ──
+  // Stable nodeIds — prevents HandleUpdater effect from re-running on every render.
+  // IDs only change when nodes are added/removed, not during view switch re-renders.
+  const nodeIdStr = nodes.map(n => n.id).join(',');
+  const memoNodeIds = useMemo(() => nodeIdStr.split(','), [nodeIdStr]);
+
+    // ── Memoized edges (prevents 74 new objects per render) ──
   const processedEdges = useMemo(() => {
-    if (!edgesVisible) return [];
+    if (!edgesVisible) { console.log(`[EDGES] processedEdges: returning [] (hidden), t=${performance.now().toFixed(0)}ms`); return []; }
     const isWb = viewMode === 'whiteboard';
+    console.log(`[EDGES] processedEdges: returning ${edges.length} edges, t=${performance.now().toFixed(0)}ms`);
     return edges.map(e => ({
       ...e,
       data: {
@@ -1317,7 +1330,7 @@ const createNewObject = (name, version, description) => {
         }}
       >
         <Controls style={{ bottom: 20, left: 70 }} />
-        <HandleUpdater nodeIds={nodes.map(n => n.id)} viewMode={viewMode} onReady={handleEdgesReady} />
+        <HandleUpdater nodeIds={nodes.map(n => n.id)} onReady={handleEdgesReady} />
         <MiniMap 
           style={{ 
             position: 'absolute',
