@@ -56,7 +56,7 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
       updateNodeInternals(id);
     });
     return () => cancelAnimationFrame(timer);
-  }, [id, updateNodeInternals, data.isWhiteboardMode, data.label, data.nodeWidth, data.nodeHeight]);
+  }, [id, updateNodeInternals, data.label, data.nodeWidth, data.nodeHeight]);
 
   // Auto-heal: if the rendered node is larger than stored dimensions,
   // update React Flow so edges connect to the correct positions

@@ -98,28 +98,36 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 function HandleUpdater({ nodeIds, viewMode }: { nodeIds: string[], viewMode?: string }) {
   const updateNodeInternals = useUpdateNodeInternals();
   const prevCountRef = React.useRef(0);
-  const prevViewModeRef = React.useRef(viewMode);
+  const prevViewRef = React.useRef(viewMode);
 
   React.useEffect(() => {
     if (nodeIds.length === 0) return;
     const countChanged = nodeIds.length !== prevCountRef.current;
-    const viewChanged = viewMode !== prevViewModeRef.current;
+    const viewChanged = viewMode !== prevViewRef.current;
     prevCountRef.current = nodeIds.length;
-    prevViewModeRef.current = viewMode;
+    prevViewRef.current = viewMode;
 
     if (!countChanged && !viewChanged) return;
 
-    // On view switch: fast update so edges snap to new handle positions
-    const delays = viewChanged ? [50, 200] : [150, 400, 800];
-    const timers = delays.map(delay =>
-      setTimeout(() => {
-        nodeIds.forEach(id => {
-          try { updateNodeInternals(id); } catch(e) { /* node may not exist yet */ }
-        });
-      }, delay)
-    );
+    const updateAll = () => {
+      nodeIds.forEach(id => {
+        try { updateNodeInternals(id); } catch(e) {}
+      });
+    };
 
-    return () => timers.forEach(clearTimeout);
+    // Use requestIdleCallback to wait until browser is done rendering,
+    // then update handles. Falls back to setTimeout for Safari.
+    const rIC = (window as any).requestIdleCallback || ((cb: any) => setTimeout(cb, 100));
+    const cIC = (window as any).cancelIdleCallback || clearTimeout;
+    
+    // First pass: after browser finishes current render work
+    const idle1 = rIC(() => updateAll(), { timeout: 500 });
+    // Second pass: catch any late-rendering nodes
+    const idle2 = rIC(() => updateAll(), { timeout: 2000 });
+    // Safety fallback for project load (nodes might not exist on first idle)
+    const timer = countChanged ? setTimeout(updateAll, 1000) : null;
+
+    return () => { cIC(idle1); cIC(idle2); if (timer) clearTimeout(timer); };
   }, [nodeIds, viewMode, updateNodeInternals]);
 
   return null;
@@ -678,6 +686,49 @@ export default function App(): React.ReactElement {
     fetchLibraryItems, saveNodeToLibrary, addLibraryItemToCanvas,
   } = useLibrary({ nodeId, setNodeId, setNodes });
 
+  // ── Stable node callbacks (avoid new refs per node per render) ──
+  const handleDeleteNode = useCallback((nodeId: string) => {
+    setNodes((nds) => nds.filter((n) => n.id !== nodeId));
+    setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
+  }, [setNodes, setEdges]);
+
+  const handleShowIssues = useCallback((n: any) => {
+    setIssueNodeId(n.id);
+    setShowIssuePanel(true);
+  }, [setIssueNodeId, setShowIssuePanel]);
+
+  // ── Stable edge callbacks (avoid new refs every render) ──
+  const handleEdgeLabelChange = useCallback((edgeId: string, newLabel: string) => {
+    setEdges(eds => eds.map(edge =>
+      edge.id === edgeId
+        ? { ...edge, data: { ...edge.data, customLabel: newLabel } }
+        : edge
+    ));
+  }, [setEdges]);
+
+  const handleEdgeDoubleClickCb = useCallback((edgeId: string, event: any) => {
+    const edge = edges.find(ed => ed.id === edgeId);
+    if (edge) {
+      setSelectedEdge(edge);
+      setEdgePanelPosition({ x: event.clientX, y: event.clientY });
+    }
+  }, [edges, setSelectedEdge, setEdgePanelPosition]);
+
+  // ── Memoized edges (prevents 74 new objects per render) ──
+  const processedEdges = useMemo(() => {
+    const isWb = viewMode === 'whiteboard';
+    return edges.map(e => ({
+      ...e,
+      data: {
+        ...e.data,
+        showLabel: showRelationshipLabels,
+        isWhiteboardMode: isWb,
+        onLabelChange: handleEdgeLabelChange,
+        onEdgeDoubleClick: handleEdgeDoubleClickCb,
+      }
+    }));
+  }, [edges, showRelationshipLabels, viewMode, handleEdgeLabelChange, handleEdgeDoubleClickCb]);
+
   const processedNodes = useMemo(() => {
     return nodes.map((node) => {
       const searchLower = searchText.toLowerCase();
@@ -714,14 +765,8 @@ export default function App(): React.ReactElement {
           onChange: handleNodeLabelChange,
           issueCount,
           criticalIssueCount,
-          onDeleteNode: (nodeId: string) => {
-            setNodes((nds) => nds.filter((n) => n.id !== nodeId));
-            setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
-          },
-          onShowIssues: (n) => {
-            setIssueNodeId(n.id);
-            setShowIssuePanel(true);
-          }
+          onDeleteNode: handleDeleteNode,
+          onShowIssues: handleShowIssues
         },
       };
     });
@@ -1158,28 +1203,7 @@ const createNewObject = (name, version, description) => {
       
       <ReactFlow
         nodes={processedNodes}
-        edges={edges.map(e => ({
-          ...e,
-          data: { 
-            ...e.data, 
-            showLabel: showRelationshipLabels,
-            isWhiteboardMode: viewMode === 'whiteboard',
-            onLabelChange: (edgeId, newLabel) => {
-              setEdges(eds => eds.map(edge => 
-                edge.id === edgeId 
-                  ? { ...edge, data: { ...edge.data, customLabel: newLabel } }
-                  : edge
-              ));
-            },
-            onEdgeDoubleClick: (edgeId, event) => {
-              const edge = edges.find(ed => ed.id === edgeId);
-              if (edge) {
-                setSelectedEdge(edge);
-                setEdgePanelPosition({ x: event.clientX, y: event.clientY });
-              }
-            }
-          }
-        }))}
+        edges={processedEdges}
         onInit={setReactFlowInstance}
         onNodesChange={handleNodesChange}
         onEdgesChange={onEdgesChange}
