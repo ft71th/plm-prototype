@@ -128,11 +128,14 @@ interface MessageProps {
   message: SequenceMessage;
   participants: SequenceParticipant[];
   isSelected: boolean;
+  isDragging?: boolean;
+  isDropTarget?: boolean;
   onClick: (e: React.MouseEvent) => void;
   onDoubleClick: (e: React.MouseEvent) => void;
+  onMouseDown: (e: React.MouseEvent) => void;
 }
 
-export function MessageRenderer({ message: m, participants, isSelected, onClick, onDoubleClick }: MessageProps) {
+export function MessageRenderer({ message: m, participants, isSelected, isDragging, isDropTarget, onClick, onDoubleClick, onMouseDown }: MessageProps) {
   const fromP = participants.find(p => p.id === m.fromId);
   const toP = participants.find(p => p.id === m.toId);
   if (!fromP || !toP) return null;
@@ -149,7 +152,8 @@ export function MessageRenderer({ message: m, participants, isSelected, onClick,
     const loopH = 25;
     const path = `M ${fromX} ${y} H ${fromX + loopW} V ${y + loopH} H ${fromX}`;
     return (
-      <g onClick={onClick} onDoubleClick={onDoubleClick} style={{ cursor: 'pointer' }}>
+      <g onClick={onClick} onDoubleClick={onDoubleClick} onMouseDown={onMouseDown}
+        style={{ cursor: isDragging ? 'grabbing' : 'grab' }} opacity={isDragging ? 0.35 : 1}>
         <path d={path} fill="none" stroke="transparent" strokeWidth={14} />
         <path
           d={path}
@@ -175,7 +179,8 @@ export function MessageRenderer({ message: m, participants, isSelected, onClick,
                   style.arrowType === 'x' ? 'arrowX' : 'arrowOpen';
 
   return (
-    <g onClick={onClick} onDoubleClick={onDoubleClick} style={{ cursor: 'pointer' }}>
+    <g onClick={onClick} onDoubleClick={onDoubleClick} onMouseDown={onMouseDown}
+      style={{ cursor: isDragging ? 'grabbing' : 'grab' }} opacity={isDragging ? 0.35 : 1}>
       {/* Hit area */}
       <line
         x1={fromX} y1={y} x2={toX} y2={y}

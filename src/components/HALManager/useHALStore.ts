@@ -18,6 +18,7 @@ function defaultConfig(projectId: string): HALConfig {
     version: '0.1',
     description: '',
     modules: [],
+    comDevices: [],
     mappings: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -38,7 +39,12 @@ export function useHALStore(projectId: string | null) {
     // Load from localStorage instantly
     try {
       const raw = localStorage.getItem(LS_KEY(pid));
-      if (raw) return JSON.parse(raw);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (!parsed.comDevices) parsed.comDevices = []; // migrate
+        parsed.mappings?.forEach((m: any) => { if (!m.source) m.source = 'hw'; if (!m.comRegisterId) m.comRegisterId = ''; }); // migrate
+        return parsed;
+      }
     } catch {}
     return defaultConfig(pid);
   });
@@ -57,6 +63,8 @@ export function useHALStore(projectId: string | null) {
         const res = await apiFetch(`/projects/${pid}/hal`);
         if (res && res.data) {
           const backendConfig = res.data as HALConfig;
+          if (!backendConfig.comDevices) backendConfig.comDevices = [];
+          backendConfig.mappings?.forEach((m: any) => { if (!m.source) m.source = 'hw'; if (!m.comRegisterId) m.comRegisterId = ''; });
           setConfigState(backendConfig);
           // Update cache
           try { localStorage.setItem(LS_KEY(pid), JSON.stringify(backendConfig)); } catch {}

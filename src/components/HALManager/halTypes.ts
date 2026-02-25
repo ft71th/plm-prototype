@@ -2,6 +2,7 @@
 
 export type SignalType = 'DI' | 'DO' | 'AI' | 'AO';
 export type MappingStatus = 'mapped' | 'grounded' | 'unmapped';
+export type MappingSource = 'hw' | 'com';
 
 // ─── Hardware Side ───────────────────────────────────────
 
@@ -12,8 +13,8 @@ export interface HWModuleTemplate {
   channels: {
     count: number;
     signalType: SignalType;
-    electricalType: string;   // '4-20mA', '0-10V', '24VDC', 'Relay', etc.
-    resolution?: string;      // '16-bit', '12-bit'
+    electricalType: string;
+    resolution?: string;
   }[];
   busCoupler?: boolean;
   endModule?: boolean;
@@ -26,8 +27,8 @@ export interface HWChannel {
   channelNumber: number;
   signalType: SignalType;
   electricalType: string;
-  terminal: string;           // e.g. 'X100:3.1'
-  tag: string;                // field device tag, e.g. 'PT-101'
+  terminal: string;
+  tag: string;
   description: string;
 }
 
@@ -37,8 +38,69 @@ export interface HWModule {
   manufacturer: string;
   name: string;
   rackPosition: number;
-  rackId: string;             // e.g. 'Rack-1', 'Field-Cabinet-2'
+  rackId: string;
   channels: HWChannel[];
+  color: string;
+}
+
+// ─── COM / Fieldbus Side ─────────────────────────────────
+
+export type ProtocolType = 'modbus_tcp' | 'modbus_rtu' | 'profinet' | 'canopen' | 'ethercat' | 'opc_ua';
+export type ModbusRegisterType = 'coil' | 'discrete_input' | 'holding_register' | 'input_register';
+
+export interface COMDeviceTemplate {
+  model: string;
+  manufacturer: string;
+  name: string;
+  protocol: ProtocolType;
+  defaultRegisters: COMRegisterDef[];
+  color: string;
+  icon: string;
+}
+
+export interface COMRegisterDef {
+  name: string;
+  signalType: SignalType;
+  dataType: string;
+  registerType?: ModbusRegisterType;
+  address?: number;
+  slot?: number;
+  subslot?: number;
+  description: string;
+  byteOrder?: 'big_endian' | 'little_endian';
+  bitOffset?: number;
+  scaleFactor?: number;
+}
+
+export interface COMRegister {
+  id: string;
+  deviceId: string;
+  name: string;
+  signalType: SignalType;
+  dataType: string;
+  registerType?: ModbusRegisterType;
+  address: number;
+  slot?: number;
+  subslot?: number;
+  description: string;
+  byteOrder: 'big_endian' | 'little_endian';
+  bitOffset?: number;
+  scaleFactor?: number;
+  tag: string;
+}
+
+export interface COMDevice {
+  id: string;
+  templateModel: string;
+  manufacturer: string;
+  name: string;
+  instanceName: string;
+  protocol: ProtocolType;
+  ipAddress: string;
+  port: number;
+  unitId: number;
+  pollRateMs: number;
+  registers: COMRegister[];
   color: string;
 }
 
@@ -46,12 +108,12 @@ export interface HWModule {
 
 export interface AppSignal {
   id: string;
-  nodeId: string;             // PLM node reference
-  componentName: string;      // e.g. 'fb_PumpC_01'
-  componentFamily: string;    // e.g. 'PUMPC'
-  signalName: string;         // e.g. 'st_sigRunFbk'
+  nodeId: string;
+  componentName: string;
+  componentFamily: string;
+  signalName: string;
   signalType: SignalType;
-  dataType: string;           // e.g. 'ST_SIGO_Digital'
+  dataType: string;
   description: string;
   required: boolean;
 }
@@ -63,20 +125,22 @@ export interface SignalScaling {
   rawMax: number;
   engMin: number;
   engMax: number;
-  unit: string;               // e.g. 'bar', '°C', 'RPM'
+  unit: string;
   clampEnabled: boolean;
-  filterMs: number;           // low-pass filter in ms, 0 = none
+  filterMs: number;
 }
 
 // ─── Mapping ─────────────────────────────────────────────
 
 export interface HALMapping {
   id: string;
+  source: MappingSource;
   hwChannelId: string;
+  comRegisterId: string;
   appSignalId: string;
   scaling?: SignalScaling;
   grounded: boolean;
-  groundValue: string;        // e.g. '0', 'FALSE', '0.0'
+  groundValue: string;
   notes: string;
   status: MappingStatus;
   createdAt: string;
@@ -92,6 +156,7 @@ export interface HALConfig {
   version: string;
   description: string;
   modules: HWModule[];
+  comDevices: COMDevice[];
   mappings: HALMapping[];
   createdAt: string;
   updatedAt: string;
@@ -104,9 +169,10 @@ export type ValidationSeverity = 'error' | 'warning' | 'info';
 export interface ValidationIssue {
   id: string;
   severity: ValidationSeverity;
-  category: 'type_mismatch' | 'unmapped_required' | 'unmapped_hw' | 'duplicate' | 'scaling' | 'grounded';
+  category: 'type_mismatch' | 'unmapped_required' | 'unmapped_hw' | 'unmapped_com' | 'duplicate' | 'scaling' | 'grounded' | 'com_config';
   message: string;
   hwChannelId?: string;
+  comRegisterId?: string;
   appSignalId?: string;
   mappingId?: string;
 }

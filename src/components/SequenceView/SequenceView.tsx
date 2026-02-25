@@ -47,6 +47,10 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
   // Show node picker for adding participant from PLM
   const [showNodePicker, setShowNodePicker] = useState(false);
 
+  // Message reorder dragging
+  const [dragMessageId, setDragMessageId] = useState<string | null>(null);
+  const [dragMessageTargetIdx, setDragMessageTargetIdx] = useState<number | null>(null);
+
   // Diagram selector
   const [showDiagramMenu, setShowDiagramMenu] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -169,7 +173,18 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
       )));
       setDragTargetOrder(targetOrder);
     }
-  }, [isPanning, panStart, viewBox, dragParticipantId, participants]);
+
+    // Message dragging — reorder by y position
+    if (dragMessageId && messages.length > 1) {
+      const svg = svgRef.current;
+      if (!svg) return;
+      const rect = svg.getBoundingClientRect();
+      const svgY = ((e.clientY - rect.top) / rect.height) * viewBox.h + viewBox.y;
+      const rawIdx = Math.round((svgY - LAYOUT.MESSAGE_START_Y) / LAYOUT.MESSAGE_SPACING);
+      const targetIdx = Math.max(0, Math.min(messages.length - 1, rawIdx));
+      setDragMessageTargetIdx(targetIdx);
+    }
+  }, [isPanning, panStart, viewBox, dragParticipantId, participants, dragMessageId, messages]);
 
   const handleMouseUp = useCallback(() => {
     // Finish participant drag — actually reorder
@@ -179,10 +194,19 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
         sd.reorderParticipants(draggedP.order, dragTargetOrder);
       }
     }
+    // Finish message drag — reorder
+    if (dragMessageId && dragMessageTargetIdx !== null) {
+      const draggedM = messages.find(m => m.id === dragMessageId);
+      if (draggedM && draggedM.orderIndex !== dragMessageTargetIdx) {
+        sd.reorderMessage(dragMessageId, dragMessageTargetIdx);
+      }
+    }
     setIsPanning(false);
     setDragParticipantId(null);
     setDragTargetOrder(null);
-  }, [dragParticipantId, dragTargetOrder, participants, sd]);
+    setDragMessageId(null);
+    setDragMessageTargetIdx(null);
+  }, [dragParticipantId, dragTargetOrder, participants, sd, dragMessageId, dragMessageTargetIdx, messages]);
 
   // Prevent context menu on canvas (so right-click pan works)
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
@@ -248,8 +272,16 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
 
   const handleMessageClick = useCallback((e: React.MouseEvent, mid: string) => {
     e.stopPropagation();
+    if (dragMessageId) return; // Don't select during drag
     sd.select(mid, 'message');
-  }, [sd]);
+  }, [sd, dragMessageId]);
+
+  const handleMessageDragStart = useCallback((e: React.MouseEvent, mid: string) => {
+    if (e.button !== 0 || activeTool !== 'select') return;
+    e.stopPropagation();
+    e.preventDefault();
+    setDragMessageId(mid);
+  }, [activeTool]);
 
   const handleMessageDoubleClick = useCallback((e: React.MouseEvent, mid: string) => {
     e.stopPropagation();
@@ -459,6 +491,7 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
           width: '100%', height: '100%',
           cursor: isPanning ? 'grabbing'
             : dragParticipantId ? 'grabbing'
+            : dragMessageId ? 'ns-resize'
             : activeTool === 'addMessage' && msgSource ? 'crosshair'
             : 'default',
         }}
@@ -527,10 +560,34 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
             message={m}
             participants={participants}
             isSelected={sd.selectedElementId === m.id}
+            isDragging={dragMessageId === m.id}
             onClick={e => handleMessageClick(e, m.id)}
             onDoubleClick={e => handleMessageDoubleClick(e, m.id)}
+            onMouseDown={e => handleMessageDragStart(e, m.id)}
           />
         ))}
+
+        {/* Message drag drop indicator */}
+        {dragMessageId && dragMessageTargetIdx !== null && (() => {
+          const dropY = LAYOUT.MESSAGE_START_Y + dragMessageTargetIdx * LAYOUT.MESSAGE_SPACING;
+          const minX = participants.length > 0
+            ? Math.min(...participants.map(p => p.x)) - 10
+            : LAYOUT.CANVAS_PADDING;
+          const maxX = participants.length > 0
+            ? Math.max(...participants.map(p => p.x)) + LAYOUT.PARTICIPANT_WIDTH + 10
+            : 400;
+          return (
+            <g>
+              <line
+                x1={minX} y1={dropY} x2={maxX} y2={dropY}
+                stroke="#3b82f6" strokeWidth={2.5} strokeLinecap="round"
+                opacity={0.7}
+              />
+              <circle cx={minX} cy={dropY} r={4} fill="#3b82f6" opacity={0.7} />
+              <circle cx={maxX} cy={dropY} r={4} fill="#3b82f6" opacity={0.7} />
+            </g>
+          );
+        })()}
 
         {/* Empty state */}
         {participants.length === 0 && (
