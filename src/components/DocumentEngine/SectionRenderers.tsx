@@ -957,6 +957,1037 @@ function DynamicRequirementsTable({ section, data, onChange, theme: t, nodes = [
 }
 
 // ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
+// DYNAMIC ARCHITECTURE VIEW — system/subsystem/function/hardware from PLM
+// ═══════════════════════════════════════════════════════════
+
+const ARCH_TYPES = ['system', 'subsystem', 'function', 'hardware', 'parameter'] as const;
+
+function DynamicArchitectureView({ section, data, onChange, theme: t, nodes = [], edges = [] }: SectionProps & { nodes?: any[], edges?: any[] }) {
+  const [showType, setShowType] = useState<string>('all');
+  const [viewStyle, setViewStyle] = useState<'hierarchy' | 'table'>('hierarchy');
+
+  // Filter to architecture-relevant nodes
+  const archNodes = (nodes || []).filter(n => {
+    const itemType = n.data?.itemType || n.data?.type || '';
+    return ARCH_TYPES.includes(itemType as any);
+  });
+
+  // Build parent→children map from edges
+  const childrenOf = new Map<string, string[]>();
+  const parentOf = new Map<string, string>();
+  (edges || []).forEach(e => {
+    // source → target = parent → child in architecture
+    if (!childrenOf.has(e.source)) childrenOf.set(e.source, []);
+    childrenOf.get(e.source)!.push(e.target);
+    parentOf.set(e.target, e.source);
+  });
+
+  // Get connections (non-hierarchical)
+  const getConnections = (nodeId: string) => {
+    return (edges || [])
+      .filter(e => e.source === nodeId || e.target === nodeId)
+      .map(e => {
+        const otherId = e.source === nodeId ? e.target : e.source;
+        const other = (nodes || []).find(n => n.id === otherId);
+        return other?.data?.label || otherId;
+      });
+  };
+
+  // Find root nodes (arch nodes that have no arch-type parent)
+  const archNodeIds = new Set(archNodes.map(n => n.id));
+  const rootNodes = archNodes.filter(n => {
+    const parent = parentOf.get(n.id);
+    return !parent || !archNodeIds.has(parent);
+  });
+
+  // Sort by type hierarchy: system → subsystem → function → hardware → parameter
+  const typeOrder: Record<string, number> = { system: 0, subsystem: 1, function: 2, hardware: 3, parameter: 4 };
+  const sortByType = (a: any, b: any) => {
+    const ta = a.data?.itemType || a.data?.type || '';
+    const tb = b.data?.itemType || b.data?.type || '';
+    return (typeOrder[ta] ?? 9) - (typeOrder[tb] ?? 9);
+  };
+
+  // Build flat list with indent levels via DFS
+  const flatList: { node: any; depth: number }[] = [];
+  const visited = new Set<string>();
+
+  function walkTree(nodeId: string, depth: number) {
+    if (visited.has(nodeId)) return;
+    visited.add(nodeId);
+    const node = archNodes.find(n => n.id === nodeId);
+    if (!node) return;
+    flatList.push({ node, depth });
+    const kids = (childrenOf.get(nodeId) || [])
+      .map(id => archNodes.find(n => n.id === id))
+      .filter(Boolean)
+      .sort(sortByType);
+    kids.forEach(kid => walkTree(kid!.id, depth + 1));
+  }
+
+  rootNodes.sort(sortByType).forEach(n => walkTree(n.id, 0));
+
+  // Add orphans (arch nodes not reached by tree walk)
+  archNodes.forEach(n => {
+    if (!visited.has(n.id)) flatList.push({ node: n, depth: 0 });
+  });
+
+  // Apply type filter
+  const filtered = showType === 'all'
+    ? flatList
+    : flatList.filter(({ node }) => (node.data?.itemType || node.data?.type) === showType);
+
+  // Unique types present
+  const presentTypes = [...new Set(archNodes.map(n => n.data?.itemType || n.data?.type || ''))];
+
+  if (archNodes.length === 0) {
+    return (
+      <div style={{
+        padding: '32px', textAlign: 'center',
+        background: `${t.accent}08`, border: `2px dashed ${t.border}`, borderRadius: '8px',
+      }}>
+        <div style={{ fontSize: '28px', marginBottom: '8px' }}>🏗️</div>
+        <div style={{ fontSize: '14px', color: t.textSecondary, marginBottom: '4px' }}>
+          No architecture nodes found in PLM canvas
+        </div>
+        <div style={{ fontSize: '12px', color: t.textSecondary, opacity: 0.7 }}>
+          Add system, subsystem, function, or hardware nodes to auto-populate
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Toolbar */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', flexWrap: 'wrap',
+      }}>
+        <div style={{ fontSize: '12px', color: t.textSecondary, fontWeight: 600 }}>
+          {filtered.length} component{filtered.length !== 1 ? 's' : ''}
+        </div>
+
+        <div style={{ flex: 1 }} />
+
+        {presentTypes.length > 1 && (
+          <select
+            value={showType}
+            onChange={e => setShowType(e.target.value)}
+            style={{
+              background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px',
+              color: t.textPrimary, padding: '4px 8px', fontSize: '12px',
+            }}
+          >
+            <option value="all">All types</option>
+            {presentTypes.map(tp => (
+              <option key={tp} value={tp}>{TYPE_LABELS[tp]?.label || tp}</option>
+            ))}
+          </select>
+        )}
+
+        <div style={{ display: 'flex', gap: '2px', background: t.bgCard, borderRadius: '4px', border: `1px solid ${t.border}`, padding: '2px' }}>
+          {(['hierarchy', 'table'] as const).map(v => (
+            <button key={v} onClick={() => setViewStyle(v)} style={{
+              padding: '3px 10px', borderRadius: '3px', border: 'none', fontSize: '11px', cursor: 'pointer',
+              background: viewStyle === v ? t.accent : 'transparent',
+              color: viewStyle === v ? '#fff' : t.textSecondary, fontWeight: viewStyle === v ? 600 : 400,
+            }}>
+              {v === 'hierarchy' ? '🌳 Tree' : '📋 Table'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {viewStyle === 'hierarchy' ? (
+        /* ─── Hierarchy View ─── */
+        <div style={{ fontSize: '12px' }}>
+          {filtered.map(({ node, depth }, idx) => {
+            const d = node.data || {};
+            const itemType = d.itemType || d.type || '';
+            const info = TYPE_LABELS[itemType] || { label: itemType, icon: '📦', color: '#64748b' };
+            const ports = d.ports || [];
+            const inputPorts = ports.filter((p: any) => p.direction === 'input');
+            const outputPorts = ports.filter((p: any) => p.direction === 'output');
+
+            return (
+              <div key={node.id} style={{
+                display: 'flex', alignItems: 'flex-start', gap: '8px',
+                padding: '8px 10px', marginLeft: `${depth * 28}px`,
+                borderLeft: depth > 0 ? `2px solid ${info.color}40` : 'none',
+                background: idx % 2 === 0 ? 'transparent' : `${t.accent}04`,
+                borderBottom: `1px solid ${t.border}`,
+              }}>
+                {/* Type badge */}
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '3px', flexShrink: 0,
+                  background: `${info.color}18`, color: info.color,
+                  padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 600,
+                  minWidth: '85px',
+                }}>
+                  {info.icon} {info.label}
+                </span>
+
+                {/* Content */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, color: t.textPrimary }}>{d.label}</div>
+                  {d.description && (
+                    <div style={{ fontSize: '11px', color: t.textSecondary, marginTop: '2px' }}>{d.description}</div>
+                  )}
+                  {/* Ports info */}
+                  {ports.length > 0 && (
+                    <div style={{ marginTop: '4px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {inputPorts.length > 0 && (
+                        <span style={{ fontSize: '10px', color: '#3b82f6' }}>
+                          ⬅ {inputPorts.length} input{inputPorts.length > 1 ? 's' : ''}
+                          {inputPorts.length <= 3 && `: ${inputPorts.map((p: any) => p.label || p.name || p.id).join(', ')}`}
+                        </span>
+                      )}
+                      {outputPorts.length > 0 && (
+                        <span style={{ fontSize: '10px', color: '#22c55e' }}>
+                          ➡ {outputPorts.length} output{outputPorts.length > 1 ? 's' : ''}
+                          {outputPorts.length <= 3 && `: ${outputPorts.map((p: any) => p.label || p.name || p.id).join(', ')}`}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* ID */}
+                {d.reqId && (
+                  <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#3b82f6', flexShrink: 0 }}>
+                    {d.reqId}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* ─── Table View ─── */
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+          <thead>
+            <tr style={{ background: `${t.accent}15` }}>
+              {['Component', 'Type', 'Ports', 'Connections', 'Parent'].map(h => (
+                <th key={h} style={{
+                  padding: '8px 10px', textAlign: 'left', fontWeight: 600,
+                  color: t.textPrimary, borderBottom: `2px solid ${t.border}`, fontSize: '11px',
+                }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(({ node, depth }, idx) => {
+              const d = node.data || {};
+              const itemType = d.itemType || d.type || '';
+              const info = TYPE_LABELS[itemType] || { label: itemType, icon: '📦', color: '#64748b' };
+              const ports = d.ports || [];
+              const connections = getConnections(node.id);
+              const parent = parentOf.get(node.id);
+              const parentNode = parent ? (nodes || []).find(n => n.id === parent) : null;
+
+              return (
+                <tr key={node.id} style={{
+                  background: idx % 2 === 0 ? 'transparent' : `${t.accent}05`,
+                  borderBottom: `1px solid ${t.border}`,
+                }}>
+                  <td style={{ padding: '8px 10px', color: t.textPrimary }}>
+                    <div style={{ fontWeight: 500, paddingLeft: `${depth * 16}px` }}>
+                      {depth > 0 && <span style={{ color: t.textSecondary, marginRight: '4px' }}>└</span>}
+                      {d.label}
+                    </div>
+                    {d.description && (
+                      <div style={{ fontSize: '11px', color: t.textSecondary, paddingLeft: `${depth * 16}px` }}>{d.description}</div>
+                    )}
+                  </td>
+                  <td style={{ padding: '8px 10px' }}>
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '3px',
+                      background: `${info.color}18`, color: info.color,
+                      padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 500,
+                    }}>
+                      {info.icon} {info.label}
+                    </span>
+                  </td>
+                  <td style={{ padding: '8px 10px', fontSize: '11px', color: t.textSecondary }}>
+                    {ports.length > 0 ? `${ports.filter((p: any) => p.direction === 'input').length}↓ ${ports.filter((p: any) => p.direction === 'output').length}↑` : '—'}
+                  </td>
+                  <td style={{ padding: '8px 10px', fontSize: '11px', color: t.textSecondary, maxWidth: '200px' }}>
+                    {connections.length > 0
+                      ? connections.slice(0, 4).map((name, i) => (
+                          <span key={i} style={{
+                            background: `${t.accent}15`, padding: '1px 6px', borderRadius: '3px',
+                            marginRight: '4px', display: 'inline-block', marginBottom: '2px',
+                          }}>{name}</span>
+                        ))
+                      : '—'
+                    }
+                    {connections.length > 4 && <span style={{ opacity: 0.5 }}>+{connections.length - 4}</span>}
+                  </td>
+                  <td style={{ padding: '8px 10px', fontSize: '11px', color: t.textSecondary }}>
+                    {parentNode?.data?.label || '—'}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+
+      <div style={{ marginTop: '8px', fontSize: '10px', color: t.textSecondary, opacity: 0.6, fontStyle: 'italic' }}>
+        Auto-populated from PLM canvas · {new Date().toLocaleDateString()}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// DYNAMIC COMPONENT LIST — METS library components from PLM
+// ═══════════════════════════════════════════════════════════
+
+function DynamicComponentList({ section, data, onChange, theme: t, nodes = [], edges = [] }: SectionProps & { nodes?: any[], edges?: any[] }) {
+  const [groupBy, setGroupBy] = useState<'family' | 'system' | 'flat'>('family');
+  const [showSignals, setShowSignals] = useState(false);
+
+  // Filter to swComponent nodes
+  const compNodes = (nodes || []).filter(n => {
+    return n.type === 'swComponent' || n.data?.metsFamily;
+  });
+
+  if (compNodes.length === 0) {
+    return (
+      <div style={{
+        padding: '32px', textAlign: 'center',
+        background: `${t.accent}08`, border: `2px dashed ${t.border}`, borderRadius: '8px',
+      }}>
+        <div style={{ fontSize: '28px', marginBottom: '8px' }}>🔧</div>
+        <div style={{ fontSize: '14px', color: t.textSecondary, marginBottom: '4px' }}>
+          No METS components found in PLM canvas
+        </div>
+        <div style={{ fontSize: '12px', color: t.textSecondary, opacity: 0.7 }}>
+          Drag components from the METS Library panel to auto-populate
+        </div>
+      </div>
+    );
+  }
+
+  // Group nodes
+  const grouped = new Map<string, any[]>();
+  compNodes.forEach(n => {
+    const key = groupBy === 'family'
+      ? (n.data?.metsFamily || 'Unknown')
+      : groupBy === 'system'
+        ? (n.data?.metsSystem || 'Unassigned')
+        : 'All Components';
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key)!.push(n);
+  });
+
+  // Family colors from library
+  const FAMILY_COLORS_LOCAL: Record<string, string> = {
+    VALVC: '#ef4444', PUMPC: '#3b82f6', TANKM: '#10b981', BRKC: '#f59e0b',
+    FANC: '#8b5cf6', DMPC: '#06b6d4', MOTRC: '#ec4899', HEATC: '#f97316',
+  };
+
+  return (
+    <div>
+      {/* Toolbar */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', flexWrap: 'wrap',
+      }}>
+        <div style={{ fontSize: '12px', color: t.textSecondary, fontWeight: 600 }}>
+          {compNodes.length} component{compNodes.length !== 1 ? 's' : ''}
+        </div>
+        <div style={{ flex: 1 }} />
+
+        <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: t.textSecondary, cursor: 'pointer' }}>
+          <input type="checkbox" checked={showSignals} onChange={e => setShowSignals(e.target.checked)} style={{ accentColor: t.accent }} />
+          Show signals
+        </label>
+
+        <select value={groupBy} onChange={e => setGroupBy(e.target.value as any)} style={{
+          background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px',
+          color: t.textPrimary, padding: '4px 8px', fontSize: '12px',
+        }}>
+          <option value="family">Group by Family</option>
+          <option value="system">Group by System</option>
+          <option value="flat">Flat list</option>
+        </select>
+      </div>
+
+      {/* Grouped tables */}
+      {[...grouped.entries()].map(([groupName, groupNodes]) => {
+        const familyColor = FAMILY_COLORS_LOCAL[groupName] || t.accent;
+        return (
+          <div key={groupName} style={{ marginBottom: '16px' }}>
+            {groupBy !== 'flat' && (
+              <div style={{
+                padding: '6px 12px', background: `${familyColor}15`,
+                borderLeft: `3px solid ${familyColor}`, borderRadius: '0 4px 4px 0',
+                fontSize: '12px', fontWeight: 600, color: familyColor, marginBottom: '6px',
+              }}>
+                {groupName} ({groupNodes.length})
+              </div>
+            )}
+
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+              <thead>
+                <tr style={{ background: `${t.accent}10` }}>
+                  {['Instance', 'Family', 'Variant', 'Pos No', 'System', ...(showSignals ? ['DI', 'DO', 'AI', 'AO'] : ['Signals'])].map(h => (
+                    <th key={h} style={{
+                      padding: '6px 10px', textAlign: 'left', fontWeight: 600,
+                      color: t.textPrimary, borderBottom: `2px solid ${t.border}`, fontSize: '11px',
+                      whiteSpace: 'nowrap',
+                    }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {groupNodes.map((node: any, idx: number) => {
+                  const d = node.data || {};
+                  const famKey = d.metsFamily || '';
+                  const varKey = d.metsVariant || '';
+                  const fc = FAMILY_COLORS_LOCAL[famKey] || '#64748b';
+
+                  // Count signals by type
+                  const sigs = d.metsSignals || [];
+                  const di = sigs.filter((s: any) => s.type === 'DI').length;
+                  const dout = sigs.filter((s: any) => s.type === 'DO').length;
+                  const ai = sigs.filter((s: any) => s.type === 'AI').length;
+                  const ao = sigs.filter((s: any) => s.type === 'AO').length;
+                  const totalSigs = di + dout + ai + ao;
+
+                  return (
+                    <tr key={node.id} style={{
+                      background: idx % 2 === 0 ? 'transparent' : `${t.accent}05`,
+                      borderBottom: `1px solid ${t.border}`,
+                    }}>
+                      <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontWeight: 600, color: fc }}>
+                        {d.metsInstanceName || 'fb_unnamed'}
+                      </td>
+                      <td style={{ padding: '6px 10px' }}>
+                        <span style={{
+                          background: `${fc}18`, color: fc,
+                          padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 500,
+                        }}>{famKey}</span>
+                      </td>
+                      <td style={{ padding: '6px 10px', color: t.textPrimary, fontSize: '11px' }}>
+                        {varKey}
+                      </td>
+                      <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontSize: '11px', color: t.textSecondary }}>
+                        {d.metsPosNo || '—'}
+                      </td>
+                      <td style={{ padding: '6px 10px', fontSize: '11px', color: t.textSecondary }}>
+                        {d.metsSystem || '—'}
+                      </td>
+                      {showSignals ? (
+                        <>
+                          <td style={{ padding: '6px 10px', textAlign: 'center', fontSize: '11px', color: di > 0 ? '#3b82f6' : t.textSecondary }}>{di || '—'}</td>
+                          <td style={{ padding: '6px 10px', textAlign: 'center', fontSize: '11px', color: dout > 0 ? '#22c55e' : t.textSecondary }}>{dout || '—'}</td>
+                          <td style={{ padding: '6px 10px', textAlign: 'center', fontSize: '11px', color: ai > 0 ? '#f59e0b' : t.textSecondary }}>{ai || '—'}</td>
+                          <td style={{ padding: '6px 10px', textAlign: 'center', fontSize: '11px', color: ao > 0 ? '#ef4444' : t.textSecondary }}>{ao || '—'}</td>
+                        </>
+                      ) : (
+                        <td style={{ padding: '6px 10px', fontSize: '11px', color: t.textSecondary }}>
+                          {totalSigs > 0 ? totalSigs : '—'}
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        );
+      })}
+
+      <div style={{ marginTop: '8px', fontSize: '10px', color: t.textSecondary, opacity: 0.6, fontStyle: 'italic' }}>
+        Auto-populated from METS Library · {new Date().toLocaleDateString()}
+      </div>
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════
+// DYNAMIC I/O LIST — signals/ports from all PLM nodes
+// ═══════════════════════════════════════════════════════════
+
+function DynamicIOList({ section, data, onChange, theme: t, nodes = [], edges = [] }: SectionProps & { nodes?: any[], edges?: any[] }) {
+  const [filterSigType, setFilterSigType] = useState<string>('all');
+  const [filterSource, setFilterSource] = useState<string>('all');
+
+  // Collect all signals/ports from all nodes
+  const allSignals: { signal: any; source: string; sourceType: string; nodeId: string; family?: string }[] = [];
+
+  (nodes || []).forEach(n => {
+    const d = n.data || {};
+    const srcName = d.metsInstanceName || d.label || n.id.slice(0, 8);
+    const srcType = n.type === 'swComponent' ? 'METS' : (d.itemType || d.type || 'node');
+
+    // METS component signals
+    if (d.metsSignals?.length) {
+      d.metsSignals.forEach((sig: any) => {
+        allSignals.push({ signal: sig, source: srcName, sourceType: srcType, nodeId: n.id, family: d.metsFamily });
+      });
+    }
+
+    // Regular node ports (non-METS)
+    if (d.ports?.length && !d.metsFamily) {
+      d.ports.forEach((port: any) => {
+        allSignals.push({
+          signal: {
+            name: port.label || port.name || port.id,
+            type: port.direction === 'input' ? 'DI' : 'DO',
+            desc: port.description || '',
+            struct: port.dataType || '',
+          },
+          source: srcName, sourceType: srcType, nodeId: n.id,
+        });
+      });
+    }
+  });
+
+  // Filter
+  const filtered = allSignals.filter(s => {
+    if (filterSigType !== 'all' && s.signal.type !== filterSigType) return false;
+    if (filterSource !== 'all' && s.source !== filterSource) return false;
+    return true;
+  });
+
+  // Sort: DI, AI, DO, AO
+  const typeOrder: Record<string, number> = { DI: 0, AI: 1, DO: 2, AO: 3 };
+  filtered.sort((a, b) => (typeOrder[a.signal.type] ?? 9) - (typeOrder[b.signal.type] ?? 9));
+
+  // Unique sources and signal types
+  const sources = [...new Set(allSignals.map(s => s.source))];
+  const sigTypes = [...new Set(allSignals.map(s => s.signal.type))];
+
+  const sigTypeColors: Record<string, { bg: string; color: string }> = {
+    DI: { bg: '#dbeafe', color: '#2563eb' },
+    DO: { bg: '#dcfce7', color: '#16a34a' },
+    AI: { bg: '#fef3c7', color: '#d97706' },
+    AO: { bg: '#fee2e2', color: '#dc2626' },
+  };
+
+  if (allSignals.length === 0) {
+    return (
+      <div style={{
+        padding: '32px', textAlign: 'center',
+        background: `${t.accent}08`, border: `2px dashed ${t.border}`, borderRadius: '8px',
+      }}>
+        <div style={{ fontSize: '28px', marginBottom: '8px' }}>⚡</div>
+        <div style={{ fontSize: '14px', color: t.textSecondary, marginBottom: '4px' }}>
+          No I/O signals found in PLM canvas
+        </div>
+        <div style={{ fontSize: '12px', color: t.textSecondary, opacity: 0.7 }}>
+          Add components with signals or nodes with ports to auto-populate
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Toolbar */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', flexWrap: 'wrap',
+      }}>
+        <div style={{ fontSize: '12px', color: t.textSecondary, fontWeight: 600 }}>
+          {filtered.length} of {allSignals.length} signal{allSignals.length !== 1 ? 's' : ''}
+        </div>
+
+        {/* Summary badges */}
+        {sigTypes.map(st => {
+          const count = allSignals.filter(s => s.signal.type === st).length;
+          const c = sigTypeColors[st] || { bg: '#f1f5f9', color: '#64748b' };
+          return (
+            <span key={st} style={{
+              background: c.bg, color: c.color,
+              padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 600,
+            }}>
+              {st}: {count}
+            </span>
+          );
+        })}
+
+        <div style={{ flex: 1 }} />
+
+        {sigTypes.length > 1 && (
+          <select value={filterSigType} onChange={e => setFilterSigType(e.target.value)} style={{
+            background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px',
+            color: t.textPrimary, padding: '4px 8px', fontSize: '12px',
+          }}>
+            <option value="all">All types</option>
+            {sigTypes.map(st => <option key={st} value={st}>{st}</option>)}
+          </select>
+        )}
+
+        {sources.length > 1 && (
+          <select value={filterSource} onChange={e => setFilterSource(e.target.value)} style={{
+            background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px',
+            color: t.textPrimary, padding: '4px 8px', fontSize: '12px',
+          }}>
+            <option value="all">All sources</option>
+            {sources.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        )}
+      </div>
+
+      {/* Table */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+        <thead>
+          <tr style={{ background: `${t.accent}10` }}>
+            {['#', 'Signal Name', 'Type', 'Data Type', 'Source', 'Description'].map(h => (
+              <th key={h} style={{
+                padding: '6px 10px', textAlign: 'left', fontWeight: 600,
+                color: t.textPrimary, borderBottom: `2px solid ${t.border}`, fontSize: '11px',
+                whiteSpace: 'nowrap',
+              }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {filtered.map((item, idx) => {
+            const s = item.signal;
+            const c = sigTypeColors[s.type] || { bg: '#f1f5f9', color: '#64748b' };
+            return (
+              <tr key={`${item.nodeId}-${s.name}-${idx}`} style={{
+                background: idx % 2 === 0 ? 'transparent' : `${t.accent}05`,
+                borderBottom: `1px solid ${t.border}`,
+              }}>
+                <td style={{ padding: '6px 10px', color: t.textSecondary, fontSize: '11px' }}>{idx + 1}</td>
+                <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontWeight: 500, color: t.textPrimary }}>
+                  {s.name}
+                </td>
+                <td style={{ padding: '6px 10px' }}>
+                  <span style={{
+                    background: c.bg, color: c.color,
+                    padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
+                  }}>{s.type}</span>
+                </td>
+                <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontSize: '11px', color: t.textSecondary }}>
+                  {s.struct || '—'}
+                </td>
+                <td style={{ padding: '6px 10px', fontSize: '11px', color: t.textSecondary }}>
+                  {item.family && <span style={{ fontSize: '9px', marginRight: '4px', opacity: 0.6 }}>[{item.family}]</span>}
+                  {item.source}
+                </td>
+                <td style={{ padding: '6px 10px', fontSize: '11px', color: t.textSecondary, maxWidth: '250px' }}>
+                  {s.desc || '—'}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      <div style={{ marginTop: '8px', fontSize: '10px', color: t.textSecondary, opacity: 0.6, fontStyle: 'italic' }}>
+        Auto-populated from PLM canvas · {new Date().toLocaleDateString()}
+      </div>
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════
+// DYNAMIC ALARM LIST — derived from METS component states & config
+// ═══════════════════════════════════════════════════════════
+
+interface DerivedAlarm {
+  tag: string;
+  source: string;
+  family: string;
+  condition: string;
+  action: string;
+  priority: 'critical' | 'high' | 'medium' | 'low' | 'info';
+  setpoint: string;
+  type: 'state' | 'limit' | 'signal';
+}
+
+function deriveAlarms(nodes: any[]): DerivedAlarm[] {
+  const alarms: DerivedAlarm[] = [];
+
+  (nodes || []).filter(n => n.type === 'swComponent' || n.data?.metsFamily).forEach(n => {
+    const d = n.data || {};
+    const instanceName = d.metsInstanceName || 'fb_unnamed';
+    const family = d.metsFamily || '';
+    const states = d.metsStates || [];
+    const config = d.metsConfig || [];
+    const signals = d.metsSignals || [];
+
+    // 1. States with alarm/trip actions
+    states.forEach((s: any) => {
+      const act = (s.actions || '').toLowerCase();
+      if (act.includes('alarm') || act.includes('trip') || act.includes('all off')) {
+        const priority = act.includes('critical') ? 'critical' :
+                         act.includes('trip') || act.includes('all off') ? 'high' :
+                         act.includes('high') || act.includes('low') ? 'medium' : 'info';
+        alarms.push({
+          tag: `${instanceName}.${s.name}`,
+          source: instanceName,
+          family,
+          condition: s.entry || s.name,
+          action: s.actions,
+          priority,
+          setpoint: '',
+          type: 'state',
+        });
+      }
+    });
+
+    // 2. Config params with alarm/limit/trip keywords
+    config.forEach((c: any) => {
+      const desc = (c.desc || '').toLowerCase();
+      if (desc.includes('alarm') || desc.includes('limit') || desc.includes('trip') || desc.includes('max') || desc.includes('min')) {
+        alarms.push({
+          tag: `${instanceName}.${c.name}`,
+          source: instanceName,
+          family,
+          condition: c.desc,
+          action: `Setpoint: ${c.default} ${c.type}`,
+          priority: desc.includes('max') || desc.includes('overload') ? 'high' : 'medium',
+          setpoint: `${c.default}`,
+          type: 'limit',
+        });
+      }
+    });
+
+    // 3. DI signals that indicate alarm/trip/fault
+    signals.forEach((sig: any) => {
+      const name = (sig.name || '').toLowerCase();
+      const desc = (sig.desc || '').toLowerCase();
+      if ((name.includes('trip') || name.includes('fault') || name.includes('alarm') ||
+           desc.includes('trip') || desc.includes('fault') || desc.includes('alarm')) && sig.type === 'DI') {
+        alarms.push({
+          tag: `${instanceName}.${sig.name}`,
+          source: instanceName,
+          family,
+          condition: sig.desc || sig.name,
+          action: 'Digital input alarm',
+          priority: name.includes('trip') ? 'high' : 'medium',
+          setpoint: 'TRUE',
+          type: 'signal',
+        });
+      }
+    });
+  });
+
+  return alarms;
+}
+
+function DynamicAlarmList({ section, data, onChange, theme: t, nodes = [], edges = [] }: SectionProps & { nodes?: any[], edges?: any[] }) {
+  const [filterPriority, setFilterPriority] = useState<string>('all');
+  const [filterSource, setFilterSource] = useState<string>('all');
+
+  const alarms = deriveAlarms(nodes);
+
+  const filtered = alarms.filter(a => {
+    if (filterPriority !== 'all' && a.priority !== filterPriority) return false;
+    if (filterSource !== 'all' && a.source !== filterSource) return false;
+    return true;
+  });
+
+  const sources = [...new Set(alarms.map(a => a.source))];
+  const priorities = [...new Set(alarms.map(a => a.priority))];
+
+  const priorityStyles: Record<string, { bg: string; color: string; label: string }> = {
+    critical: { bg: '#7f1d1d', color: '#fca5a5', label: '🔴 Critical' },
+    high:     { bg: '#fee2e2', color: '#dc2626', label: '🟠 High' },
+    medium:   { bg: '#fef3c7', color: '#d97706', label: '🟡 Medium' },
+    low:      { bg: '#dcfce7', color: '#16a34a', label: '🟢 Low' },
+    info:     { bg: '#dbeafe', color: '#2563eb', label: '🔵 Info' },
+  };
+
+  if (alarms.length === 0) {
+    return (
+      <div style={{
+        padding: '32px', textAlign: 'center',
+        background: `${t.accent}08`, border: `2px dashed ${t.border}`, borderRadius: '8px',
+      }}>
+        <div style={{ fontSize: '28px', marginBottom: '8px' }}>🔔</div>
+        <div style={{ fontSize: '14px', color: t.textSecondary, marginBottom: '4px' }}>
+          No alarms found in PLM canvas
+        </div>
+        <div style={{ fontSize: '12px', color: t.textSecondary, opacity: 0.7 }}>
+          Add METS components with alarm states to auto-populate
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Toolbar */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', flexWrap: 'wrap',
+      }}>
+        <div style={{ fontSize: '12px', color: t.textSecondary, fontWeight: 600 }}>
+          {filtered.length} of {alarms.length} alarm{alarms.length !== 1 ? 's' : ''}
+        </div>
+
+        {/* Priority summary */}
+        {Object.entries(priorityStyles).map(([key, ps]) => {
+          const count = alarms.filter(a => a.priority === key).length;
+          if (!count) return null;
+          return (
+            <span key={key} style={{
+              background: ps.bg, color: ps.color,
+              padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 600,
+            }}>{ps.label}: {count}</span>
+          );
+        })}
+
+        <div style={{ flex: 1 }} />
+
+        {priorities.length > 1 && (
+          <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)} style={{
+            background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px',
+            color: t.textPrimary, padding: '4px 8px', fontSize: '12px',
+          }}>
+            <option value="all">All priorities</option>
+            {priorities.map(p => <option key={p} value={p}>{priorityStyles[p]?.label || p}</option>)}
+          </select>
+        )}
+
+        {sources.length > 1 && (
+          <select value={filterSource} onChange={e => setFilterSource(e.target.value)} style={{
+            background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px',
+            color: t.textPrimary, padding: '4px 8px', fontSize: '12px',
+          }}>
+            <option value="all">All sources</option>
+            {sources.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        )}
+      </div>
+
+      {/* Table */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+        <thead>
+          <tr style={{ background: `${t.accent}10` }}>
+            {['#', 'Alarm Tag', 'Priority', 'Condition', 'Action', 'Setpoint', 'Source', 'Type'].map(h => (
+              <th key={h} style={{
+                padding: '6px 10px', textAlign: 'left', fontWeight: 600,
+                color: t.textPrimary, borderBottom: `2px solid ${t.border}`, fontSize: '11px',
+                whiteSpace: 'nowrap',
+              }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {filtered.map((a, idx) => {
+            const ps = priorityStyles[a.priority] || priorityStyles.info;
+            return (
+              <tr key={`${a.tag}-${idx}`} style={{
+                background: idx % 2 === 0 ? 'transparent' : `${t.accent}05`,
+                borderBottom: `1px solid ${t.border}`,
+              }}>
+                <td style={{ padding: '6px 10px', color: t.textSecondary, fontSize: '11px' }}>{idx + 1}</td>
+                <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontWeight: 500, color: t.textPrimary, fontSize: '11px' }}>
+                  {a.tag}
+                </td>
+                <td style={{ padding: '6px 10px' }}>
+                  <span style={{
+                    background: ps.bg, color: ps.color,
+                    padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 600,
+                  }}>{ps.label}</span>
+                </td>
+                <td style={{ padding: '6px 10px', color: t.textPrimary, fontSize: '11px' }}>{a.condition}</td>
+                <td style={{ padding: '6px 10px', color: t.textSecondary, fontSize: '11px' }}>{a.action}</td>
+                <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontSize: '11px', color: t.textSecondary }}>
+                  {a.setpoint || '—'}
+                </td>
+                <td style={{ padding: '6px 10px', fontSize: '11px', color: t.textSecondary }}>{a.source}</td>
+                <td style={{ padding: '6px 10px', fontSize: '11px', color: t.textSecondary, textTransform: 'capitalize' }}>{a.type}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      <div style={{ marginTop: '8px', fontSize: '10px', color: t.textSecondary, opacity: 0.6, fontStyle: 'italic' }}>
+        Derived from METS component states, limits & signals · {new Date().toLocaleDateString()}
+      </div>
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════
+// DYNAMIC SEQUENCE EMBED — renders saved sequence diagrams
+// ═══════════════════════════════════════════════════════════
+
+interface SeqDiagram {
+  id: string; name: string; description?: string;
+  participants: { id: string; label: string; color?: string }[];
+  messages: { id: string; fromId: string; toId: string; label: string; type: string; orderIndex: number }[];
+}
+
+function loadSequenceDiagrams(projectId: string | null): SeqDiagram[] {
+  try {
+    const key = `northlight_seqdiagrams_${projectId || 'default'}`;
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function DynamicSequenceEmbed({ section, data, onChange, theme: t, nodes = [], edges = [] }: SectionProps & { nodes?: any[], edges?: any[], projectId?: string }) {
+  // Try to get projectId from section data or URL
+  const projectId = (section as any).projectId || new URLSearchParams(window.location.search).get('project') || null;
+  const diagrams = loadSequenceDiagrams(projectId);
+
+  const [selectedDiagramId, setSelectedDiagramId] = useState<string>(
+    data?.selectedDiagramId || diagrams[0]?.id || ''
+  );
+
+  const diagram = diagrams.find(d => d.id === selectedDiagramId);
+
+  // Save selection
+  const handleSelect = (id: string) => {
+    setSelectedDiagramId(id);
+    onChange(section.id, { ...data, selectedDiagramId: id });
+  };
+
+  if (diagrams.length === 0) {
+    return (
+      <div style={{
+        padding: '32px', textAlign: 'center',
+        background: `${t.accent}08`, border: `2px dashed ${t.border}`, borderRadius: '8px',
+      }}>
+        <div style={{ fontSize: '28px', marginBottom: '8px' }}>📊</div>
+        <div style={{ fontSize: '14px', color: t.textSecondary, marginBottom: '4px' }}>
+          No sequence diagrams found
+        </div>
+        <div style={{ fontSize: '12px', color: t.textSecondary, opacity: 0.7 }}>
+          Create sequence diagrams in the Sequence view to embed here
+        </div>
+      </div>
+    );
+  }
+
+  if (!diagram) {
+    return (
+      <div>
+        <div style={{ marginBottom: '8px', fontSize: '12px', color: t.textSecondary }}>Select a diagram:</div>
+        {diagrams.map(d => (
+          <button key={d.id} onClick={() => handleSelect(d.id)} style={{
+            display: 'block', width: '100%', padding: '8px 12px', marginBottom: '4px',
+            background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '6px',
+            color: t.textPrimary, cursor: 'pointer', textAlign: 'left', fontSize: '12px',
+          }}>
+            📊 {d.name} {d.description && <span style={{ color: t.textSecondary }}> — {d.description}</span>}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  // Render simplified sequence diagram as message table + visual
+  const participants = diagram.participants || [];
+  const messages = [...(diagram.messages || [])].sort((a, b) => a.orderIndex - b.orderIndex);
+  const pMap = new Map(participants.map(p => [p.id, p]));
+
+  return (
+    <div>
+      {/* Diagram selector */}
+      {diagrams.length > 1 && (
+        <div style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '11px', color: t.textSecondary, fontWeight: 600 }}>Diagram:</span>
+          <select value={selectedDiagramId} onChange={e => handleSelect(e.target.value)} style={{
+            background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px',
+            color: t.textPrimary, padding: '4px 8px', fontSize: '12px',
+          }}>
+            {diagrams.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+        </div>
+      )}
+
+      {/* Diagram name */}
+      <div style={{
+        padding: '8px 12px', background: `${t.accent}10`, borderRadius: '6px', marginBottom: '12px',
+        display: 'flex', alignItems: 'center', gap: '8px',
+      }}>
+        <span style={{ fontSize: '16px' }}>📊</span>
+        <div>
+          <div style={{ fontWeight: 600, color: t.textPrimary, fontSize: '13px' }}>{diagram.name}</div>
+          {diagram.description && <div style={{ fontSize: '11px', color: t.textSecondary }}>{diagram.description}</div>}
+        </div>
+        <div style={{ flex: 1 }} />
+        <span style={{ fontSize: '11px', color: t.textSecondary }}>
+          {participants.length} participants · {messages.length} messages
+        </span>
+      </div>
+
+      {/* Participants */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+        {participants.map(p => (
+          <span key={p.id} style={{
+            padding: '4px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
+            background: `${p.color || t.accent}20`, color: p.color || t.accent,
+            border: `1px solid ${p.color || t.accent}40`,
+          }}>
+            {p.label}
+          </span>
+        ))}
+      </div>
+
+      {/* Message flow table */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+        <thead>
+          <tr style={{ background: `${t.accent}10` }}>
+            {['#', 'From', 'To', 'Message', 'Type'].map(h => (
+              <th key={h} style={{
+                padding: '6px 10px', textAlign: 'left', fontWeight: 600,
+                color: t.textPrimary, borderBottom: `2px solid ${t.border}`, fontSize: '11px',
+              }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {messages.map((msg, idx) => {
+            const from = pMap.get(msg.fromId);
+            const to = pMap.get(msg.toId);
+            const typeStyles: Record<string, { color: string; label: string }> = {
+              sync: { color: '#2563eb', label: '→ Sync' },
+              async: { color: '#7c3aed', label: '⇢ Async' },
+              reply: { color: '#16a34a', label: '← Reply' },
+              create: { color: '#d97706', label: '+ Create' },
+              destroy: { color: '#dc2626', label: '✕ Destroy' },
+            };
+            const ts = typeStyles[msg.type] || { color: '#64748b', label: msg.type };
+            return (
+              <tr key={msg.id} style={{
+                background: idx % 2 === 0 ? 'transparent' : `${t.accent}05`,
+                borderBottom: `1px solid ${t.border}`,
+              }}>
+                <td style={{ padding: '6px 10px', color: t.textSecondary, fontSize: '11px' }}>{idx + 1}</td>
+                <td style={{ padding: '6px 10px', fontWeight: 500, color: from?.color || t.textPrimary, fontSize: '11px' }}>
+                  {from?.label || msg.fromId}
+                </td>
+                <td style={{ padding: '6px 10px', fontWeight: 500, color: to?.color || t.textPrimary, fontSize: '11px' }}>
+                  {to?.label || msg.toId}
+                </td>
+                <td style={{ padding: '6px 10px', color: t.textPrimary, fontSize: '12px' }}>
+                  {msg.label}
+                </td>
+                <td style={{ padding: '6px 10px' }}>
+                  <span style={{ color: ts.color, fontSize: '11px', fontWeight: 500 }}>{ts.label}</span>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      <div style={{ marginTop: '8px', fontSize: '10px', color: t.textSecondary, opacity: 0.6, fontStyle: 'italic' }}>
+        From Sequence View · {new Date().toLocaleDateString()}
+      </div>
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════
 // PLACEHOLDER for PLM-linked sections
 // ═══════════════════════════════════════════════════════════
 export function PlaceholderSection({ section, theme: t }: { section: SectionDef, theme: any }) {
@@ -1013,11 +2044,15 @@ export function renderSection(section: SectionDef, data: any, onChange: (id: str
     case 'reference_list':
       return <ReferenceListSection {...props} />;
     case 'architecture_view':
+      return <DynamicArchitectureView {...props} nodes={nodes} edges={edges} />;
     case 'sequence_embed':
+      return <DynamicSequenceEmbed {...props} nodes={nodes} edges={edges} />;
     case 'component_list':
+      return <DynamicComponentList {...props} nodes={nodes} edges={edges} />;
     case 'io_list':
+      return <DynamicIOList {...props} nodes={nodes} edges={edges} />;
     case 'alarm_list':
-      return <PlaceholderSection section={section} theme={theme} />;
+      return <DynamicAlarmList {...props} nodes={nodes} edges={edges} />;
     default:
       return <PlaceholderSection section={section} theme={theme} />;
   }

@@ -87,6 +87,7 @@ import DocumentView from './components/views/DocumentView';
 import { SequenceView } from './components/SequenceView';
 import { DocumentEngine } from './components/DocumentEngine';
 import { MindMapView } from './components/mindmap';
+import { HALManager } from './components/HALManager';
 
 // API Base URL - same as api.js
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -1061,7 +1062,7 @@ const createNewObject = (name, version, description) => {
       />
       
       {/* Left Icon Strip - hidden in freeform drawing mode */}
-      {viewMode !== 'freeform' && viewMode !== 'tasks' && viewMode !== 'gantt' && viewMode !== '3d' && viewMode !== 'sequence' && viewMode !== 'docs' && viewMode !== 'mindmap' && <LeftIconStrip
+      {viewMode !== 'freeform' && viewMode !== 'tasks' && viewMode !== 'gantt' && viewMode !== '3d' && viewMode !== 'sequence' && viewMode !== 'docs' && viewMode !== 'mindmap' && viewMode !== 'hal' && <LeftIconStrip
         onAddSystem={addSystemNode}
         onAddSubSystem={addSubSystemNode}
         onAddFunction={addFunctionNode}
@@ -1198,6 +1199,14 @@ const createNewObject = (name, version, description) => {
           projectId={currentProject?.id || null}
           nodes={nodes}
           edges={edges}
+          style={{ marginTop: '50px', height: `${appHeight - 50}px` }}
+        />
+      ) : viewMode === 'hal' ? (
+        <HALManager
+          projectId={currentProject?.id || null}
+          nodes={processedNodes}
+          edges={processedEdges}
+          theme={theme}
           style={{ marginTop: '50px', height: `${appHeight - 50}px` }}
         />
       ) : viewMode === 'freeform' ? (

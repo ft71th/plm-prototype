@@ -188,6 +188,21 @@ function renderSectionHTML(sec: SectionDef, data: any, nodes: any[], edges: any[
       if (sec.data_source === 'manual') return renderManualTableHTML(sec, data);
       return renderDynamicReqHTML(sec, nodes, edges);
 
+    case 'architecture_view':
+      return renderArchitectureHTML(sec, nodes, edges);
+
+    case 'component_list':
+      return renderComponentListHTML(sec, nodes);
+
+    case 'io_list':
+      return renderIOListHTML(sec, nodes);
+
+    case 'alarm_list':
+      return renderAlarmListHTML(sec, nodes);
+
+    case 'sequence_embed':
+      return renderSequenceEmbedHTML(sec);
+
     case 'manual_table':
       return renderManualTableHTML(sec, data);
 
@@ -250,6 +265,192 @@ function renderDynamicReqHTML(sec: SectionDef, nodes: any[], edges: any[]): stri
       </tr>`;
     }).join('')}</tbody>
   </table>`;
+}
+
+function getArchNodes(nodes: any[]) {
+  const archTypes = ['system', 'subsystem', 'function', 'hardware', 'parameter'];
+  return (nodes || []).filter(n => {
+    const t = n.data?.itemType || n.data?.type || '';
+    return archTypes.includes(t);
+  });
+}
+
+function buildArchTree(archNodes: any[], edges: any[]) {
+  const parentOf = new Map<string, string>();
+  (edges || []).forEach(e => parentOf.set(e.target, e.source));
+  const archIds = new Set(archNodes.map(n => n.id));
+  const typeOrder: Record<string, number> = { system: 0, subsystem: 1, function: 2, hardware: 3, parameter: 4 };
+  const childrenOf = new Map<string, string[]>();
+  (edges || []).forEach(e => {
+    if (!childrenOf.has(e.source)) childrenOf.set(e.source, []);
+    childrenOf.get(e.source)!.push(e.target);
+  });
+
+  const flat: { node: any; depth: number }[] = [];
+  const visited = new Set<string>();
+  function walk(id: string, depth: number) {
+    if (visited.has(id)) return;
+    visited.add(id);
+    const node = archNodes.find(n => n.id === id);
+    if (!node) return;
+    flat.push({ node, depth });
+    (childrenOf.get(id) || [])
+      .map(cid => archNodes.find(n => n.id === cid))
+      .filter(Boolean)
+      .sort((a, b) => (typeOrder[a!.data?.itemType || ''] ?? 9) - (typeOrder[b!.data?.itemType || ''] ?? 9))
+      .forEach(kid => walk(kid!.id, depth + 1));
+  }
+  const roots = archNodes.filter(n => { const p = parentOf.get(n.id); return !p || !archIds.has(p); });
+  roots.sort((a, b) => (typeOrder[a.data?.itemType || ''] ?? 9) - (typeOrder[b.data?.itemType || ''] ?? 9));
+  roots.forEach(n => walk(n.id, 0));
+  archNodes.forEach(n => { if (!visited.has(n.id)) flat.push({ node: n, depth: 0 }); });
+  return { flat, parentOf };
+}
+
+function renderArchitectureHTML(sec: SectionDef, nodes: any[], edges: any[]): string {
+  const archNodes = getArchNodes(nodes);
+  if (!archNodes.length) return '<p style="color:#94a3b8;">No architecture nodes found in PLM canvas</p>';
+
+  const { flat, parentOf } = buildArchTree(archNodes, edges);
+  const typeLabels: Record<string, string> = {
+    system: 'System', subsystem: 'Sub-system', function: 'Function', hardware: 'Hardware', parameter: 'Parameter',
+  };
+  const typeColors: Record<string, string> = {
+    system: '#1abc9c', subsystem: '#3498db', function: '#00bcd4', hardware: '#795548', parameter: '#607d8b',
+  };
+
+  return `<table>
+    <thead><tr><th>Component</th><th>Type</th><th>Ports</th><th>Parent</th></tr></thead>
+    <tbody>${flat.map(({ node, depth }) => {
+      const d = node.data || {};
+      const itemType = d.itemType || d.type || '';
+      const ports = d.ports || [];
+      const inP = ports.filter((p: any) => p.direction === 'input').length;
+      const outP = ports.filter((p: any) => p.direction === 'output').length;
+      const parentId = parentOf.get(node.id);
+      const parentNode = parentId ? (nodes || []).find(n => n.id === parentId) : null;
+      const indent = '&nbsp;&nbsp;&nbsp;&nbsp;'.repeat(depth);
+      const prefix = depth > 0 ? '└ ' : '';
+      return `<tr>
+        <td>${indent}${prefix}<strong>${esc(d.label || '')}</strong>${d.description ? `<br><span style="font-size:8.5pt;color:#64748b;">${indent}&nbsp;&nbsp;${esc(d.description)}</span>` : ''}</td>
+        <td><span class="badge" style="background:${typeColors[itemType] || '#64748b'}20;color:${typeColors[itemType] || '#64748b'};">${esc(typeLabels[itemType] || itemType)}</span></td>
+        <td>${ports.length ? `${inP}↓ ${outP}↑` : '—'}</td>
+        <td>${parentNode ? esc(parentNode.data?.label || '') : '—'}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
+function renderComponentListHTML(sec: SectionDef, nodes: any[]): string {
+  const comps = (nodes || []).filter(n => n.type === 'swComponent' || n.data?.metsFamily);
+  if (!comps.length) return '<p style="color:#94a3b8;">No METS components found in PLM canvas</p>';
+
+  return `<table>
+    <thead><tr><th>Instance</th><th>Family</th><th>Variant</th><th>Pos No</th><th>System</th><th>DI</th><th>DO</th><th>AI</th><th>AO</th></tr></thead>
+    <tbody>${comps.map(n => {
+      const d = n.data || {};
+      const sigs = d.metsSignals || [];
+      return `<tr>
+        <td style="font-family:monospace;font-weight:600;">${esc(d.metsInstanceName || 'fb_unnamed')}</td>
+        <td><span class="badge badge-type">${esc(d.metsFamily || '—')}</span></td>
+        <td>${esc(d.metsVariant || '—')}</td>
+        <td style="font-family:monospace;">${esc(d.metsPosNo || '—')}</td>
+        <td>${esc(d.metsSystem || '—')}</td>
+        <td style="text-align:center;">${sigs.filter((s: any) => s.type === 'DI').length || '—'}</td>
+        <td style="text-align:center;">${sigs.filter((s: any) => s.type === 'DO').length || '—'}</td>
+        <td style="text-align:center;">${sigs.filter((s: any) => s.type === 'AI').length || '—'}</td>
+        <td style="text-align:center;">${sigs.filter((s: any) => s.type === 'AO').length || '—'}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
+function renderIOListHTML(sec: SectionDef, nodes: any[]): string {
+  const signals: { name: string; type: string; struct: string; source: string; desc: string }[] = [];
+  (nodes || []).forEach(n => {
+    const d = n.data || {};
+    const src = d.metsInstanceName || d.label || n.id.slice(0, 8);
+    if (d.metsSignals?.length) {
+      d.metsSignals.forEach((sig: any) => signals.push({ name: sig.name, type: sig.type, struct: sig.struct || '', source: src, desc: sig.desc || '' }));
+    }
+    if (d.ports?.length && !d.metsFamily) {
+      d.ports.forEach((p: any) => signals.push({
+        name: p.label || p.name || p.id, type: p.direction === 'input' ? 'DI' : 'DO', struct: p.dataType || '', source: src, desc: p.description || '',
+      }));
+    }
+  });
+  if (!signals.length) return '<p style="color:#94a3b8;">No I/O signals found in PLM canvas</p>';
+
+  const typeColors: Record<string, string> = { DI: '#2563eb', DO: '#16a34a', AI: '#d97706', AO: '#dc2626' };
+  const order: Record<string, number> = { DI: 0, AI: 1, DO: 2, AO: 3 };
+  signals.sort((a, b) => (order[a.type] ?? 9) - (order[b.type] ?? 9));
+
+  return `<table>
+    <thead><tr><th>#</th><th>Signal Name</th><th>Type</th><th>Data Type</th><th>Source</th><th>Description</th></tr></thead>
+    <tbody>${signals.map((s, i) =>
+      `<tr><td>${i + 1}</td>
+       <td style="font-family:monospace;font-weight:500;">${esc(s.name)}</td>
+       <td><span class="badge" style="background:${typeColors[s.type] || '#64748b'}20;color:${typeColors[s.type] || '#64748b'};">${esc(s.type)}</span></td>
+       <td style="font-family:monospace;font-size:9pt;">${esc(s.struct || '—')}</td>
+       <td>${esc(s.source)}</td>
+       <td>${esc(s.desc || '—')}</td></tr>`
+    ).join('')}</tbody>
+  </table>`;
+}
+
+function deriveAlarmsExport(nodes: any[]) {
+  const alarms: { tag: string; source: string; family: string; condition: string; action: string; priority: string; setpoint: string; type: string }[] = [];
+  (nodes || []).filter(n => n.type === 'swComponent' || n.data?.metsFamily).forEach(n => {
+    const d = n.data || {};
+    const inst = d.metsInstanceName || 'fb_unnamed';
+    const fam = d.metsFamily || '';
+    (d.metsStates || []).forEach((s: any) => {
+      const act = (s.actions || '').toLowerCase();
+      if (act.includes('alarm') || act.includes('trip') || act.includes('all off')) {
+        const pri = act.includes('critical') ? 'critical' : act.includes('trip') || act.includes('all off') ? 'high' : 'medium';
+        alarms.push({ tag: `${inst}.${s.name}`, source: inst, family: fam, condition: s.entry || s.name, action: s.actions, priority: pri, setpoint: '', type: 'state' });
+      }
+    });
+    (d.metsConfig || []).forEach((c: any) => {
+      const desc = (c.desc || '').toLowerCase();
+      if (desc.includes('alarm') || desc.includes('limit') || desc.includes('trip') || desc.includes('max') || desc.includes('min')) {
+        alarms.push({ tag: `${inst}.${c.name}`, source: inst, family: fam, condition: c.desc, action: `Setpoint: ${c.default}`, priority: desc.includes('max') || desc.includes('overload') ? 'high' : 'medium', setpoint: c.default, type: 'limit' });
+      }
+    });
+    (d.metsSignals || []).forEach((sig: any) => {
+      const nm = (sig.name || '').toLowerCase();
+      const ds = (sig.desc || '').toLowerCase();
+      if ((nm.includes('trip') || nm.includes('fault') || nm.includes('alarm') || ds.includes('trip') || ds.includes('fault')) && sig.type === 'DI') {
+        alarms.push({ tag: `${inst}.${sig.name}`, source: inst, family: fam, condition: sig.desc || sig.name, action: 'Digital input alarm', priority: nm.includes('trip') ? 'high' : 'medium', setpoint: 'TRUE', type: 'signal' });
+      }
+    });
+  });
+  return alarms;
+}
+
+function renderAlarmListHTML(sec: SectionDef, nodes: any[]): string {
+  const alarms = deriveAlarmsExport(nodes);
+  if (!alarms.length) return '<p style="color:#94a3b8;">No alarms found in PLM canvas</p>';
+
+  const priColors: Record<string, string> = { critical: '#dc2626', high: '#f59e0b', medium: '#eab308', low: '#22c55e', info: '#3b82f6' };
+  return `<table>
+    <thead><tr><th>#</th><th>Alarm Tag</th><th>Priority</th><th>Condition</th><th>Action</th><th>Setpoint</th><th>Source</th><th>Type</th></tr></thead>
+    <tbody>${alarms.map((a, i) =>
+      `<tr><td>${i + 1}</td>
+       <td style="font-family:monospace;font-weight:500;">${esc(a.tag)}</td>
+       <td><span class="badge" style="background:${priColors[a.priority] || '#64748b'}20;color:${priColors[a.priority] || '#64748b'};">${esc(a.priority)}</span></td>
+       <td>${esc(a.condition)}</td><td>${esc(a.action)}</td>
+       <td style="font-family:monospace;">${esc(a.setpoint || '—')}</td>
+       <td>${esc(a.source)}</td><td style="text-transform:capitalize;">${esc(a.type)}</td></tr>`
+    ).join('')}</tbody>
+  </table>`;
+}
+
+function renderSequenceEmbedHTML(sec: SectionDef): string {
+  return `<div style="padding:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;text-align:center;">
+    <div style="font-size:14pt;margin-bottom:4px;">📊 Sequence Diagram</div>
+    <div style="font-size:9pt;color:#94a3b8;">See interactive sequence diagram in Northlight application</div>
+  </div>`;
 }
 
 function renderRiskMatrixHTML(sec: SectionDef, data: any): string {
@@ -487,6 +688,16 @@ function renderSectionDOCX(sec: SectionDef, data: any, nodes: any[], edges: any[
       return sec.data_source === 'manual'
         ? renderManualTableDOCX(sec, data)
         : renderDynamicReqDOCX(sec, nodes, edges);
+    case 'architecture_view':
+      return renderArchitectureDOCX(sec, nodes, edges);
+    case 'component_list':
+      return renderComponentListDOCX(sec, nodes);
+    case 'io_list':
+      return renderIOListDOCX(sec, nodes);
+    case 'alarm_list':
+      return renderAlarmListDOCX(sec, nodes);
+    case 'sequence_embed':
+      return renderSequenceEmbedDOCX(sec);
     case 'manual_table':
       return renderManualTableDOCX(sec, data);
     case 'risk_matrix':
@@ -570,6 +781,143 @@ function renderDynamicReqDOCX(sec: SectionDef, nodes: any[], edges: any[]): (Par
       }),
     ],
     width: { size: 100, type: WidthType.PERCENTAGE },
+  })];
+}
+
+function renderArchitectureDOCX(sec: SectionDef, nodes: any[], edges: any[]): (Paragraph | Table)[] {
+  const archNodes = getArchNodes(nodes);
+  if (!archNodes.length) return [new Paragraph({
+    children: [new TextRun({ text: 'No architecture nodes found in PLM canvas', italics: true, color: GRAY, size: 18 })],
+  })];
+
+  const { flat, parentOf } = buildArchTree(archNodes, edges);
+  const typeLabels: Record<string, string> = {
+    system: 'System', subsystem: 'Sub-system', function: 'Function', hardware: 'Hardware', parameter: 'Parameter',
+  };
+
+  return [new Table({
+    rows: [
+      new TableRow({ children: [headerCell('Component', 35), headerCell('Type', 15), headerCell('Ports', 10), headerCell('Parent', 20), headerCell('Description', 20)] }),
+      ...flat.map(({ node, depth }) => {
+        const d = node.data || {};
+        const itemType = d.itemType || d.type || '';
+        const ports = d.ports || [];
+        const inP = ports.filter((p: any) => p.direction === 'input').length;
+        const outP = ports.filter((p: any) => p.direction === 'output').length;
+        const parentId = parentOf.get(node.id);
+        const parentNode = parentId ? (nodes || []).find(n => n.id === parentId) : null;
+        const indent = '  '.repeat(depth);
+        const prefix = depth > 0 ? '└ ' : '';
+        return new TableRow({
+          children: [
+            textCell(`${indent}${prefix}${d.label || ''}`, { bold: depth === 0 }),
+            textCell(typeLabels[itemType] || itemType),
+            textCell(ports.length ? `${inP}↓ ${outP}↑` : '—'),
+            textCell(parentNode?.data?.label || '—'),
+            textCell(d.description || '—'),
+          ],
+        });
+      }),
+    ],
+    width: { size: 100, type: WidthType.PERCENTAGE },
+  })];
+}
+
+function renderComponentListDOCX(sec: SectionDef, nodes: any[]): (Paragraph | Table)[] {
+  const comps = (nodes || []).filter(n => n.type === 'swComponent' || n.data?.metsFamily);
+  if (!comps.length) return [new Paragraph({ children: [new TextRun({ text: 'No METS components found', italics: true, color: GRAY, size: 18 })] })];
+
+  return [new Table({
+    rows: [
+      new TableRow({ children: [headerCell('Instance', 18), headerCell('Family', 10), headerCell('Variant', 14), headerCell('Pos No', 10), headerCell('System', 14), headerCell('DI', 6), headerCell('DO', 6), headerCell('AI', 6), headerCell('AO', 6)] }),
+      ...comps.map(n => {
+        const d = n.data || {};
+        const sigs = d.metsSignals || [];
+        return new TableRow({
+          children: [
+            textCell(d.metsInstanceName || 'fb_unnamed', { mono: true, bold: true }),
+            textCell(d.metsFamily || '—'),
+            textCell(d.metsVariant || '—'),
+            textCell(d.metsPosNo || '—', { mono: true }),
+            textCell(d.metsSystem || '—'),
+            textCell(String(sigs.filter((s: any) => s.type === 'DI').length || '—')),
+            textCell(String(sigs.filter((s: any) => s.type === 'DO').length || '—')),
+            textCell(String(sigs.filter((s: any) => s.type === 'AI').length || '—')),
+            textCell(String(sigs.filter((s: any) => s.type === 'AO').length || '—')),
+          ],
+        });
+      }),
+    ],
+    width: { size: 100, type: WidthType.PERCENTAGE },
+  })];
+}
+
+function renderIOListDOCX(sec: SectionDef, nodes: any[]): (Paragraph | Table)[] {
+  const signals: { name: string; type: string; struct: string; source: string; desc: string }[] = [];
+  (nodes || []).forEach(n => {
+    const d = n.data || {};
+    const src = d.metsInstanceName || d.label || n.id.slice(0, 8);
+    if (d.metsSignals?.length) {
+      d.metsSignals.forEach((sig: any) => signals.push({ name: sig.name, type: sig.type, struct: sig.struct || '', source: src, desc: sig.desc || '' }));
+    }
+    if (d.ports?.length && !d.metsFamily) {
+      d.ports.forEach((p: any) => signals.push({
+        name: p.label || p.name || p.id, type: p.direction === 'input' ? 'DI' : 'DO', struct: p.dataType || '', source: src, desc: p.description || '',
+      }));
+    }
+  });
+  if (!signals.length) return [new Paragraph({ children: [new TextRun({ text: 'No I/O signals found', italics: true, color: GRAY, size: 18 })] })];
+
+  const order: Record<string, number> = { DI: 0, AI: 1, DO: 2, AO: 3 };
+  signals.sort((a, b) => (order[a.type] ?? 9) - (order[b.type] ?? 9));
+
+  return [new Table({
+    rows: [
+      new TableRow({ children: [headerCell('#', 5), headerCell('Signal', 22), headerCell('Type', 8), headerCell('Data Type', 14), headerCell('Source', 18), headerCell('Description', 33)] }),
+      ...signals.map((s, i) => new TableRow({
+        children: [
+          textCell(String(i + 1)),
+          textCell(s.name, { mono: true, bold: true }),
+          textCell(s.type, { bold: true }),
+          textCell(s.struct || '—', { mono: true }),
+          textCell(s.source),
+          textCell(s.desc || '—'),
+        ],
+      })),
+    ],
+    width: { size: 100, type: WidthType.PERCENTAGE },
+  })];
+}
+
+function renderAlarmListDOCX(sec: SectionDef, nodes: any[]): (Paragraph | Table)[] {
+  const alarms = deriveAlarmsExport(nodes);
+  if (!alarms.length) return [new Paragraph({ children: [new TextRun({ text: 'No alarms found', italics: true, color: GRAY, size: 18 })] })];
+
+  return [new Table({
+    rows: [
+      new TableRow({ children: [headerCell('#', 4), headerCell('Alarm Tag', 20), headerCell('Priority', 10), headerCell('Condition', 18), headerCell('Action', 18), headerCell('Setpoint', 10), headerCell('Source', 12), headerCell('Type', 8)] }),
+      ...alarms.map((a, i) => new TableRow({
+        children: [
+          textCell(String(i + 1)),
+          textCell(a.tag, { mono: true, bold: true }),
+          textCell(a.priority.charAt(0).toUpperCase() + a.priority.slice(1), { bold: true }),
+          textCell(a.condition),
+          textCell(a.action),
+          textCell(a.setpoint || '—', { mono: true }),
+          textCell(a.source),
+          textCell(a.type.charAt(0).toUpperCase() + a.type.slice(1)),
+        ],
+      })),
+    ],
+    width: { size: 100, type: WidthType.PERCENTAGE },
+  })];
+}
+
+function renderSequenceEmbedDOCX(sec: SectionDef): (Paragraph | Table)[] {
+  return [new Paragraph({
+    children: [new TextRun({ text: '[Sequence Diagram — see interactive view in Northlight]', italics: true, color: GRAY, size: 20 })],
+    alignment: AlignmentType.CENTER,
+    spacing: { before: 200, after: 200 },
   })];
 }
 
