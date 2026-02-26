@@ -26,9 +26,9 @@ export function StaticSection({ section, data, onChange, readOnly, theme: t }: S
         width: '100%',
         minHeight: '150px',
         padding: '12px',
-        background: t.bgInput,
-        color: t.textPrimary,
-        border: `1px solid ${t.border}`,
+        background: t.canvasInput,
+        color: t.canvasText,
+        border: `1px solid ${t.canvasNodeBorder}`,
         borderRadius: '6px',
         fontSize: '13px',
         lineHeight: '1.6',
@@ -85,9 +85,9 @@ export function ManualTableSection({ section, data, onChange, readOnly, theme: t
 
   const cellStyle: React.CSSProperties = {
     padding: '6px 8px',
-    border: `1px solid ${t.border}`,
+    border: `1px solid ${t.canvasNodeBorder}`,
     fontSize: '12px',
-    color: t.textPrimary,
+    color: t.canvasText,
   };
 
   return (
@@ -99,7 +99,7 @@ export function ManualTableSection({ section, data, onChange, readOnly, theme: t
               {columns.map((col: ColumnDef) => (
                 <th key={col.key} style={{
                   ...cellStyle,
-                  background: t.bgHeader,
+                  background: t.canvasInput,
                   fontWeight: 'bold',
                   textAlign: 'left',
                   whiteSpace: 'nowrap',
@@ -107,7 +107,7 @@ export function ManualTableSection({ section, data, onChange, readOnly, theme: t
                   {col.label}
                 </th>
               ))}
-              {!readOnly && <th style={{ ...cellStyle, background: t.bgHeader, width: 40 }}></th>}
+              {!readOnly && <th style={{ ...cellStyle, background: t.canvasInput, width: 40 }}></th>}
             </tr>
           </thead>
           <tbody>
@@ -122,7 +122,7 @@ export function ManualTableSection({ section, data, onChange, readOnly, theme: t
                         value={row[col.key] || ''}
                         onChange={(e) => updateCell(rowIdx, col.key, e.target.value)}
                         disabled={readOnly}
-                        style={{ background: t.bgInput, color: t.textPrimary, border: 'none', fontSize: '12px', width: '100%' }}
+                        style={{ background: t.canvasInput, color: t.canvasText, border: 'none', fontSize: '12px', width: '100%' }}
                       >
                         <option value="">—</option>
                         {(col.options || []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
@@ -135,7 +135,7 @@ export function ManualTableSection({ section, data, onChange, readOnly, theme: t
                         readOnly={readOnly}
                         min={col.min}
                         max={col.max}
-                        style={{ background: t.bgInput, color: t.textPrimary, border: 'none', fontSize: '12px', width: '60px' }}
+                        style={{ background: t.canvasInput, color: t.canvasText, border: 'none', fontSize: '12px', width: '60px' }}
                       />
                     ) : (
                       <input
@@ -216,13 +216,13 @@ export function TestProceduresSection({ section, data, onChange, readOnly, theme
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       {procedures.map((proc: any, idx: number) => (
         <div key={proc.id || idx} style={{
-          border: `1px solid ${t.border}`,
+          border: `1px solid ${t.canvasNodeBorder}`,
           borderRadius: '8px',
           padding: '16px',
           background: t.bgCard,
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span style={{ fontWeight: 'bold', color: t.textPrimary, fontSize: '13px' }}>
+            <span style={{ fontWeight: 'bold', color: t.canvasText, fontSize: '13px' }}>
               Test {idx + 1}{proc.requirement_id ? ` — ${proc.requirement_id}` : ''}
             </span>
             {!readOnly && (
@@ -234,7 +234,7 @@ export function TestProceduresSection({ section, data, onChange, readOnly, theme
           
           {fields.map(field => (
             <div key={field} style={{ marginBottom: '8px' }}>
-              <label style={{ fontSize: '11px', color: t.textSecondary, fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
+              <label style={{ fontSize: '11px', color: t.canvasTextSec, fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
                 {fieldLabel(field)}
               </label>
               {field === 'pass_fail' ? (
@@ -246,13 +246,13 @@ export function TestProceduresSection({ section, data, onChange, readOnly, theme
                       style={{
                         padding: '4px 16px',
                         borderRadius: '4px',
-                        border: `1px solid ${t.border}`,
+                        border: `1px solid ${t.canvasNodeBorder}`,
                         cursor: readOnly ? 'default' : 'pointer',
                         fontSize: '12px',
                         fontWeight: proc[field] === opt ? 'bold' : 'normal',
                         background: proc[field] === opt
                           ? (opt === 'Pass' ? '#22c55e' : opt === 'Fail' ? '#ef4444' : '#6b7280')
-                          : t.bgInput,
+                          : t.canvasInput,
                         color: proc[field] === opt ? '#fff' : t.textPrimary,
                       }}
                     >
@@ -276,9 +276,9 @@ export function TestProceduresSection({ section, data, onChange, readOnly, theme
                     width: '100%',
                     minHeight: '60px',
                     padding: '8px',
-                    background: t.bgInput,
-                    color: t.textPrimary,
-                    border: `1px solid ${t.border}`,
+                    background: t.canvasInput,
+                    color: t.canvasText,
+                    border: `1px solid ${t.canvasNodeBorder}`,
                     borderRadius: '4px',
                     fontSize: '12px',
                     resize: 'vertical',
@@ -324,7 +324,7 @@ function StepsEditor({ steps, onChange, readOnly, theme: t }: {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
       {steps.map((step, idx) => (
         <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ color: t.textSecondary, fontSize: '11px', minWidth: '24px' }}>{idx + 1}.</span>
+          <span style={{ color: t.canvasTextSec, fontSize: '11px', minWidth: '24px' }}>{idx + 1}.</span>
           <input
             type="text"
             value={step}
@@ -332,8 +332,8 @@ function StepsEditor({ steps, onChange, readOnly, theme: t }: {
             readOnly={readOnly}
             style={{
               flex: 1, padding: '6px 8px',
-              background: t.bgInput, color: t.textPrimary,
-              border: `1px solid ${t.border}`, borderRadius: '4px',
+              background: t.canvasInput, color: t.canvasText,
+              border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '4px',
               fontSize: '12px',
             }}
           />
@@ -388,12 +388,12 @@ export function SignatureBlockSection({ section, data, onChange, readOnly, theme
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
       {signatures.map((sig: any, idx: number) => (
         <div key={idx} style={{
-          border: `1px solid ${t.border}`,
+          border: `1px solid ${t.canvasNodeBorder}`,
           borderRadius: '8px',
           padding: '16px',
           background: t.bgCard,
         }}>
-          <div style={{ fontSize: '12px', fontWeight: 'bold', color: t.textSecondary, marginBottom: '8px' }}>
+          <div style={{ fontSize: '12px', fontWeight: 'bold', color: t.canvasTextSec, marginBottom: '8px' }}>
             {sig.role}
           </div>
           <input
@@ -404,12 +404,12 @@ export function SignatureBlockSection({ section, data, onChange, readOnly, theme
             readOnly={readOnly}
             style={{
               width: '100%', padding: '6px 8px', marginBottom: '8px',
-              background: t.bgInput, color: t.textPrimary,
-              border: `1px solid ${t.border}`, borderRadius: '4px', fontSize: '12px',
+              background: t.canvasInput, color: t.canvasText,
+              border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '4px', fontSize: '12px',
             }}
           />
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '11px', color: t.textSecondary }}>
+            <span style={{ fontSize: '11px', color: t.canvasTextSec }}>
               {sig.date || 'Not signed'}
             </span>
             {!readOnly && (
@@ -417,9 +417,9 @@ export function SignatureBlockSection({ section, data, onChange, readOnly, theme
                 onClick={() => updateSig(idx, 'signed', !sig.signed)}
                 style={{
                   padding: '4px 12px',
-                  background: sig.signed ? '#22c55e' : t.bgInput,
+                  background: sig.signed ? '#22c55e' : t.canvasInput,
                   color: sig.signed ? '#fff' : t.textPrimary,
-                  border: `1px solid ${t.border}`,
+                  border: `1px solid ${t.canvasNodeBorder}`,
                   borderRadius: '4px',
                   cursor: 'pointer',
                   fontSize: '11px',
@@ -472,8 +472,8 @@ export function ChecklistSection({ section, data, onChange, readOnly, theme: t }
             readOnly={readOnly}
             style={{
               flex: 1, padding: '6px 8px',
-              background: 'transparent', color: t.textPrimary,
-              border: `1px solid ${t.border}`, borderRadius: '4px',
+              background: 'transparent', color: t.canvasText,
+              border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '4px',
               fontSize: '12px',
               textDecoration: item.checked ? 'line-through' : 'none',
               opacity: item.checked ? 0.6 : 1,
@@ -535,33 +535,33 @@ export function ReferenceListSection({ section, data, onChange, readOnly, theme:
           <tr>
             {['Doc Number', 'Title', 'Version', 'Note'].map(h => (
               <th key={h} style={{
-                padding: '6px 8px', border: `1px solid ${t.border}`,
-                background: t.bgHeader, color: t.textPrimary,
+                padding: '6px 8px', border: `1px solid ${t.canvasNodeBorder}`,
+                background: t.canvasInput, color: t.canvasText,
                 fontSize: '11px', fontWeight: 'bold', textAlign: 'left',
               }}>{h}</th>
             ))}
-            {!readOnly && <th style={{ width: 40, border: `1px solid ${t.border}`, background: t.bgHeader }}></th>}
+            {!readOnly && <th style={{ width: 40, border: `1px solid ${t.canvasNodeBorder}`, background: t.canvasInput }}></th>}
           </tr>
         </thead>
         <tbody>
           {references.map((ref: any, idx: number) => (
             <tr key={idx}>
               {['doc_number', 'title', 'version', 'note'].map(key => (
-                <td key={key} style={{ padding: '4px 6px', border: `1px solid ${t.border}` }}>
+                <td key={key} style={{ padding: '4px 6px', border: `1px solid ${t.canvasNodeBorder}` }}>
                   <input
                     type="text"
                     value={ref[key] || ''}
                     onChange={(e) => updateRef(idx, key, e.target.value)}
                     readOnly={readOnly}
                     style={{
-                      background: 'transparent', color: t.textPrimary,
+                      background: 'transparent', color: t.canvasText,
                       border: 'none', fontSize: '12px', width: '100%',
                     }}
                   />
                 </td>
               ))}
               {!readOnly && (
-                <td style={{ padding: '4px', border: `1px solid ${t.border}`, textAlign: 'center' }}>
+                <td style={{ padding: '4px', border: `1px solid ${t.canvasNodeBorder}`, textAlign: 'center' }}>
                   <button onClick={() => deleteRef(idx)} style={{
                     background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '12px',
                   }}>✕</button>
@@ -760,13 +760,13 @@ function DynamicRequirementsTable({ section, data, onChange, theme: t, nodes = [
     return (
       <div style={{
         padding: '32px', textAlign: 'center',
-        background: `${t.accent}08`, border: `2px dashed ${t.border}`, borderRadius: '8px',
+        background: `${t.accent}08`, border: `2px dashed ${t.canvasNodeBorder}`, borderRadius: '8px',
       }}>
         <div style={{ fontSize: '28px', marginBottom: '8px' }}>📋</div>
-        <div style={{ fontSize: '14px', color: t.textSecondary, marginBottom: '4px' }}>
+        <div style={{ fontSize: '14px', color: t.canvasTextSec, marginBottom: '4px' }}>
           No requirements found in PLM canvas
         </div>
-        <div style={{ fontSize: '12px', color: t.textSecondary, opacity: 0.7 }}>
+        <div style={{ fontSize: '12px', color: t.canvasTextSec, opacity: 0.7 }}>
           Add requirement nodes in the PLM or Simple view to auto-populate this table
         </div>
       </div>
@@ -779,7 +779,7 @@ function DynamicRequirementsTable({ section, data, onChange, theme: t, nodes = [
       <div style={{
         display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', flexWrap: 'wrap',
       }}>
-        <div style={{ fontSize: '12px', color: t.textSecondary, fontWeight: 600 }}>
+        <div style={{ fontSize: '12px', color: t.canvasTextSec, fontWeight: 600 }}>
           {sorted.length} of {allReqNodes.length} requirement{allReqNodes.length !== 1 ? 's' : ''}
         </div>
 
@@ -798,7 +798,7 @@ function DynamicRequirementsTable({ section, data, onChange, theme: t, nodes = [
 
         {/* Template default indicator */}
         {section.filter && (
-          <span style={{ fontSize: '10px', color: t.textSecondary, opacity: 0.6, fontStyle: 'italic' }}>
+          <span style={{ fontSize: '10px', color: t.canvasTextSec, opacity: 0.6, fontStyle: 'italic' }}>
             Template default: {section.filter.reqTypes?.join(', ') || section.filter.classifications?.join(', ') || 'all'}
           </span>
         )}
@@ -809,8 +809,8 @@ function DynamicRequirementsTable({ section, data, onChange, theme: t, nodes = [
           value={sortBy}
           onChange={e => setSortBy(e.target.value)}
           style={{
-            background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px',
-            color: t.textPrimary, padding: '4px 8px', fontSize: '12px',
+            background: t.bgCard, border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '4px',
+            color: t.canvasText, padding: '4px 8px', fontSize: '12px',
           }}
         >
           <option value="reqId">Sort by ID</option>
@@ -823,14 +823,14 @@ function DynamicRequirementsTable({ section, data, onChange, theme: t, nodes = [
       {/* Filter panel */}
       {showFilters && (
         <div style={{
-          background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '8px',
+          background: t.bgCard, border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '8px',
           padding: '12px 16px', marginBottom: '12px',
           display: 'flex', flexDirection: 'column', gap: '10px',
         }}>
           {/* Requirement types */}
           {presentReqTypes.length > 0 && (
             <div>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: t.textSecondary, marginBottom: '6px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: t.canvasTextSec, marginBottom: '6px' }}>
                 Requirement Type
               </div>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
@@ -848,7 +848,7 @@ function DynamicRequirementsTable({ section, data, onChange, theme: t, nodes = [
           {/* Classification */}
           {presentClassifications.length > 0 && (
             <div>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: t.textSecondary, marginBottom: '6px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: t.canvasTextSec, marginBottom: '6px' }}>
                 Classification
               </div>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
@@ -865,7 +865,7 @@ function DynamicRequirementsTable({ section, data, onChange, theme: t, nodes = [
 
           {/* Include non-requirement nodes */}
           <div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: t.textSecondary, cursor: 'pointer' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: t.canvasTextSec, cursor: 'pointer' }}>
               <input
                 type="checkbox"
                 checked={includeNonReq}
@@ -885,7 +885,7 @@ function DynamicRequirementsTable({ section, data, onChange, theme: t, nodes = [
             {['ID', 'Requirement', 'Type', 'Priority', 'Status', 'Version', 'Traces To'].map(h => (
               <th key={h} style={{
                 padding: '8px 10px', textAlign: 'left', fontWeight: 600,
-                color: t.textPrimary, borderBottom: `2px solid ${t.border}`, fontSize: '11px',
+                color: t.canvasText, borderBottom: `2px solid ${t.canvasNodeBorder}`, fontSize: '11px',
                 whiteSpace: 'nowrap',
               }}>{h}</th>
             ))}
@@ -900,15 +900,15 @@ function DynamicRequirementsTable({ section, data, onChange, theme: t, nodes = [
             return (
               <tr key={node.id} style={{
                 background: idx % 2 === 0 ? 'transparent' : `${t.accent}05`,
-                borderBottom: `1px solid ${t.border}`,
+                borderBottom: `1px solid ${t.canvasNodeBorder}`,
               }}>
                 <td style={{ padding: '8px 10px', fontFamily: 'monospace', fontWeight: 600, color: '#3b82f6', whiteSpace: 'nowrap' }}>
                   {d.reqId || node.id.slice(0, 8)}
                 </td>
-                <td style={{ padding: '8px 10px', color: t.textPrimary, maxWidth: '300px' }}>
+                <td style={{ padding: '8px 10px', color: t.canvasText, maxWidth: '300px' }}>
                   <div style={{ fontWeight: 500 }}>{d.label}</div>
                   {d.description && (
-                    <div style={{ fontSize: '11px', color: t.textSecondary, marginTop: '2px' }}>
+                    <div style={{ fontSize: '11px', color: t.canvasTextSec, marginTop: '2px' }}>
                       {d.description}
                     </div>
                   )}
@@ -928,10 +928,10 @@ function DynamicRequirementsTable({ section, data, onChange, theme: t, nodes = [
                 <td style={{ padding: '8px 10px' }}>
                   {stateBadge(d.state)}
                 </td>
-                <td style={{ padding: '8px 10px', fontFamily: 'monospace', fontSize: '11px', color: t.textSecondary }}>
+                <td style={{ padding: '8px 10px', fontFamily: 'monospace', fontSize: '11px', color: t.canvasTextSec }}>
                   {d.version ? `v${d.version}` : '—'}
                 </td>
-                <td style={{ padding: '8px 10px', fontSize: '11px', color: t.textSecondary, maxWidth: '200px' }}>
+                <td style={{ padding: '8px 10px', fontSize: '11px', color: t.canvasTextSec, maxWidth: '200px' }}>
                   {tracesTo.length > 0
                     ? tracesTo.map((name, i) => (
                         <span key={i} style={{
@@ -948,7 +948,7 @@ function DynamicRequirementsTable({ section, data, onChange, theme: t, nodes = [
         </tbody>
       </table>
 
-      <div style={{ marginTop: '8px', fontSize: '10px', color: t.textSecondary, opacity: 0.6, fontStyle: 'italic' }}>
+      <div style={{ marginTop: '8px', fontSize: '10px', color: t.canvasTextSec, opacity: 0.6, fontStyle: 'italic' }}>
         Auto-populated from PLM canvas · {new Date().toLocaleDateString()}
       </div>
     </div>
@@ -1045,13 +1045,13 @@ function DynamicArchitectureView({ section, data, onChange, theme: t, nodes = []
     return (
       <div style={{
         padding: '32px', textAlign: 'center',
-        background: `${t.accent}08`, border: `2px dashed ${t.border}`, borderRadius: '8px',
+        background: `${t.accent}08`, border: `2px dashed ${t.canvasNodeBorder}`, borderRadius: '8px',
       }}>
         <div style={{ fontSize: '28px', marginBottom: '8px' }}>🏗️</div>
-        <div style={{ fontSize: '14px', color: t.textSecondary, marginBottom: '4px' }}>
+        <div style={{ fontSize: '14px', color: t.canvasTextSec, marginBottom: '4px' }}>
           No architecture nodes found in PLM canvas
         </div>
-        <div style={{ fontSize: '12px', color: t.textSecondary, opacity: 0.7 }}>
+        <div style={{ fontSize: '12px', color: t.canvasTextSec, opacity: 0.7 }}>
           Add system, subsystem, function, or hardware nodes to auto-populate
         </div>
       </div>
@@ -1064,7 +1064,7 @@ function DynamicArchitectureView({ section, data, onChange, theme: t, nodes = []
       <div style={{
         display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', flexWrap: 'wrap',
       }}>
-        <div style={{ fontSize: '12px', color: t.textSecondary, fontWeight: 600 }}>
+        <div style={{ fontSize: '12px', color: t.canvasTextSec, fontWeight: 600 }}>
           {filtered.length} component{filtered.length !== 1 ? 's' : ''}
         </div>
 
@@ -1075,8 +1075,8 @@ function DynamicArchitectureView({ section, data, onChange, theme: t, nodes = []
             value={showType}
             onChange={e => setShowType(e.target.value)}
             style={{
-              background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px',
-              color: t.textPrimary, padding: '4px 8px', fontSize: '12px',
+              background: t.bgCard, border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '4px',
+              color: t.canvasText, padding: '4px 8px', fontSize: '12px',
             }}
           >
             <option value="all">All types</option>
@@ -1086,7 +1086,7 @@ function DynamicArchitectureView({ section, data, onChange, theme: t, nodes = []
           </select>
         )}
 
-        <div style={{ display: 'flex', gap: '2px', background: t.bgCard, borderRadius: '4px', border: `1px solid ${t.border}`, padding: '2px' }}>
+        <div style={{ display: 'flex', gap: '2px', background: t.bgCard, borderRadius: '4px', border: `1px solid ${t.canvasNodeBorder}`, padding: '2px' }}>
           {(['hierarchy', 'table'] as const).map(v => (
             <button key={v} onClick={() => setViewStyle(v)} style={{
               padding: '3px 10px', borderRadius: '3px', border: 'none', fontSize: '11px', cursor: 'pointer',
@@ -1116,7 +1116,7 @@ function DynamicArchitectureView({ section, data, onChange, theme: t, nodes = []
                 padding: '8px 10px', marginLeft: `${depth * 28}px`,
                 borderLeft: depth > 0 ? `2px solid ${info.color}40` : 'none',
                 background: idx % 2 === 0 ? 'transparent' : `${t.accent}04`,
-                borderBottom: `1px solid ${t.border}`,
+                borderBottom: `1px solid ${t.canvasNodeBorder}`,
               }}>
                 {/* Type badge */}
                 <span style={{
@@ -1130,9 +1130,9 @@ function DynamicArchitectureView({ section, data, onChange, theme: t, nodes = []
 
                 {/* Content */}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, color: t.textPrimary }}>{d.label}</div>
+                  <div style={{ fontWeight: 600, color: t.canvasText }}>{d.label}</div>
                   {d.description && (
-                    <div style={{ fontSize: '11px', color: t.textSecondary, marginTop: '2px' }}>{d.description}</div>
+                    <div style={{ fontSize: '11px', color: t.canvasTextSec, marginTop: '2px' }}>{d.description}</div>
                   )}
                   {/* Ports info */}
                   {ports.length > 0 && (
@@ -1171,7 +1171,7 @@ function DynamicArchitectureView({ section, data, onChange, theme: t, nodes = []
               {['Component', 'Type', 'Ports', 'Connections', 'Parent'].map(h => (
                 <th key={h} style={{
                   padding: '8px 10px', textAlign: 'left', fontWeight: 600,
-                  color: t.textPrimary, borderBottom: `2px solid ${t.border}`, fontSize: '11px',
+                  color: t.canvasText, borderBottom: `2px solid ${t.canvasNodeBorder}`, fontSize: '11px',
                 }}>{h}</th>
               ))}
             </tr>
@@ -1189,15 +1189,15 @@ function DynamicArchitectureView({ section, data, onChange, theme: t, nodes = []
               return (
                 <tr key={node.id} style={{
                   background: idx % 2 === 0 ? 'transparent' : `${t.accent}05`,
-                  borderBottom: `1px solid ${t.border}`,
+                  borderBottom: `1px solid ${t.canvasNodeBorder}`,
                 }}>
-                  <td style={{ padding: '8px 10px', color: t.textPrimary }}>
+                  <td style={{ padding: '8px 10px', color: t.canvasText }}>
                     <div style={{ fontWeight: 500, paddingLeft: `${depth * 16}px` }}>
-                      {depth > 0 && <span style={{ color: t.textSecondary, marginRight: '4px' }}>└</span>}
+                      {depth > 0 && <span style={{ color: t.canvasTextSec, marginRight: '4px' }}>└</span>}
                       {d.label}
                     </div>
                     {d.description && (
-                      <div style={{ fontSize: '11px', color: t.textSecondary, paddingLeft: `${depth * 16}px` }}>{d.description}</div>
+                      <div style={{ fontSize: '11px', color: t.canvasTextSec, paddingLeft: `${depth * 16}px` }}>{d.description}</div>
                     )}
                   </td>
                   <td style={{ padding: '8px 10px' }}>
@@ -1209,10 +1209,10 @@ function DynamicArchitectureView({ section, data, onChange, theme: t, nodes = []
                       {info.icon} {info.label}
                     </span>
                   </td>
-                  <td style={{ padding: '8px 10px', fontSize: '11px', color: t.textSecondary }}>
+                  <td style={{ padding: '8px 10px', fontSize: '11px', color: t.canvasTextSec }}>
                     {ports.length > 0 ? `${ports.filter((p: any) => p.direction === 'input').length}↓ ${ports.filter((p: any) => p.direction === 'output').length}↑` : '—'}
                   </td>
-                  <td style={{ padding: '8px 10px', fontSize: '11px', color: t.textSecondary, maxWidth: '200px' }}>
+                  <td style={{ padding: '8px 10px', fontSize: '11px', color: t.canvasTextSec, maxWidth: '200px' }}>
                     {connections.length > 0
                       ? connections.slice(0, 4).map((name, i) => (
                           <span key={i} style={{
@@ -1224,7 +1224,7 @@ function DynamicArchitectureView({ section, data, onChange, theme: t, nodes = []
                     }
                     {connections.length > 4 && <span style={{ opacity: 0.5 }}>+{connections.length - 4}</span>}
                   </td>
-                  <td style={{ padding: '8px 10px', fontSize: '11px', color: t.textSecondary }}>
+                  <td style={{ padding: '8px 10px', fontSize: '11px', color: t.canvasTextSec }}>
                     {parentNode?.data?.label || '—'}
                   </td>
                 </tr>
@@ -1234,7 +1234,7 @@ function DynamicArchitectureView({ section, data, onChange, theme: t, nodes = []
         </table>
       )}
 
-      <div style={{ marginTop: '8px', fontSize: '10px', color: t.textSecondary, opacity: 0.6, fontStyle: 'italic' }}>
+      <div style={{ marginTop: '8px', fontSize: '10px', color: t.canvasTextSec, opacity: 0.6, fontStyle: 'italic' }}>
         Auto-populated from PLM canvas · {new Date().toLocaleDateString()}
       </div>
     </div>
@@ -1258,13 +1258,13 @@ function DynamicComponentList({ section, data, onChange, theme: t, nodes = [], e
     return (
       <div style={{
         padding: '32px', textAlign: 'center',
-        background: `${t.accent}08`, border: `2px dashed ${t.border}`, borderRadius: '8px',
+        background: `${t.accent}08`, border: `2px dashed ${t.canvasNodeBorder}`, borderRadius: '8px',
       }}>
         <div style={{ fontSize: '28px', marginBottom: '8px' }}>🔧</div>
-        <div style={{ fontSize: '14px', color: t.textSecondary, marginBottom: '4px' }}>
+        <div style={{ fontSize: '14px', color: t.canvasTextSec, marginBottom: '4px' }}>
           No METS components found in PLM canvas
         </div>
-        <div style={{ fontSize: '12px', color: t.textSecondary, opacity: 0.7 }}>
+        <div style={{ fontSize: '12px', color: t.canvasTextSec, opacity: 0.7 }}>
           Drag components from the METS Library panel to auto-populate
         </div>
       </div>
@@ -1295,19 +1295,19 @@ function DynamicComponentList({ section, data, onChange, theme: t, nodes = [], e
       <div style={{
         display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', flexWrap: 'wrap',
       }}>
-        <div style={{ fontSize: '12px', color: t.textSecondary, fontWeight: 600 }}>
+        <div style={{ fontSize: '12px', color: t.canvasTextSec, fontWeight: 600 }}>
           {compNodes.length} component{compNodes.length !== 1 ? 's' : ''}
         </div>
         <div style={{ flex: 1 }} />
 
-        <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: t.textSecondary, cursor: 'pointer' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: t.canvasTextSec, cursor: 'pointer' }}>
           <input type="checkbox" checked={showSignals} onChange={e => setShowSignals(e.target.checked)} style={{ accentColor: t.accent }} />
           Show signals
         </label>
 
         <select value={groupBy} onChange={e => setGroupBy(e.target.value as any)} style={{
-          background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px',
-          color: t.textPrimary, padding: '4px 8px', fontSize: '12px',
+          background: t.bgCard, border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '4px',
+          color: t.canvasText, padding: '4px 8px', fontSize: '12px',
         }}>
           <option value="family">Group by Family</option>
           <option value="system">Group by System</option>
@@ -1336,7 +1336,7 @@ function DynamicComponentList({ section, data, onChange, theme: t, nodes = [], e
                   {['Instance', 'Family', 'Variant', 'Pos No', 'System', ...(showSignals ? ['DI', 'DO', 'AI', 'AO'] : ['Signals'])].map(h => (
                     <th key={h} style={{
                       padding: '6px 10px', textAlign: 'left', fontWeight: 600,
-                      color: t.textPrimary, borderBottom: `2px solid ${t.border}`, fontSize: '11px',
+                      color: t.canvasText, borderBottom: `2px solid ${t.canvasNodeBorder}`, fontSize: '11px',
                       whiteSpace: 'nowrap',
                     }}>{h}</th>
                   ))}
@@ -1360,7 +1360,7 @@ function DynamicComponentList({ section, data, onChange, theme: t, nodes = [], e
                   return (
                     <tr key={node.id} style={{
                       background: idx % 2 === 0 ? 'transparent' : `${t.accent}05`,
-                      borderBottom: `1px solid ${t.border}`,
+                      borderBottom: `1px solid ${t.canvasNodeBorder}`,
                     }}>
                       <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontWeight: 600, color: fc }}>
                         {d.metsInstanceName || 'fb_unnamed'}
@@ -1371,13 +1371,13 @@ function DynamicComponentList({ section, data, onChange, theme: t, nodes = [], e
                           padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 500,
                         }}>{famKey}</span>
                       </td>
-                      <td style={{ padding: '6px 10px', color: t.textPrimary, fontSize: '11px' }}>
+                      <td style={{ padding: '6px 10px', color: t.canvasText, fontSize: '11px' }}>
                         {varKey}
                       </td>
-                      <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontSize: '11px', color: t.textSecondary }}>
+                      <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontSize: '11px', color: t.canvasTextSec }}>
                         {d.metsPosNo || '—'}
                       </td>
-                      <td style={{ padding: '6px 10px', fontSize: '11px', color: t.textSecondary }}>
+                      <td style={{ padding: '6px 10px', fontSize: '11px', color: t.canvasTextSec }}>
                         {d.metsSystem || '—'}
                       </td>
                       {showSignals ? (
@@ -1388,7 +1388,7 @@ function DynamicComponentList({ section, data, onChange, theme: t, nodes = [], e
                           <td style={{ padding: '6px 10px', textAlign: 'center', fontSize: '11px', color: ao > 0 ? '#ef4444' : t.textSecondary }}>{ao || '—'}</td>
                         </>
                       ) : (
-                        <td style={{ padding: '6px 10px', fontSize: '11px', color: t.textSecondary }}>
+                        <td style={{ padding: '6px 10px', fontSize: '11px', color: t.canvasTextSec }}>
                           {totalSigs > 0 ? totalSigs : '—'}
                         </td>
                       )}
@@ -1401,7 +1401,7 @@ function DynamicComponentList({ section, data, onChange, theme: t, nodes = [], e
         );
       })}
 
-      <div style={{ marginTop: '8px', fontSize: '10px', color: t.textSecondary, opacity: 0.6, fontStyle: 'italic' }}>
+      <div style={{ marginTop: '8px', fontSize: '10px', color: t.canvasTextSec, opacity: 0.6, fontStyle: 'italic' }}>
         Auto-populated from METS Library · {new Date().toLocaleDateString()}
       </div>
     </div>
@@ -1474,13 +1474,13 @@ function DynamicIOList({ section, data, onChange, theme: t, nodes = [], edges = 
     return (
       <div style={{
         padding: '32px', textAlign: 'center',
-        background: `${t.accent}08`, border: `2px dashed ${t.border}`, borderRadius: '8px',
+        background: `${t.accent}08`, border: `2px dashed ${t.canvasNodeBorder}`, borderRadius: '8px',
       }}>
         <div style={{ fontSize: '28px', marginBottom: '8px' }}>⚡</div>
-        <div style={{ fontSize: '14px', color: t.textSecondary, marginBottom: '4px' }}>
+        <div style={{ fontSize: '14px', color: t.canvasTextSec, marginBottom: '4px' }}>
           No I/O signals found in PLM canvas
         </div>
-        <div style={{ fontSize: '12px', color: t.textSecondary, opacity: 0.7 }}>
+        <div style={{ fontSize: '12px', color: t.canvasTextSec, opacity: 0.7 }}>
           Add components with signals or nodes with ports to auto-populate
         </div>
       </div>
@@ -1493,7 +1493,7 @@ function DynamicIOList({ section, data, onChange, theme: t, nodes = [], edges = 
       <div style={{
         display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', flexWrap: 'wrap',
       }}>
-        <div style={{ fontSize: '12px', color: t.textSecondary, fontWeight: 600 }}>
+        <div style={{ fontSize: '12px', color: t.canvasTextSec, fontWeight: 600 }}>
           {filtered.length} of {allSignals.length} signal{allSignals.length !== 1 ? 's' : ''}
         </div>
 
@@ -1515,8 +1515,8 @@ function DynamicIOList({ section, data, onChange, theme: t, nodes = [], edges = 
 
         {sigTypes.length > 1 && (
           <select value={filterSigType} onChange={e => setFilterSigType(e.target.value)} style={{
-            background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px',
-            color: t.textPrimary, padding: '4px 8px', fontSize: '12px',
+            background: t.bgCard, border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '4px',
+            color: t.canvasText, padding: '4px 8px', fontSize: '12px',
           }}>
             <option value="all">All types</option>
             {sigTypes.map(st => <option key={st} value={st}>{st}</option>)}
@@ -1525,8 +1525,8 @@ function DynamicIOList({ section, data, onChange, theme: t, nodes = [], edges = 
 
         {sources.length > 1 && (
           <select value={filterSource} onChange={e => setFilterSource(e.target.value)} style={{
-            background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px',
-            color: t.textPrimary, padding: '4px 8px', fontSize: '12px',
+            background: t.bgCard, border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '4px',
+            color: t.canvasText, padding: '4px 8px', fontSize: '12px',
           }}>
             <option value="all">All sources</option>
             {sources.map(s => <option key={s} value={s}>{s}</option>)}
@@ -1541,7 +1541,7 @@ function DynamicIOList({ section, data, onChange, theme: t, nodes = [], edges = 
             {['#', 'Signal Name', 'Type', 'Data Type', 'Source', 'Description'].map(h => (
               <th key={h} style={{
                 padding: '6px 10px', textAlign: 'left', fontWeight: 600,
-                color: t.textPrimary, borderBottom: `2px solid ${t.border}`, fontSize: '11px',
+                color: t.canvasText, borderBottom: `2px solid ${t.canvasNodeBorder}`, fontSize: '11px',
                 whiteSpace: 'nowrap',
               }}>{h}</th>
             ))}
@@ -1554,10 +1554,10 @@ function DynamicIOList({ section, data, onChange, theme: t, nodes = [], edges = 
             return (
               <tr key={`${item.nodeId}-${s.name}-${idx}`} style={{
                 background: idx % 2 === 0 ? 'transparent' : `${t.accent}05`,
-                borderBottom: `1px solid ${t.border}`,
+                borderBottom: `1px solid ${t.canvasNodeBorder}`,
               }}>
-                <td style={{ padding: '6px 10px', color: t.textSecondary, fontSize: '11px' }}>{idx + 1}</td>
-                <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontWeight: 500, color: t.textPrimary }}>
+                <td style={{ padding: '6px 10px', color: t.canvasTextSec, fontSize: '11px' }}>{idx + 1}</td>
+                <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontWeight: 500, color: t.canvasText }}>
                   {s.name}
                 </td>
                 <td style={{ padding: '6px 10px' }}>
@@ -1566,14 +1566,14 @@ function DynamicIOList({ section, data, onChange, theme: t, nodes = [], edges = 
                     padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
                   }}>{s.type}</span>
                 </td>
-                <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontSize: '11px', color: t.textSecondary }}>
+                <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontSize: '11px', color: t.canvasTextSec }}>
                   {s.struct || '—'}
                 </td>
-                <td style={{ padding: '6px 10px', fontSize: '11px', color: t.textSecondary }}>
+                <td style={{ padding: '6px 10px', fontSize: '11px', color: t.canvasTextSec }}>
                   {item.family && <span style={{ fontSize: '9px', marginRight: '4px', opacity: 0.6 }}>[{item.family}]</span>}
                   {item.source}
                 </td>
-                <td style={{ padding: '6px 10px', fontSize: '11px', color: t.textSecondary, maxWidth: '250px' }}>
+                <td style={{ padding: '6px 10px', fontSize: '11px', color: t.canvasTextSec, maxWidth: '250px' }}>
                   {s.desc || '—'}
                 </td>
               </tr>
@@ -1582,7 +1582,7 @@ function DynamicIOList({ section, data, onChange, theme: t, nodes = [], edges = 
         </tbody>
       </table>
 
-      <div style={{ marginTop: '8px', fontSize: '10px', color: t.textSecondary, opacity: 0.6, fontStyle: 'italic' }}>
+      <div style={{ marginTop: '8px', fontSize: '10px', color: t.canvasTextSec, opacity: 0.6, fontStyle: 'italic' }}>
         Auto-populated from PLM canvas · {new Date().toLocaleDateString()}
       </div>
     </div>
@@ -1703,13 +1703,13 @@ function DynamicAlarmList({ section, data, onChange, theme: t, nodes = [], edges
     return (
       <div style={{
         padding: '32px', textAlign: 'center',
-        background: `${t.accent}08`, border: `2px dashed ${t.border}`, borderRadius: '8px',
+        background: `${t.accent}08`, border: `2px dashed ${t.canvasNodeBorder}`, borderRadius: '8px',
       }}>
         <div style={{ fontSize: '28px', marginBottom: '8px' }}>🔔</div>
-        <div style={{ fontSize: '14px', color: t.textSecondary, marginBottom: '4px' }}>
+        <div style={{ fontSize: '14px', color: t.canvasTextSec, marginBottom: '4px' }}>
           No alarms found in PLM canvas
         </div>
-        <div style={{ fontSize: '12px', color: t.textSecondary, opacity: 0.7 }}>
+        <div style={{ fontSize: '12px', color: t.canvasTextSec, opacity: 0.7 }}>
           Add METS components with alarm states to auto-populate
         </div>
       </div>
@@ -1722,7 +1722,7 @@ function DynamicAlarmList({ section, data, onChange, theme: t, nodes = [], edges
       <div style={{
         display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', flexWrap: 'wrap',
       }}>
-        <div style={{ fontSize: '12px', color: t.textSecondary, fontWeight: 600 }}>
+        <div style={{ fontSize: '12px', color: t.canvasTextSec, fontWeight: 600 }}>
           {filtered.length} of {alarms.length} alarm{alarms.length !== 1 ? 's' : ''}
         </div>
 
@@ -1742,8 +1742,8 @@ function DynamicAlarmList({ section, data, onChange, theme: t, nodes = [], edges
 
         {priorities.length > 1 && (
           <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)} style={{
-            background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px',
-            color: t.textPrimary, padding: '4px 8px', fontSize: '12px',
+            background: t.bgCard, border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '4px',
+            color: t.canvasText, padding: '4px 8px', fontSize: '12px',
           }}>
             <option value="all">All priorities</option>
             {priorities.map(p => <option key={p} value={p}>{priorityStyles[p]?.label || p}</option>)}
@@ -1752,8 +1752,8 @@ function DynamicAlarmList({ section, data, onChange, theme: t, nodes = [], edges
 
         {sources.length > 1 && (
           <select value={filterSource} onChange={e => setFilterSource(e.target.value)} style={{
-            background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px',
-            color: t.textPrimary, padding: '4px 8px', fontSize: '12px',
+            background: t.bgCard, border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '4px',
+            color: t.canvasText, padding: '4px 8px', fontSize: '12px',
           }}>
             <option value="all">All sources</option>
             {sources.map(s => <option key={s} value={s}>{s}</option>)}
@@ -1768,7 +1768,7 @@ function DynamicAlarmList({ section, data, onChange, theme: t, nodes = [], edges
             {['#', 'Alarm Tag', 'Priority', 'Condition', 'Action', 'Setpoint', 'Source', 'Type'].map(h => (
               <th key={h} style={{
                 padding: '6px 10px', textAlign: 'left', fontWeight: 600,
-                color: t.textPrimary, borderBottom: `2px solid ${t.border}`, fontSize: '11px',
+                color: t.canvasText, borderBottom: `2px solid ${t.canvasNodeBorder}`, fontSize: '11px',
                 whiteSpace: 'nowrap',
               }}>{h}</th>
             ))}
@@ -1780,10 +1780,10 @@ function DynamicAlarmList({ section, data, onChange, theme: t, nodes = [], edges
             return (
               <tr key={`${a.tag}-${idx}`} style={{
                 background: idx % 2 === 0 ? 'transparent' : `${t.accent}05`,
-                borderBottom: `1px solid ${t.border}`,
+                borderBottom: `1px solid ${t.canvasNodeBorder}`,
               }}>
-                <td style={{ padding: '6px 10px', color: t.textSecondary, fontSize: '11px' }}>{idx + 1}</td>
-                <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontWeight: 500, color: t.textPrimary, fontSize: '11px' }}>
+                <td style={{ padding: '6px 10px', color: t.canvasTextSec, fontSize: '11px' }}>{idx + 1}</td>
+                <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontWeight: 500, color: t.canvasText, fontSize: '11px' }}>
                   {a.tag}
                 </td>
                 <td style={{ padding: '6px 10px' }}>
@@ -1792,20 +1792,20 @@ function DynamicAlarmList({ section, data, onChange, theme: t, nodes = [], edges
                     padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 600,
                   }}>{ps.label}</span>
                 </td>
-                <td style={{ padding: '6px 10px', color: t.textPrimary, fontSize: '11px' }}>{a.condition}</td>
-                <td style={{ padding: '6px 10px', color: t.textSecondary, fontSize: '11px' }}>{a.action}</td>
-                <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontSize: '11px', color: t.textSecondary }}>
+                <td style={{ padding: '6px 10px', color: t.canvasText, fontSize: '11px' }}>{a.condition}</td>
+                <td style={{ padding: '6px 10px', color: t.canvasTextSec, fontSize: '11px' }}>{a.action}</td>
+                <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontSize: '11px', color: t.canvasTextSec }}>
                   {a.setpoint || '—'}
                 </td>
-                <td style={{ padding: '6px 10px', fontSize: '11px', color: t.textSecondary }}>{a.source}</td>
-                <td style={{ padding: '6px 10px', fontSize: '11px', color: t.textSecondary, textTransform: 'capitalize' }}>{a.type}</td>
+                <td style={{ padding: '6px 10px', fontSize: '11px', color: t.canvasTextSec }}>{a.source}</td>
+                <td style={{ padding: '6px 10px', fontSize: '11px', color: t.canvasTextSec, textTransform: 'capitalize' }}>{a.type}</td>
               </tr>
             );
           })}
         </tbody>
       </table>
 
-      <div style={{ marginTop: '8px', fontSize: '10px', color: t.textSecondary, opacity: 0.6, fontStyle: 'italic' }}>
+      <div style={{ marginTop: '8px', fontSize: '10px', color: t.canvasTextSec, opacity: 0.6, fontStyle: 'italic' }}>
         Derived from METS component states, limits & signals · {new Date().toLocaleDateString()}
       </div>
     </div>
@@ -1852,13 +1852,13 @@ function DynamicSequenceEmbed({ section, data, onChange, theme: t, nodes = [], e
     return (
       <div style={{
         padding: '32px', textAlign: 'center',
-        background: `${t.accent}08`, border: `2px dashed ${t.border}`, borderRadius: '8px',
+        background: `${t.accent}08`, border: `2px dashed ${t.canvasNodeBorder}`, borderRadius: '8px',
       }}>
         <div style={{ fontSize: '28px', marginBottom: '8px' }}>📊</div>
-        <div style={{ fontSize: '14px', color: t.textSecondary, marginBottom: '4px' }}>
+        <div style={{ fontSize: '14px', color: t.canvasTextSec, marginBottom: '4px' }}>
           No sequence diagrams found
         </div>
-        <div style={{ fontSize: '12px', color: t.textSecondary, opacity: 0.7 }}>
+        <div style={{ fontSize: '12px', color: t.canvasTextSec, opacity: 0.7 }}>
           Create sequence diagrams in the Sequence view to embed here
         </div>
       </div>
@@ -1868,14 +1868,14 @@ function DynamicSequenceEmbed({ section, data, onChange, theme: t, nodes = [], e
   if (!diagram) {
     return (
       <div>
-        <div style={{ marginBottom: '8px', fontSize: '12px', color: t.textSecondary }}>Select a diagram:</div>
+        <div style={{ marginBottom: '8px', fontSize: '12px', color: t.canvasTextSec }}>Select a diagram:</div>
         {diagrams.map(d => (
           <button key={d.id} onClick={() => handleSelect(d.id)} style={{
             display: 'block', width: '100%', padding: '8px 12px', marginBottom: '4px',
-            background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '6px',
-            color: t.textPrimary, cursor: 'pointer', textAlign: 'left', fontSize: '12px',
+            background: t.bgCard, border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '6px',
+            color: t.canvasText, cursor: 'pointer', textAlign: 'left', fontSize: '12px',
           }}>
-            📊 {d.name} {d.description && <span style={{ color: t.textSecondary }}> — {d.description}</span>}
+            📊 {d.name} {d.description && <span style={{ color: t.canvasTextSec }}> — {d.description}</span>}
           </button>
         ))}
       </div>
@@ -1892,10 +1892,10 @@ function DynamicSequenceEmbed({ section, data, onChange, theme: t, nodes = [], e
       {/* Diagram selector */}
       {diagrams.length > 1 && (
         <div style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '11px', color: t.textSecondary, fontWeight: 600 }}>Diagram:</span>
+          <span style={{ fontSize: '11px', color: t.canvasTextSec, fontWeight: 600 }}>Diagram:</span>
           <select value={selectedDiagramId} onChange={e => handleSelect(e.target.value)} style={{
-            background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: '4px',
-            color: t.textPrimary, padding: '4px 8px', fontSize: '12px',
+            background: t.bgCard, border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '4px',
+            color: t.canvasText, padding: '4px 8px', fontSize: '12px',
           }}>
             {diagrams.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
@@ -1909,11 +1909,11 @@ function DynamicSequenceEmbed({ section, data, onChange, theme: t, nodes = [], e
       }}>
         <span style={{ fontSize: '16px' }}>📊</span>
         <div>
-          <div style={{ fontWeight: 600, color: t.textPrimary, fontSize: '13px' }}>{diagram.name}</div>
-          {diagram.description && <div style={{ fontSize: '11px', color: t.textSecondary }}>{diagram.description}</div>}
+          <div style={{ fontWeight: 600, color: t.canvasText, fontSize: '13px' }}>{diagram.name}</div>
+          {diagram.description && <div style={{ fontSize: '11px', color: t.canvasTextSec }}>{diagram.description}</div>}
         </div>
         <div style={{ flex: 1 }} />
-        <span style={{ fontSize: '11px', color: t.textSecondary }}>
+        <span style={{ fontSize: '11px', color: t.canvasTextSec }}>
           {participants.length} participants · {messages.length} messages
         </span>
       </div>
@@ -1938,7 +1938,7 @@ function DynamicSequenceEmbed({ section, data, onChange, theme: t, nodes = [], e
             {['#', 'From', 'To', 'Message', 'Type'].map(h => (
               <th key={h} style={{
                 padding: '6px 10px', textAlign: 'left', fontWeight: 600,
-                color: t.textPrimary, borderBottom: `2px solid ${t.border}`, fontSize: '11px',
+                color: t.canvasText, borderBottom: `2px solid ${t.canvasNodeBorder}`, fontSize: '11px',
               }}>{h}</th>
             ))}
           </tr>
@@ -1958,16 +1958,16 @@ function DynamicSequenceEmbed({ section, data, onChange, theme: t, nodes = [], e
             return (
               <tr key={msg.id} style={{
                 background: idx % 2 === 0 ? 'transparent' : `${t.accent}05`,
-                borderBottom: `1px solid ${t.border}`,
+                borderBottom: `1px solid ${t.canvasNodeBorder}`,
               }}>
-                <td style={{ padding: '6px 10px', color: t.textSecondary, fontSize: '11px' }}>{idx + 1}</td>
+                <td style={{ padding: '6px 10px', color: t.canvasTextSec, fontSize: '11px' }}>{idx + 1}</td>
                 <td style={{ padding: '6px 10px', fontWeight: 500, color: from?.color || t.textPrimary, fontSize: '11px' }}>
                   {from?.label || msg.fromId}
                 </td>
                 <td style={{ padding: '6px 10px', fontWeight: 500, color: to?.color || t.textPrimary, fontSize: '11px' }}>
                   {to?.label || msg.toId}
                 </td>
-                <td style={{ padding: '6px 10px', color: t.textPrimary, fontSize: '12px' }}>
+                <td style={{ padding: '6px 10px', color: t.canvasText, fontSize: '12px' }}>
                   {msg.label}
                 </td>
                 <td style={{ padding: '6px 10px' }}>
@@ -1979,7 +1979,7 @@ function DynamicSequenceEmbed({ section, data, onChange, theme: t, nodes = [], e
         </tbody>
       </table>
 
-      <div style={{ marginTop: '8px', fontSize: '10px', color: t.textSecondary, opacity: 0.6, fontStyle: 'italic' }}>
+      <div style={{ marginTop: '8px', fontSize: '10px', color: t.canvasTextSec, opacity: 0.6, fontStyle: 'italic' }}>
         From Sequence View · {new Date().toLocaleDateString()}
       </div>
     </div>
@@ -2008,10 +2008,10 @@ export function PlaceholderSection({ section, theme: t }: { section: SectionDef,
       borderRadius: '8px',
       textAlign: 'center',
     }}>
-      <div style={{ fontSize: '14px', color: t.textSecondary, marginBottom: '4px' }}>
+      <div style={{ fontSize: '14px', color: t.canvasTextSec, marginBottom: '4px' }}>
         {typeLabels[section.type] || `📋 ${section.type}`}
       </div>
-      <div style={{ fontSize: '11px', color: t.textSecondary, opacity: 0.7 }}>
+      <div style={{ fontSize: '11px', color: t.canvasTextSec, opacity: 0.7 }}>
         This section will be auto-populated from project data when implemented
       </div>
     </div>

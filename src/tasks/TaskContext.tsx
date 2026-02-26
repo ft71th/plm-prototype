@@ -177,8 +177,21 @@ export function TaskProvider({ projectId, currentUser, isDarkMode: appDarkMode, 
   // — Theme state (must be before Board ops so createBoard can reference it) —
   const PROJECT_THEME_KEY = `northlight-theme-${projectId}`;
   const [projectThemeFallback, setProjectThemeFallback] = useState(() => {
-    try { return localStorage.getItem(PROJECT_THEME_KEY) || 'dark'; } catch { return 'dark'; }
+    try { return localStorage.getItem(PROJECT_THEME_KEY) || (appDarkMode ? 'dark' : 'light'); } catch { return 'dark'; }
   });
+
+  // Sync with global dark/light toggle
+  React.useEffect(() => {
+    const globalTheme = appDarkMode ? 'midnight' : 'light';
+    setProjectThemeFallback(globalTheme);
+    try { localStorage.setItem(PROJECT_THEME_KEY, globalTheme); } catch {}
+    // Also update active board so its saved themeKey doesn't override
+    if (activeBoard && activeBoard.themeKey !== globalTheme) {
+      const updated = { ...activeBoard, themeKey: globalTheme };
+      store.updateBoard(projectId, updated);
+      setActiveBoard(updated);
+    }
+  }, [appDarkMode]); // minimal deps to avoid loops
   const themeKey: string = activeBoard?.themeKey || projectThemeFallback;
 
   // Board ops

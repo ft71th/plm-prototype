@@ -649,7 +649,7 @@ function CustomNode({ data, id, selected }: { data: NodeData; id: string; select
         </div>
 
         {/* Label */}
-        <div style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--nl-text-primary, #333)',
+        <div style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--nl-canvas-text, #333)',
           textAlign: 'center', padding: '4px 8px', maxWidth: '100%', wordBreak: 'break-word', lineHeight: '1.3' }}>
           {data.label}
         </div>

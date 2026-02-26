@@ -591,17 +591,17 @@ export default function HALManager({ projectId, nodes, edges, theme: t, style }:
     <div style={{
       ...style,
       display: 'flex', flexDirection: 'column',
-      background: t.bgApp, color: t.textPrimary,
+      background: t.bgCanvas, color: t.canvasText,
       fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
     }} onClick={() => showExport && setShowExport(false)}>
       {/* ─── Top Bar ─── */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px',
-        background: t.bgPanel, borderBottom: `1px solid ${t.border}`, flexShrink: 0,
+        background: t.bgPanel, borderBottom: `1px solid ${t.border}`, flexShrink: 0, color: t.textPrimary,
       }}>
         <span style={{ fontSize: '18px' }}>🔌</span>
         <span style={{ fontWeight: 700, fontSize: '14px' }}>HAL Manager</span>
-        <span style={{ fontSize: '11px', color: t.textSecondary }}>v{config.version}</span>
+        <span style={{ fontSize: '11px', color: t.canvasTextSec }}>v{config.version}</span>
         {saving && <span style={{ fontSize: '10px', color: t.accent }}>💾 Saving...</span>}
         {loading && <span style={{ fontSize: '10px', color: t.accent }}>⏳ Loading...</span>}
 
@@ -611,7 +611,7 @@ export default function HALManager({ projectId, nodes, edges, theme: t, style }:
           if (changes !== null) createVersion(changes);
         }} style={{
           background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '4px',
-          color: t.textPrimary, padding: '4px 10px', fontSize: '11px', cursor: 'pointer',
+          color: t.canvasText, padding: '4px 10px', fontSize: '11px', cursor: 'pointer',
         }} title="Save a named version snapshot">
           📋 New Version
         </button>
@@ -627,17 +627,17 @@ export default function HALManager({ projectId, nodes, edges, theme: t, style }:
         <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
           <button onClick={() => setShowExport(!showExport)} style={{
             background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '4px',
-            color: t.textPrimary, padding: '4px 10px', fontSize: '11px', cursor: 'pointer',
+            color: t.canvasText, padding: '4px 10px', fontSize: '11px', cursor: 'pointer',
           }} title="Export HAL configuration">
             📤 Export
           </button>
           {showExport && (
             <div style={{
               position: 'absolute', top: '100%', left: 0, marginTop: '4px', zIndex: 100,
-              background: t.bgPanel, border: `1px solid ${t.border}`, borderRadius: '6px',
+              background: t.bgPanel, border: `1px solid ${t.border}`, borderRadius: '6px', color: t.textPrimary,
               boxShadow: '0 8px 24px rgba(0,0,0,0.2)', minWidth: '240px', padding: '4px',
             }}>
-              <div style={{ padding: '4px 10px 2px', fontSize: '9px', fontWeight: 700, color: t.textSecondary, textTransform: 'uppercase', letterSpacing: '0.5px' }}>I/O Documentation</div>
+              <div style={{ padding: '4px 10px 2px', fontSize: '9px', fontWeight: 700, color: t.canvasTextSec, textTransform: 'uppercase', letterSpacing: '0.5px' }}>I/O Documentation</div>
               {[
                 { label: '📊 I/O List (Excel)', desc: 'Professional .xlsx — 4 sheets', fmt: 'xlsx' as const },
                 { label: '📄 I/O List (PDF)', desc: 'Print-ready A3 landscape', fmt: 'pdf' as const },
@@ -649,19 +649,19 @@ export default function HALManager({ projectId, nodes, edges, theme: t, style }:
                 }} style={{
                   display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
                   background: 'transparent', border: 'none', borderRadius: '4px',
-                  padding: '8px 10px', cursor: 'pointer', color: t.textPrimary, textAlign: 'left',
+                  padding: '8px 10px', cursor: 'pointer', color: t.canvasText, textAlign: 'left',
                 }}
                   onMouseEnter={e => (e.currentTarget.style.background = `${t.accent}20`)}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
                   <div>
                     <div style={{ fontSize: '12px', fontWeight: 600 }}>{item.label}</div>
-                    <div style={{ fontSize: '10px', color: t.textSecondary }}>{item.desc}</div>
+                    <div style={{ fontSize: '10px', color: t.canvasTextSec }}>{item.desc}</div>
                   </div>
                 </button>
               ))}
               <div style={{ borderTop: `1px solid ${t.border}`, margin: '4px 0' }} />
-              <div style={{ padding: '4px 10px 2px', fontSize: '9px', fontWeight: 700, color: t.textSecondary, textTransform: 'uppercase', letterSpacing: '0.5px' }}>PLC / Integration</div>
+              <div style={{ padding: '4px 10px 2px', fontSize: '9px', fontWeight: 700, color: t.canvasTextSec, textTransform: 'uppercase', letterSpacing: '0.5px' }}>PLC / Integration</div>
               {[
                 { label: '🏭 WAGO XML', desc: 'e!COCKPIT / CODESYS', fmt: 'xml' as const },
                 { label: '📝 CODESYS GVL', desc: 'IEC 61131-3 variables', fmt: 'gvl' as const },
@@ -684,14 +684,14 @@ export default function HALManager({ projectId, nodes, edges, theme: t, style }:
                 }} style={{
                   display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
                   background: 'transparent', border: 'none', borderRadius: '4px',
-                  padding: '8px 10px', cursor: 'pointer', color: t.textPrimary, textAlign: 'left',
+                  padding: '8px 10px', cursor: 'pointer', color: t.canvasText, textAlign: 'left',
                 }}
                   onMouseEnter={e => (e.currentTarget.style.background = `${t.accent}20`)}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
                   <div>
                     <div style={{ fontSize: '12px', fontWeight: 600 }}>{item.label}</div>
-                    <div style={{ fontSize: '10px', color: t.textSecondary }}>{item.desc}</div>
+                    <div style={{ fontSize: '10px', color: t.canvasTextSec }}>{item.desc}</div>
                   </div>
                 </button>
               ))}
@@ -704,7 +704,7 @@ export default function HALManager({ projectId, nodes, edges, theme: t, style }:
             value=""
             style={{
               background: t.bgInput, border: `1px solid ${t.border}`, borderRadius: '4px',
-              color: t.textPrimary, padding: '4px 8px', fontSize: '11px',
+              color: t.canvasText, padding: '4px 8px', fontSize: '11px',
             }}
           >
             <option value="">History ({versions.length})</option>
@@ -728,7 +728,7 @@ export default function HALManager({ projectId, nodes, edges, theme: t, style }:
 
         {/* Filter */}
         <select value={filterType} onChange={e => setFilterType(e.target.value)} style={{
-          background: t.bgPanel, border: `1px solid ${t.border}`, borderRadius: '4px',
+          background: t.bgPanel, color: t.textPrimary, border: `1px solid ${t.border}`, borderRadius: '4px',
           color: t.textPrimary, padding: '4px 8px', fontSize: '12px',
         }}>
           <option value="all">All types</option>
@@ -739,7 +739,7 @@ export default function HALManager({ projectId, nodes, edges, theme: t, style }:
         </select>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: '2px', background: t.bgPanel, borderRadius: '4px', border: `1px solid ${t.border}`, padding: '2px' }}>
+        <div style={{ display: 'flex', gap: '2px', background: t.bgPanel, color: t.textPrimary, borderRadius: '4px', border: `1px solid ${t.border}`, padding: '2px' }}>
           {([['map', '🔗 Map'], ['table', '📋 Table'], ['issues', `⚠ Issues (${issues.length})`]] as const).map(([k, label]) => (
             <button key={k} onClick={() => setTab(k as any)} style={{
               padding: '4px 10px', borderRadius: '3px', border: 'none', fontSize: '11px', cursor: 'pointer',
@@ -856,17 +856,17 @@ export default function HALManager({ projectId, nodes, edges, theme: t, style }:
 function renderHWModule(mod: any, t: any, getMappingForHw: any, appSignals: any[], selectedHw: string | null, onHwClick: any, onHwTag: any, onEditScaling: any, onRemoveMapping: any, onRemoveModule: any) {
   return (
     <div key={mod.id} style={{
-      marginBottom: '8px', background: t.bgSecondary,
-      border: `1px solid ${t.border}`, borderRadius: '8px',
+      marginBottom: '8px', background: t.canvasNodeBg,
+      border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '8px',
       borderLeft: `4px solid ${mod.color}`,
     }}>
       <div style={{
         display: 'flex', alignItems: 'center', padding: '8px 10px',
-        borderBottom: `1px solid ${t.border}`,
+        borderBottom: `1px solid ${t.canvasNodeBorder}`,
       }}>
         <span style={{ fontSize: '11px', fontWeight: 700, color: mod.color }}>{mod.templateModel}</span>
-        <span style={{ fontSize: '11px', color: t.textSecondary, marginLeft: '8px' }}>{mod.name}</span>
-        <span style={{ fontSize: '10px', color: t.textSecondary, marginLeft: '8px', fontFamily: 'monospace' }}>
+        <span style={{ fontSize: '11px', color: t.canvasTextSec, marginLeft: '8px' }}>{mod.name}</span>
+        <span style={{ fontSize: '10px', color: t.canvasTextSec, marginLeft: '8px', fontFamily: 'monospace' }}>
           Pos {mod.rackPosition} · {mod.rackId}
         </span>
         <div style={{ flex: 1 }} />
@@ -885,20 +885,20 @@ function renderHWModule(mod: any, t: any, getMappingForHw: any, appSignals: any[
             display: 'flex', alignItems: 'center', gap: '5px',
             padding: '5px 10px', cursor: 'pointer',
             background: isSelected ? `${t.accent}20` : isMapped ? `${sigColor.bg}40` : 'transparent',
-            borderBottom: `1px solid ${t.border}`,
+            borderBottom: `1px solid ${t.canvasNodeBorder}`,
             borderLeft: isSelected ? `3px solid ${t.accent}` : '3px solid transparent',
           }}>
             <span style={{ ...badgeStyle(sigColor), minWidth: '24px', textAlign: 'center' as const }}>{sigColor.label}</span>
-            <span style={{ fontFamily: 'monospace', fontSize: '11px', color: t.textPrimary, minWidth: '70px' }}>{ch.terminal}</span>
-            <span style={{ fontSize: '10px', color: t.textSecondary, minWidth: '50px' }}>{ch.electricalType}</span>
+            <span style={{ fontFamily: 'monospace', fontSize: '11px', color: t.canvasText, minWidth: '70px' }}>{ch.terminal}</span>
+            <span style={{ fontSize: '10px', color: t.canvasTextSec, minWidth: '50px' }}>{ch.electricalType}</span>
             <input value={ch.tag} onChange={(e) => { e.stopPropagation(); onHwTag(ch.id, e.target.value); }}
               onClick={(e) => e.stopPropagation()} placeholder="Tag..."
-              style={{ width: '70px', padding: '2px 4px', fontSize: '10px', background: t.bgMain, border: `1px solid ${t.border}`, borderRadius: '3px', color: t.textPrimary, fontFamily: 'monospace' }} />
+              style={{ width: '70px', padding: '2px 4px', fontSize: '10px', background: t.canvasInput, border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '3px', color: t.canvasText, fontFamily: 'monospace' }} />
             <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px' }}>
               {isMapped ? (
                 <>
                   <span style={{ fontSize: '10px', color: '#22c55e' }}>→</span>
-                  <span style={{ fontSize: '10px', color: t.textSecondary, maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{appSig?.signalName || '?'}</span>
+                  <span style={{ fontSize: '10px', color: t.canvasTextSec, maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{appSig?.signalName || '?'}</span>
                   {mapping.scaling && (
                     <button onClick={(e) => { e.stopPropagation(); onEditScaling(mapping.id); }} style={{
                       background: '#fef3c7', border: 'none', borderRadius: '3px', padding: '1px 4px', fontSize: '9px', color: '#d97706', cursor: 'pointer', fontWeight: 600,
@@ -909,7 +909,7 @@ function renderHWModule(mod: any, t: any, getMappingForHw: any, appSignals: any[
                   }}>✕</button>
                 </>
               ) : (
-                <span style={{ fontSize: '10px', color: t.textSecondary, opacity: 0.4 }}>unmapped</span>
+                <span style={{ fontSize: '10px', color: t.canvasTextSec, opacity: 0.4 }}>unmapped</span>
               )}
             </div>
           </div>
@@ -933,20 +933,20 @@ function MapView({ t, config, appSignals, filteredHwChannels, filteredAppSignals
     <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
       {/* ─── Left: Sources (HW / COM) ─── */}
       <div style={{
-        width: '38%', borderRight: `1px solid ${t.border}`,
+        width: '38%', borderRight: `1px solid ${t.canvasNodeBorder}`,
         overflowY: 'auto', display: 'flex', flexDirection: 'column',
       }}>
         {/* Source tab toggle */}
         <div style={{
           display: 'flex', alignItems: 'center', padding: '8px 12px',
-          borderBottom: `1px solid ${t.border}`, gap: '4px', flexShrink: 0,
+          borderBottom: `1px solid ${t.canvasNodeBorder}`, gap: '4px', flexShrink: 0,
         }}>
           {(['hw', 'com'] as const).map(st => (
             <button key={st} onClick={() => onSetSourceTab(st)} style={{
               flex: 1, padding: '6px', borderRadius: '6px', border: 'none', fontSize: '11px',
               cursor: 'pointer', fontWeight: 600,
               background: sourceTab === st ? t.accent : 'transparent',
-              color: sourceTab === st ? '#fff' : t.textSecondary,
+              color: sourceTab === st ? '#fff' : t.canvasTextSec,
             }}>
               {st === 'hw' ? '⚡ Hardware I/O' : '📡 COM / Fieldbus'}
             </button>
@@ -958,7 +958,7 @@ function MapView({ t, config, appSignals, filteredHwChannels, filteredAppSignals
             /* ─── HW Panel ─── */
             <>
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
-                <span style={{ fontSize: '11px', color: t.textSecondary }}>
+                <span style={{ fontSize: '11px', color: t.canvasTextSec }}>
                   {config.modules.length} modules · {allHwChannels.length} ch
                 </span>
                 <div style={{ flex: 1 }} />
@@ -978,7 +978,7 @@ function MapView({ t, config, appSignals, filteredHwChannels, filteredAppSignals
             /* ─── COM Panel ─── */
             <>
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
-                <span style={{ fontSize: '11px', color: t.textSecondary }}>
+                <span style={{ fontSize: '11px', color: t.canvasTextSec }}>
                   {(config.comDevices || []).length} devices · {allComRegisters.length} reg
                 </span>
                 <div style={{ flex: 1 }} />
@@ -995,13 +995,13 @@ function MapView({ t, config, appSignals, filteredHwChannels, filteredAppSignals
                   const proto = PROTOCOL_INFO[dev.protocol] || { label: dev.protocol, icon: '📡', color: '#64748b' };
                   return (
                     <div key={dev.id} style={{
-                      marginBottom: '8px', background: t.bgSecondary,
-                      border: `1px solid ${t.border}`, borderRadius: '8px',
+                      marginBottom: '8px', background: t.canvasNodeBg,
+                      border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '8px',
                       borderLeft: `4px solid ${dev.color}`,
                     }}>
                       {/* Device header */}
                       <div style={{
-                        padding: '8px 10px', borderBottom: `1px solid ${t.border}`,
+                        padding: '8px 10px', borderBottom: `1px solid ${t.canvasNodeBorder}`,
                         display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap',
                       }}>
                         <span style={{ fontSize: '11px', fontWeight: 700, color: dev.color }}>{dev.templateModel}</span>
@@ -1009,10 +1009,10 @@ function MapView({ t, config, appSignals, filteredHwChannels, filteredAppSignals
                           {proto.icon} {proto.label}
                         </span>
                         <input value={dev.instanceName} onChange={e => onUpdateCOMField(dev.id, 'instanceName', e.target.value)}
-                          style={{ fontSize: '11px', fontFamily: 'monospace', background: t.bgMain, border: `1px solid ${t.border}`, borderRadius: '3px', padding: '2px 4px', color: t.textPrimary, width: '120px' }} />
+                          style={{ fontSize: '11px', fontFamily: 'monospace', background: t.canvasInput, border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '3px', padding: '2px 4px', color: t.canvasText, width: '120px' }} />
                         <input value={dev.ipAddress} onChange={e => onUpdateCOMField(dev.id, 'ipAddress', e.target.value)} placeholder="IP..."
-                          style={{ fontSize: '10px', fontFamily: 'monospace', background: t.bgMain, border: `1px solid ${t.border}`, borderRadius: '3px', padding: '2px 4px', color: t.textPrimary, width: '100px' }} />
-                        <span style={{ fontSize: '10px', color: t.textSecondary }}>:{dev.port} ID:{dev.unitId}</span>
+                          style={{ fontSize: '10px', fontFamily: 'monospace', background: t.canvasInput, border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '3px', padding: '2px 4px', color: t.canvasText, width: '100px' }} />
+                        <span style={{ fontSize: '10px', color: t.canvasTextSec }}>:{dev.port} ID:{dev.unitId}</span>
                         <div style={{ flex: 1 }} />
                         <button onClick={() => onRemoveCOMDevice(dev.id)} style={{
                           background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '12px',
@@ -1034,20 +1034,20 @@ function MapView({ t, config, appSignals, filteredHwChannels, filteredAppSignals
                               display: 'flex', alignItems: 'center', gap: '5px',
                               padding: '5px 10px', cursor: 'pointer',
                               background: isSelected ? `${t.accent}20` : isMapped ? `${sigColor.bg}40` : 'transparent',
-                              borderBottom: `1px solid ${t.border}`,
+                              borderBottom: `1px solid ${t.canvasNodeBorder}`,
                               borderLeft: isSelected ? `3px solid ${t.accent}` : '3px solid transparent',
                             }}>
                             <span style={{ ...badgeStyle(sigColor), minWidth: '24px', textAlign: 'center' as const }}>{sigColor.label}</span>
-                            <span style={{ fontFamily: 'monospace', fontSize: '10px', color: t.textPrimary, minWidth: '90px' }}>{reg.name}</span>
-                            <span style={{ fontSize: '9px', color: t.textSecondary, minWidth: '45px' }}>{reg.dataType}</span>
+                            <span style={{ fontFamily: 'monospace', fontSize: '10px', color: t.canvasText, minWidth: '90px' }}>{reg.name}</span>
+                            <span style={{ fontSize: '9px', color: t.canvasTextSec, minWidth: '45px' }}>{reg.dataType}</span>
                             {reg.registerType && (
-                              <span style={{ fontSize: '9px', color: t.textSecondary, opacity: 0.6 }}>@{reg.address}</span>
+                              <span style={{ fontSize: '9px', color: t.canvasTextSec, opacity: 0.6 }}>@{reg.address}</span>
                             )}
                             <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px' }}>
                               {isMapped ? (
                                 <>
                                   <span style={{ fontSize: '10px', color: '#22c55e' }}>→</span>
-                                  <span style={{ fontSize: '10px', color: t.textSecondary, maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  <span style={{ fontSize: '10px', color: t.canvasTextSec, maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {appSig?.signalName || '?'}
                                   </span>
                                   <button onClick={(e) => { e.stopPropagation(); onRemoveMapping(mapping.id); }} style={{
@@ -1055,7 +1055,7 @@ function MapView({ t, config, appSignals, filteredHwChannels, filteredAppSignals
                                   }}>✕</button>
                                 </>
                               ) : (
-                                <span style={{ fontSize: '10px', color: t.textSecondary, opacity: 0.4 }}>unmapped</span>
+                                <span style={{ fontSize: '10px', color: t.canvasTextSec, opacity: 0.4 }}>unmapped</span>
                               )}
                             </div>
                           </div>
@@ -1075,10 +1075,10 @@ function MapView({ t, config, appSignals, filteredHwChannels, filteredAppSignals
         flex: 1, overflowY: 'auto', padding: '12px',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
-          <div style={{ fontSize: '12px', fontWeight: 700, color: t.textPrimary }}>
+          <div style={{ fontSize: '12px', fontWeight: 700, color: t.canvasText }}>
             📡 Application Signals
           </div>
-          <span style={{ fontSize: '11px', color: t.textSecondary, marginLeft: '8px' }}>
+          <span style={{ fontSize: '11px', color: t.canvasTextSec, marginLeft: '8px' }}>
             {filteredAppSignals.length} signals from PLM
           </span>
         </div>
@@ -1097,12 +1097,12 @@ function MapView({ t, config, appSignals, filteredHwChannels, filteredAppSignals
 
             return [...groups.entries()].map(([compName, sigs]) => (
               <div key={compName} style={{
-                marginBottom: '8px', background: t.bgPanel,
-                border: `1px solid ${t.border}`, borderRadius: '8px',
+                marginBottom: '8px', background: t.canvasNodeBg, color: t.canvasText,
+                border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '8px',
               }}>
                 <div style={{
-                  padding: '8px 10px', borderBottom: `1px solid ${t.border}`,
-                  fontSize: '11px', fontWeight: 700, color: t.textPrimary,
+                  padding: '8px 10px', borderBottom: `1px solid ${t.canvasNodeBorder}`,
+                  fontSize: '11px', fontWeight: 700, color: t.canvasText,
                   display: 'flex', alignItems: 'center', gap: '6px',
                 }}>
                   <span style={{ fontFamily: 'monospace' }}>{compName}</span>
@@ -1131,7 +1131,7 @@ function MapView({ t, config, appSignals, filteredHwChannels, filteredAppSignals
                         display: 'flex', alignItems: 'center', gap: '6px',
                         padding: '6px 10px', cursor: isGrounded ? 'default' : 'pointer',
                         background: isSelected ? `${t.accent}20` : isMapped ? `${sigColor.bg}40` : isGrounded ? '#33333320' : 'transparent',
-                        borderBottom: `1px solid ${t.border}`,
+                        borderBottom: `1px solid ${t.canvasNodeBorder}`,
                         borderRight: isSelected ? `3px solid ${t.accent}` : '3px solid transparent',
                         transition: 'all 100ms',
                         opacity: isGrounded ? 0.6 : 1,
@@ -1144,7 +1144,7 @@ function MapView({ t, config, appSignals, filteredHwChannels, filteredAppSignals
                             <button onClick={(e) => { e.stopPropagation(); onRemoveMapping(mapping.id); }} style={{
                               background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '10px',
                             }}>✕</button>
-                            <span style={{ fontSize: '10px', color: t.textSecondary, fontFamily: 'monospace' }}>
+                            <span style={{ fontSize: '10px', color: t.canvasTextSec, fontFamily: 'monospace' }}>
                               {hwCh?.terminal || '?'}
                             </span>
                             <span style={{ fontSize: '10px', color: '#22c55e' }}>←</span>
@@ -1158,14 +1158,14 @@ function MapView({ t, config, appSignals, filteredHwChannels, filteredAppSignals
                           </>
                         ) : (
                           <>
-                            <span style={{ fontSize: '10px', color: t.textSecondary, opacity: 0.4, minWidth: '55px' }}>unmapped</span>
+                            <span style={{ fontSize: '10px', color: t.canvasTextSec, opacity: 0.4, minWidth: '55px' }}>unmapped</span>
                             <button onClick={(e) => {
                               e.stopPropagation();
                               const val = prompt(`Ground value for ${sig.signalName}:`, sig.signalType === 'DI' || sig.signalType === 'DO' ? 'FALSE' : '0.0');
                               if (val !== null) onGround(sig.id, val);
                             }} style={{
-                              background: 'none', border: `1px solid ${t.border}`, borderRadius: '3px',
-                              color: t.textSecondary, cursor: 'pointer', fontSize: '9px', padding: '1px 4px',
+                              background: 'none', border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '3px',
+                              color: t.canvasTextSec, cursor: 'pointer', fontSize: '9px', padding: '1px 4px',
                             }} title="Ground this signal">⏚</button>
                           </>
                         )}
@@ -1179,7 +1179,7 @@ function MapView({ t, config, appSignals, filteredHwChannels, filteredAppSignals
                       }}>{sigColor.label}</span>
 
                       {/* Signal name */}
-                      <span style={{ fontFamily: 'monospace', fontSize: '11px', color: t.textPrimary }}>
+                      <span style={{ fontFamily: 'monospace', fontSize: '11px', color: t.canvasText }}>
                         {sig.signalName}
                       </span>
 
@@ -1189,7 +1189,7 @@ function MapView({ t, config, appSignals, filteredHwChannels, filteredAppSignals
                       )}
 
                       {/* Description */}
-                      <span style={{ fontSize: '10px', color: t.textSecondary, marginLeft: 'auto', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontSize: '10px', color: t.canvasTextSec, marginLeft: 'auto', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {sig.description}
                       </span>
                     </div>
@@ -1248,8 +1248,8 @@ function TableView({ t, config, appSignals, allHwChannels, allComRegisters, onRe
             {['Status', 'Source', 'Terminal/Register', 'Type', 'Tag', 'Detail', '→', 'App Signal', 'App Type', 'Component', 'Scaling', ''].map(h => (
               <th key={h} style={{
                 padding: '8px 6px', textAlign: 'left', fontWeight: 600,
-                color: t.textPrimary, borderBottom: `2px solid ${t.border}`, fontSize: '10px',
-                whiteSpace: 'nowrap', background: t.bgPanel,
+                color: t.canvasText, borderBottom: `2px solid ${t.canvasNodeBorder}`, fontSize: '10px',
+                whiteSpace: 'nowrap', background: t.bgPanel, color: t.canvasText,
               }}>{h}</th>
             ))}
           </tr>
@@ -1265,7 +1265,7 @@ function TableView({ t, config, appSignals, allHwChannels, allComRegisters, onRe
             return (
               <tr key={idx} style={{
                 background: idx % 2 === 0 ? 'transparent' : `${t.accent}04`,
-                borderBottom: `1px solid ${t.border}`,
+                borderBottom: `1px solid ${t.canvasNodeBorder}`,
               }}>
                 <td style={{ padding: '5px 6px' }}>
                   <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: statusColor, marginRight: '4px' }} />
@@ -1278,32 +1278,32 @@ function TableView({ t, config, appSignals, allHwChannels, allComRegisters, onRe
                     <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '3px', background: '#f59e0b20', color: '#f59e0b', fontWeight: 600 }}>HW</span>
                   ) : '—'}
                 </td>
-                <td style={{ padding: '5px 6px', fontFamily: 'monospace', fontSize: '10px', color: t.textPrimary }}>
+                <td style={{ padding: '5px 6px', fontFamily: 'monospace', fontSize: '10px', color: t.canvasText }}>
                   {row.hw?.terminal || row.com?.name || (row.mapping?.grounded ? '⏚' : '—')}
-                  {row.comDev && <span style={{ fontSize: '9px', color: t.textSecondary, marginLeft: '4px' }}>@{row.comDev.instanceName}</span>}
+                  {row.comDev && <span style={{ fontSize: '9px', color: t.canvasTextSec, marginLeft: '4px' }}>@{row.comDev.instanceName}</span>}
                 </td>
                 <td style={{ padding: '5px 6px' }}>
                   {srcType && <span style={{ ...badgeStyle(SIG_COLORS[srcType]) }}>{srcType}</span>}
                 </td>
-                <td style={{ padding: '5px 6px', fontFamily: 'monospace', fontSize: '10px', color: t.textSecondary }}>
+                <td style={{ padding: '5px 6px', fontFamily: 'monospace', fontSize: '10px', color: t.canvasTextSec }}>
                   {row.hw?.tag || row.com?.tag || '—'}
                 </td>
-                <td style={{ padding: '5px 6px', fontSize: '9px', color: t.textSecondary }}>
+                <td style={{ padding: '5px 6px', fontSize: '9px', color: t.canvasTextSec }}>
                   {row.hw?.electricalType || (row.com ? `${row.com.dataType} @${row.com.address}` : '—')}
                 </td>
                 <td style={{ padding: '5px 6px', textAlign: 'center', color: typeMismatch ? '#ef4444' : '#22c55e', fontWeight: 600 }}>
                   {row.mapping ? (typeMismatch ? '⚠' : '→') : '·'}
                 </td>
-                <td style={{ padding: '5px 6px', fontFamily: 'monospace', fontSize: '10px', color: row.app ? t.textPrimary : t.textSecondary }}>
+                <td style={{ padding: '5px 6px', fontFamily: 'monospace', fontSize: '10px', color: row.app ? t.canvasText : t.canvasTextSec }}>
                   {row.app?.signalName || (row.mapping?.grounded ? `⏚ ${row.mapping.groundValue}` : '—')}
                 </td>
                 <td style={{ padding: '5px 6px' }}>
                   {appType && <span style={{ ...badgeStyle(SIG_COLORS[appType]) }}>{appType}</span>}
                 </td>
-                <td style={{ padding: '5px 6px', fontSize: '10px', color: t.textSecondary }}>
+                <td style={{ padding: '5px 6px', fontSize: '10px', color: t.canvasTextSec }}>
                   {row.app?.componentName || '—'}
                 </td>
-                <td style={{ padding: '5px 6px', fontSize: '10px', color: t.textSecondary }}>
+                <td style={{ padding: '5px 6px', fontSize: '10px', color: t.canvasTextSec }}>
                   {row.mapping?.scaling
                     ? `${row.mapping.scaling.engMin}–${row.mapping.scaling.engMax} ${row.mapping.scaling.unit}`
                     : '—'}
@@ -1366,7 +1366,7 @@ function IssuesView({ t, issues }: { t: any; issues: ValidationIssue[] }) {
             <span>{sev.icon}</span>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: '12px', color: t.textPrimary }}>{issue.message}</div>
-              <div style={{ fontSize: '10px', color: t.textSecondary, marginTop: '2px' }}>
+              <div style={{ fontSize: '10px', color: t.canvasTextSec, marginTop: '2px' }}>
                 {issue.category.replace(/_/g, ' ')}
               </div>
             </div>
@@ -1399,12 +1399,12 @@ function ModuleLibraryModal({ t, rackId, onSetRackId, onAdd, onClose }: {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: t.bgPanel, border: `1px solid ${t.border}`, borderRadius: '12px',
+        background: t.bgPanel, color: t.textPrimary, border: `1px solid ${t.border}`, borderRadius: '12px',
         width: '520px', maxHeight: '70vh', display: 'flex', flexDirection: 'column',
         boxShadow: '0 16px 64px rgba(0,0,0,0.5)',
       }}>
         <div style={{ padding: '16px', borderBottom: `1px solid ${t.border}` }}>
-          <div style={{ fontSize: '14px', fontWeight: 700, color: t.textPrimary, marginBottom: '10px' }}>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: t.canvasText, marginBottom: '10px' }}>
             📦 WAGO Module Library
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
@@ -1412,7 +1412,7 @@ function ModuleLibraryModal({ t, rackId, onSetRackId, onAdd, onClose }: {
               value={filter} onChange={e => setFilter(e.target.value)}
               placeholder="Search modules..."
               style={{
-                flex: 1, padding: '6px 10px', background: t.bgPanel,
+                flex: 1, padding: '6px 10px', background: t.bgPanel, color: t.textPrimary,
                 border: `1px solid ${t.border}`, borderRadius: '6px',
                 color: t.textPrimary, fontSize: '12px',
               }}
@@ -1421,7 +1421,7 @@ function ModuleLibraryModal({ t, rackId, onSetRackId, onAdd, onClose }: {
               value={rackId} onChange={e => onSetRackId(e.target.value)}
               placeholder="Rack ID..."
               style={{
-                width: '100px', padding: '6px 10px', background: t.bgPanel,
+                width: '100px', padding: '6px 10px', background: t.bgPanel, color: t.textPrimary,
                 border: `1px solid ${t.border}`, borderRadius: '6px',
                 color: t.textPrimary, fontSize: '12px', fontFamily: 'monospace',
               }}
@@ -1443,7 +1443,7 @@ function ModuleLibraryModal({ t, rackId, onSetRackId, onAdd, onClose }: {
               <span style={{ fontFamily: 'monospace', fontSize: '12px', fontWeight: 700, color: mod.color, minWidth: '70px' }}>
                 {mod.model}
               </span>
-              <span style={{ fontSize: '12px', color: t.textPrimary, flex: 1 }}>{mod.name}</span>
+              <span style={{ fontSize: '12px', color: t.canvasText, flex: 1 }}>{mod.name}</span>
               {mod.channels.map((ch, i) => (
                 <span key={i} style={{
                   ...badgeStyle(SIG_COLORS[ch.signalType] || { bg: '#f1f5f9', color: '#64748b' }),
@@ -1456,7 +1456,7 @@ function ModuleLibraryModal({ t, rackId, onSetRackId, onAdd, onClose }: {
 
         <div style={{ padding: '12px', borderTop: `1px solid ${t.border}`, textAlign: 'right' }}>
           <button onClick={onClose} style={{
-            padding: '6px 16px', background: t.bgPanel, border: `1px solid ${t.border}`,
+            padding: '6px 16px', background: t.bgPanel, color: t.textPrimary, border: `1px solid ${t.border}`,
             borderRadius: '6px', color: t.textPrimary, fontSize: '12px', cursor: 'pointer',
           }}>Close</button>
         </div>
@@ -1492,19 +1492,19 @@ function COMDeviceLibraryModal({ t, onAdd, onClose }: {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }} onClick={onClose}>
       <div style={{
-        background: t.bgPanel, borderRadius: '12px', width: '600px', maxHeight: '80vh',
+        background: t.bgPanel, color: t.textPrimary, borderRadius: '12px', width: '600px', maxHeight: '80vh',
         overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
         border: `1px solid ${t.border}`,
       }} onClick={e => e.stopPropagation()}>
         <div style={{
-          padding: '16px 20px', borderBottom: `1px solid ${t.border}`,
+          padding: '16px 20px', borderBottom: `1px solid ${t.canvasNodeBorder}`,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <div style={{ fontSize: '14px', fontWeight: 700, color: t.textPrimary }}>
             📡 COM / Fieldbus Device Library
           </div>
           <button onClick={onClose} style={{
-            background: 'none', border: 'none', color: t.textSecondary, cursor: 'pointer', fontSize: '16px',
+            background: 'none', border: 'none', color: t.canvasTextSec, cursor: 'pointer', fontSize: '16px',
           }}>✕</button>
         </div>
 
@@ -1513,12 +1513,12 @@ function COMDeviceLibraryModal({ t, onAdd, onClose }: {
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search devices..."
             style={{
               flex: 1, padding: '6px 10px', fontSize: '12px', borderRadius: '6px',
-              border: `1px solid ${t.border}`, background: t.bgMain, color: t.textPrimary,
+              border: `1px solid ${t.border}`, background: t.bgInput, color: t.canvasText,
             }} />
           <select value={filterProto} onChange={e => setFilterProto(e.target.value)}
             style={{
               padding: '6px 10px', fontSize: '11px', borderRadius: '6px',
-              border: `1px solid ${t.border}`, background: t.bgMain, color: t.textPrimary,
+              border: `1px solid ${t.border}`, background: t.bgInput, color: t.canvasText,
             }}>
             <option value="all">All protocols</option>
             {protocols.map(p => {
@@ -1547,13 +1547,13 @@ function COMDeviceLibraryModal({ t, onAdd, onClose }: {
                   <div style={{ fontSize: '12px', fontWeight: 700, color: t.textPrimary }}>{dev.name}</div>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '2px' }}>
                     <span style={{ fontSize: '10px', fontFamily: 'monospace', color: dev.color, fontWeight: 600 }}>{dev.model}</span>
-                    <span style={{ fontSize: '10px', color: t.textSecondary }}>{dev.manufacturer}</span>
+                    <span style={{ fontSize: '10px', color: t.canvasTextSec }}>{dev.manufacturer}</span>
                     <span style={{
                       fontSize: '9px', padding: '1px 6px', borderRadius: '3px',
                       background: `${proto.color}20`, color: proto.color, fontWeight: 600,
                     }}>{proto.icon} {proto.label}</span>
                   </div>
-                  <div style={{ fontSize: '10px', color: t.textSecondary, marginTop: '2px' }}>
+                  <div style={{ fontSize: '10px', color: t.canvasTextSec, marginTop: '2px' }}>
                     {dev.defaultRegisters.length} registers:
                     {' '}{dev.defaultRegisters.filter(r => r.signalType === 'AI').length} AI,
                     {' '}{dev.defaultRegisters.filter(r => r.signalType === 'DI').length} DI,
@@ -1588,19 +1588,19 @@ function AutoSuggestModal({ t, suggestions, onAccept, onAcceptAll, onClose }: {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }} onClick={onClose}>
       <div style={{
-        background: t.bgPanel, borderRadius: '12px', width: '700px', maxHeight: '80vh',
+        background: t.bgPanel, color: t.textPrimary, borderRadius: '12px', width: '700px', maxHeight: '80vh',
         overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
         border: `1px solid ${t.border}`,
       }} onClick={e => e.stopPropagation()}>
         <div style={{
-          padding: '16px 20px', borderBottom: `1px solid ${t.border}`,
+          padding: '16px 20px', borderBottom: `1px solid ${t.canvasNodeBorder}`,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <div>
             <div style={{ fontSize: '14px', fontWeight: 700, color: t.textPrimary }}>
               🔮 Auto-Suggest Mappings
             </div>
-            <div style={{ fontSize: '11px', color: t.textSecondary, marginTop: '2px' }}>
+            <div style={{ fontSize: '11px', color: t.canvasTextSec, marginTop: '2px' }}>
               {suggestions.length} suggestions based on signal type + name matching
             </div>
           </div>
@@ -1612,18 +1612,18 @@ function AutoSuggestModal({ t, suggestions, onAccept, onAcceptAll, onClose }: {
               }}>✓ Accept All ({suggestions.length})</button>
             )}
             <button onClick={onClose} style={{
-              background: 'none', border: 'none', color: t.textSecondary, cursor: 'pointer', fontSize: '16px',
+              background: 'none', border: 'none', color: t.canvasTextSec, cursor: 'pointer', fontSize: '16px',
             }}>✕</button>
           </div>
         </div>
 
         <div style={{ overflowY: 'auto', maxHeight: '60vh', padding: '10px 20px' }}>
           {suggestions.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: t.textSecondary }}>
+            <div style={{ textAlign: 'center', padding: '40px', color: t.canvasTextSec }}>
               <div style={{ fontSize: '32px', marginBottom: '10px' }}>✅</div>
               <div style={{ fontSize: '13px', fontWeight: 600 }}>No suggestions</div>
               <div style={{ fontSize: '11px', marginTop: '4px' }}>All signals are mapped, or no matching sources found.</div>
-              <div style={{ fontSize: '10px', marginTop: '8px', color: t.textSecondary }}>
+              <div style={{ fontSize: '10px', marginTop: '8px', color: t.canvasTextSec }}>
                 Tip: Add HW tags or COM device tags that match your app signal names for better suggestions.
               </div>
             </div>
@@ -1648,14 +1648,14 @@ function AutoSuggestModal({ t, suggestions, onAccept, onAcceptAll, onClose }: {
                     background: s.sourceType === 'com' ? '#8b5cf620' : '#f59e0b20',
                     color: s.sourceType === 'com' ? '#8b5cf6' : '#f59e0b',
                   }}>{s.sourceType === 'com' ? 'COM' : 'HW'}</span>
-                  <span style={{ fontFamily: 'monospace', fontSize: '11px', color: t.textPrimary, minWidth: '140px' }}>
+                  <span style={{ fontFamily: 'monospace', fontSize: '11px', color: t.canvasText, minWidth: '140px' }}>
                     {s.sourceName}
                   </span>
                   <span style={{ color: '#22c55e', fontSize: '12px' }}>→</span>
-                  <span style={{ fontFamily: 'monospace', fontSize: '11px', color: t.textPrimary, flex: 1 }}>
+                  <span style={{ fontFamily: 'monospace', fontSize: '11px', color: t.canvasText, flex: 1 }}>
                     {s.appName}
                   </span>
-                  <span style={{ fontSize: '9px', color: t.textSecondary }}>{s.reason}</span>
+                  <span style={{ fontSize: '9px', color: t.canvasTextSec }}>{s.reason}</span>
                   {!isAccepted ? (
                     <button onClick={() => {
                       onAccept(s);
@@ -1701,18 +1701,18 @@ function ScalingModal({ t, mapping, hwChannel, onSave, onClose }: {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: t.bgPanel, border: `1px solid ${t.border}`, borderRadius: '12px',
+        background: t.bgPanel, color: t.textPrimary, border: `1px solid ${t.border}`, borderRadius: '12px',
         width: '420px', padding: '20px', boxShadow: '0 16px 64px rgba(0,0,0,0.5)',
       }}>
-        <div style={{ fontSize: '14px', fontWeight: 700, color: t.textPrimary, marginBottom: '16px' }}>
+        <div style={{ fontSize: '14px', fontWeight: 700, color: t.canvasText, marginBottom: '16px' }}>
           ⚖️ Signal Scaling — {hwChannel?.terminal || '?'}
         </div>
 
         {/* Preset selector */}
         <div style={{ marginBottom: '16px' }}>
-          <label style={{ fontSize: '11px', color: t.textSecondary, display: 'block', marginBottom: '4px' }}>Preset</label>
+          <label style={{ fontSize: '11px', color: t.canvasTextSec, display: 'block', marginBottom: '4px' }}>Preset</label>
           <select value={presetKey} onChange={e => applyPreset(e.target.value)} style={{
-            width: '100%', padding: '6px 8px', background: t.bgPanel,
+            width: '100%', padding: '6px 8px', background: t.bgPanel, color: t.textPrimary,
             border: `1px solid ${t.border}`, borderRadius: '4px',
             color: t.textPrimary, fontSize: '12px',
           }}>
@@ -1732,13 +1732,13 @@ function ScalingModal({ t, mapping, hwChannel, onSave, onClose }: {
             { key: 'engMax', label: 'Eng. Max', desc: scaling.unit },
           ].map(f => (
             <div key={f.key}>
-              <label style={{ fontSize: '10px', color: t.textSecondary }}>{f.label} {f.desc && `(${f.desc})`}</label>
+              <label style={{ fontSize: '10px', color: t.canvasTextSec }}>{f.label} {f.desc && `(${f.desc})`}</label>
               <input
                 type="number"
                 value={(scaling as any)[f.key]}
                 onChange={e => setScaling({ ...scaling, [f.key]: parseFloat(e.target.value) || 0 })}
                 style={{
-                  width: '100%', padding: '6px 8px', background: t.bgPanel,
+                  width: '100%', padding: '6px 8px', background: t.bgPanel, color: t.textPrimary,
                   border: `1px solid ${t.border}`, borderRadius: '4px',
                   color: t.textPrimary, fontSize: '12px', fontFamily: 'monospace',
                 }}
@@ -1749,25 +1749,25 @@ function ScalingModal({ t, mapping, hwChannel, onSave, onClose }: {
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
           <div>
-            <label style={{ fontSize: '10px', color: t.textSecondary }}>Unit</label>
+            <label style={{ fontSize: '10px', color: t.canvasTextSec }}>Unit</label>
             <input
               value={scaling.unit}
               onChange={e => setScaling({ ...scaling, unit: e.target.value })}
               style={{
-                width: '100%', padding: '6px 8px', background: t.bgPanel,
+                width: '100%', padding: '6px 8px', background: t.bgPanel, color: t.textPrimary,
                 border: `1px solid ${t.border}`, borderRadius: '4px',
                 color: t.textPrimary, fontSize: '12px',
               }}
             />
           </div>
           <div>
-            <label style={{ fontSize: '10px', color: t.textSecondary }}>Filter (ms)</label>
+            <label style={{ fontSize: '10px', color: t.canvasTextSec }}>Filter (ms)</label>
             <input
               type="number"
               value={scaling.filterMs}
               onChange={e => setScaling({ ...scaling, filterMs: parseInt(e.target.value) || 0 })}
               style={{
-                width: '100%', padding: '6px 8px', background: t.bgPanel,
+                width: '100%', padding: '6px 8px', background: t.bgPanel, color: t.textPrimary,
                 border: `1px solid ${t.border}`, borderRadius: '4px',
                 color: t.textPrimary, fontSize: '12px', fontFamily: 'monospace',
               }}
@@ -1777,14 +1777,14 @@ function ScalingModal({ t, mapping, hwChannel, onSave, onClose }: {
 
         {/* Visual scaling preview */}
         <div style={{
-          padding: '10px', background: t.bgPanel, borderRadius: '6px',
+          padding: '10px', background: t.bgPanel, color: t.textPrimary, borderRadius: '6px',
           border: `1px solid ${t.border}`, marginBottom: '16px', textAlign: 'center',
         }}>
-          <div style={{ fontSize: '11px', color: t.textSecondary, marginBottom: '6px' }}>Preview</div>
+          <div style={{ fontSize: '11px', color: t.canvasTextSec, marginBottom: '6px' }}>Preview</div>
           <div style={{ fontFamily: 'monospace', fontSize: '13px', color: t.textPrimary }}>
             {scaling.rawMin} {hwChannel?.electricalType || 'raw'} → {scaling.engMin} {scaling.unit}
           </div>
-          <div style={{ fontSize: '11px', color: t.textSecondary, margin: '2px 0' }}>⟋</div>
+          <div style={{ fontSize: '11px', color: t.canvasTextSec, margin: '2px 0' }}>⟋</div>
           <div style={{ fontFamily: 'monospace', fontSize: '13px', color: t.textPrimary }}>
             {scaling.rawMax} {hwChannel?.electricalType || 'raw'} → {scaling.engMax} {scaling.unit}
           </div>
@@ -1792,7 +1792,7 @@ function ScalingModal({ t, mapping, hwChannel, onSave, onClose }: {
 
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{
-            padding: '6px 16px', background: t.bgPanel, border: `1px solid ${t.border}`,
+            padding: '6px 16px', background: t.bgPanel, color: t.textPrimary, border: `1px solid ${t.border}`,
             borderRadius: '6px', color: t.textPrimary, fontSize: '12px', cursor: 'pointer',
           }}>Cancel</button>
           <button onClick={() => onSave(scaling)} style={{
@@ -1817,8 +1817,8 @@ function EmptyState({ icon, title, subtitle, t }: { icon: string; title: string;
       background: `${t.accent}08`, border: `2px dashed ${t.border}`, borderRadius: '8px',
     }}>
       <div style={{ fontSize: '28px', marginBottom: '8px' }}>{icon}</div>
-      <div style={{ fontSize: '14px', color: t.textSecondary, marginBottom: '4px' }}>{title}</div>
-      <div style={{ fontSize: '12px', color: t.textSecondary, opacity: 0.7 }}>{subtitle}</div>
+      <div style={{ fontSize: '14px', color: t.canvasTextSec, marginBottom: '4px' }}>{title}</div>
+      <div style={{ fontSize: '12px', color: t.canvasTextSec, opacity: 0.7 }}>{subtitle}</div>
     </div>
   );
 }

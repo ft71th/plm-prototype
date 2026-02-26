@@ -390,7 +390,7 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
             onClick={() => setShowDiagramMenu(!showDiagramMenu)}
             style={{
               padding: '6px 12px', background: 'var(--nl-bg-panel, #ffffff)', border: '1px solid var(--nl-border, #d1d5db)',
-              borderRadius: 6, color: 'var(--nl-text-primary, #1e293b)', fontSize: 12, cursor: 'pointer',
+              borderRadius: 6, color: 'var(--nl-canvas-text, #1e293b)', fontSize: 12, cursor: 'pointer',
               display: 'flex', alignItems: 'center', gap: 6,
               boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
             }}
@@ -410,7 +410,7 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '6px 10px', cursor: 'pointer',
-                    background: d.id === sd.activeDiagramId ? '#f1f5f9' : 'transparent',
+                    background: d.id === sd.activeDiagramId ? 'var(--nl-bg-hover, rgba(255,255,255,0.08))' : 'transparent',
                   }}
                 >
                   {renamingId === d.id ? (
@@ -420,13 +420,13 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
                       onBlur={() => { sd.renameDiagram(d.id, renameText); setRenamingId(null); }}
                       onKeyDown={e => { if (e.key === 'Enter') { sd.renameDiagram(d.id, renameText); setRenamingId(null); } }}
                       autoFocus
-                      style={{ background: 'var(--nl-bg-canvas, #f8fafc)', border: '1px solid #3b82f6', borderRadius: 3, color: 'var(--nl-text-primary, #1e293b)', fontSize: 11, padding: '2px 6px', outline: 'none', width: '70%' }}
+                      style={{ background: 'var(--nl-bg-canvas, #f8fafc)', border: '1px solid #3b82f6', borderRadius: 3, color: 'var(--nl-canvas-text, #1e293b)', fontSize: 11, padding: '2px 6px', outline: 'none', width: '70%' }}
                     />
                   ) : (
                     <span
                       onClick={() => { sd.setActiveDiagramId(d.id); setShowDiagramMenu(false); }}
                       onDoubleClick={() => { setRenamingId(d.id); setRenameText(d.name); }}
-                      style={{ color: 'var(--nl-text-primary, #1e293b)', fontSize: 11, flex: 1 }}
+                      style={{ color: 'var(--nl-canvas-text, #1e293b)', fontSize: 11, flex: 1 }}
                     >
                       {d.name}
                     </span>
@@ -645,7 +645,7 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
               left: screenX - 80, top: screenY - 12,
               width: 160, padding: '4px 8px',
               background: 'var(--nl-bg-panel, #ffffff)', border: '2px solid #3b82f6', borderRadius: 4,
-              color: 'var(--nl-text-primary, #1e293b)', fontSize: 12, textAlign: 'center', outline: 'none',
+              color: 'var(--nl-canvas-text, #1e293b)', fontSize: 12, textAlign: 'center', outline: 'none',
               zIndex: 3000,
               boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
             }}
@@ -662,7 +662,7 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
           boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-            <span style={{ color: 'var(--nl-text-primary, #1e293b)', fontSize: 14, fontWeight: 600 }}>Välj PLM-nod</span>
+            <span style={{ color: 'var(--nl-canvas-text, #1e293b)', fontSize: 14, fontWeight: 600 }}>Välj PLM-nod</span>
             <button onClick={() => setShowNodePicker(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 16 }}>×</button>
           </div>
           {nodes
@@ -689,7 +689,7 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
                               n.data?.itemType === 'actor' ? '#2ecc71' : '#795548',
                 }} />
                 <div>
-                  <div style={{ color: 'var(--nl-text-primary, #1e293b)', fontSize: 12 }}>{n.data?.label}</div>
+                  <div style={{ color: 'var(--nl-canvas-text, #1e293b)', fontSize: 12 }}>{n.data?.label}</div>
                   <div style={{ color: '#94a3b8', fontSize: 9 }}>{n.data?.itemType || n.data?.type} · {n.data?.reqId || n.id}</div>
                 </div>
               </div>

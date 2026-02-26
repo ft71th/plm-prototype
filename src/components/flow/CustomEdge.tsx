@@ -124,12 +124,12 @@ function CustomEdge({
               position: 'absolute',
               transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
               zIndex: 10,
-              background: data?.isWhiteboardMode ? '#fff' : '#2c3e50',
+              background: data?.isWhiteboardMode ? 'var(--nl-canvas-node-bg, #fff)' : '#2c3e50',
               padding: data?.isWhiteboardMode ? '4px 10px' : '4px 8px',
               borderRadius: '4px',
               fontSize: data?.isWhiteboardMode ? '12px' : '10px',
               fontWeight: 'bold',
-              color: data?.isWhiteboardMode ? '#333' : relType.color,
+              color: data?.isWhiteboardMode ? 'var(--nl-canvas-text, #333)' : relType.color,
               border: data?.isWhiteboardMode 
                 ? (isEditing ? '2px solid #3498db' : '1px solid #999')
                 : `1px solid ${relType.color}`,
@@ -158,7 +158,7 @@ function CustomEdge({
                   background: 'transparent',
                   border: 'none',
                   outline: 'none',
-                  color: '#333',
+                  color: 'var(--nl-canvas-text, #333)',
                   fontSize: '12px',
                   fontWeight: 'bold',
                   width: '100%',
@@ -175,7 +175,7 @@ function CustomEdge({
                         {data?.busWidth && !data?.customLabel?.includes('[') && (
                           <span style={{ 
                             fontSize: '9px', 
-                            color: '#666',
+                            color: 'var(--nl-canvas-text-sec, #666)',
                             marginLeft: '4px'
                           }}>
                             [{data.busWidth - 1}:0]

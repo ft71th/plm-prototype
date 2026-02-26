@@ -117,9 +117,9 @@ function createRoundedBox(w, h, d, r, s) {
   return g;
 }
 
-function flowLineMat(color) {
+function flowLineMat(color, lightMode = false) {
   return new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 }, uColor: { value: new THREE.Color(color) }, uOpacity: { value: 0.5 } },
+    uniforms: { uTime: { value: 0 }, uColor: { value: new THREE.Color(color) }, uOpacity: { value: lightMode ? 0.8 : 0.5 } },
     vertexShader: `
       varying float vP; attribute float aP;
       void main() { vP = aP; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }
@@ -131,7 +131,8 @@ function flowLineMat(color) {
         gl_FragColor = vec4(uColor + pulse * 0.15, pulse * uOpacity + uOpacity * 0.15);
       }
     `,
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    transparent: true, depthWrite: false,
+    blending: lightMode ? THREE.NormalBlending : THREE.AdditiveBlending,
   });
 }
 
@@ -161,7 +162,7 @@ function getLayerForType(itemType, reqId) {
 // ─── COMPONENT ──────────────────────────────────────────────
 export default function TraceabilityView3D({
   projectId = null, nodes = [], edges = [], requirementLinks = [],
-  className = '', style = {}
+  className = '', style = {}, isDarkMode = true
 }) {
   const mountRef = useRef(null);
   const rendererRef = useRef(null);
@@ -278,8 +279,9 @@ export default function TraceabilityView3D({
     if (W === 0 || H === 0) return;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color("#060a14");
-    scene.fog = new THREE.FogExp2("#060a14", 0.008);
+    const sceneBg = isDarkMode ? "#060a14" : "#dce4ee";
+    scene.background = new THREE.Color(sceneBg);
+    scene.fog = new THREE.FogExp2(sceneBg, 0.008);
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 300);
@@ -314,11 +316,14 @@ export default function TraceabilityView3D({
     // Floor
     const floor = new THREE.Mesh(
       new THREE.PlaneGeometry(100, 100),
-      new THREE.MeshStandardMaterial({ color: "#080c18", metalness: 0.8, roughness: 0.35, transparent: true, opacity: 0.6 })
+      new THREE.MeshStandardMaterial({ color: isDarkMode ? "#080c18" : "#c8d4e2", metalness: 0.8, roughness: 0.35, transparent: true, opacity: 0.6 })
     );
     floor.rotation.x = -Math.PI / 2; floor.position.y = -11; floor.receiveShadow = true;
     scene.add(floor);
-    const grid = new THREE.GridHelper(60, 40, "#0d1525", "#0a0f1d");
+    const grid = new THREE.GridHelper(60, 40,
+      isDarkMode ? "#0d1525" : "#b0bdd0",
+      isDarkMode ? "#0a0f1d" : "#c0ccda"
+    );
     grid.position.y = -10.98;
     scene.add(grid);
 
@@ -331,8 +336,8 @@ export default function TraceabilityView3D({
     }
     pGeom.setAttribute("position", new THREE.BufferAttribute(pPos, 3));
     scene.add(new THREE.Points(pGeom, new THREE.PointsMaterial({
-      color: "#2244aa", size: 0.06, transparent: true, opacity: 0.4,
-      blending: THREE.AdditiveBlending, depthWrite: false,
+      color: isDarkMode ? "#2244aa" : "#6688cc", size: 0.06, transparent: true, opacity: isDarkMode ? 0.4 : 0.25,
+      blending: isDarkMode ? THREE.AdditiveBlending : THREE.NormalBlending, depthWrite: false,
     })));
 
     // ─── BUILD LAYERS FROM PROJECT DATA ──────────────────
@@ -350,7 +355,7 @@ export default function TraceabilityView3D({
       const planeSize = Math.max(16, items.length * 3);
       const plane = new THREE.Mesh(
         new THREE.PlaneGeometry(planeSize, planeSize * 0.6),
-        new THREE.MeshBasicMaterial({ color: config.color, transparent: true, opacity: 0.025, side: THREE.DoubleSide, depthWrite: false })
+        new THREE.MeshBasicMaterial({ color: config.color, transparent: true, opacity: isDarkMode ? 0.025 : 0.06, side: THREE.DoubleSide, depthWrite: false })
       );
       plane.rotation.x = -Math.PI / 2; plane.position.y = config.y - 0.5;
       group.add(plane);
@@ -405,7 +410,7 @@ export default function TraceabilityView3D({
         // Bottom accent glow
         const acc = new THREE.Mesh(
           new THREE.PlaneGeometry(1.6, 1.6),
-          new THREE.MeshBasicMaterial({ color: item.color, transparent: true, opacity: 0.07, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
+          new THREE.MeshBasicMaterial({ color: item.color, transparent: true, opacity: isDarkMode ? 0.07 : 0.12, blending: isDarkMode ? THREE.AdditiveBlending : THREE.NormalBlending, depthWrite: false, side: THREE.DoubleSide })
         );
         acc.rotation.x = -Math.PI / 2;
         acc.position.set(x, config.y - boxH / 2 - 0.04, z);
@@ -445,7 +450,7 @@ export default function TraceabilityView3D({
       geom.setAttribute("aP", new THREE.BufferAttribute(prog, 1));
 
       const linkColor = LINK_TYPE_COLORS[type] || LINK_TYPE_COLORS.default;
-      const mat = flowLineMat(linkColor);
+      const mat = flowLineMat(linkColor, !isDarkMode);
       const line = new THREE.Line(geom, mat);
       line.userData = { fromId: from, toId: to, type };
       scene.add(line);
@@ -550,7 +555,7 @@ export default function TraceabilityView3D({
         }
       });
     };
-  }, [layerData, linkData]);
+  }, [layerData, linkData, isDarkMode]);
 
   // Layer visibility
   useEffect(() => {
@@ -712,16 +717,18 @@ export default function TraceabilityView3D({
   // ─── RENDER ────────────────────────────────────────────
   return (
     <div className={className} style={{
-      width: "100%", height: "100%", background: "#060a14",
+      width: "100%", height: "100%", background: isDarkMode ? "#060a14" : "#dce4ee",
       position: "relative", fontFamily: "'Inter','Segoe UI',system-ui,sans-serif",
-      overflow: "hidden", userSelect: "none", ...style,
+      overflow: "hidden", userSelect: "none", color: isDarkMode ? "#e2e8f0" : "#1e293b", ...style,
     }}>
 
       {/* ─── TOP BAR ───────────────────────────────────── */}
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, zIndex: 10,
         padding: "10px 16px",
-        background: "linear-gradient(180deg, rgba(6,10,20,0.97) 0%, transparent 100%)",
+        background: isDarkMode
+          ? "linear-gradient(180deg, rgba(6,10,20,0.97) 0%, transparent 100%)"
+          : "linear-gradient(180deg, rgba(220,228,238,0.97) 0%, transparent 100%)",
         display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap",
       }}>
         <div style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "2px", color: "#3a5a8a", marginRight: "6px" }}>

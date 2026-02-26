@@ -22,8 +22,8 @@ export function ParticipantRenderer({
   const color = p.color || PARTICIPANT_COLORS.default;
   const cx = p.x + LAYOUT.PARTICIPANT_WIDTH / 2;
 
-  // Selection: light tinted background, always dark text
-  const boxFill = isSelected ? '#e0f2fe' : isDragTarget ? '#fef3c7' : '#ffffff';
+  // Selection: tinted background, canvas-aware text
+  const boxFill = isSelected ? '#e0f2fe' : isDragTarget ? '#fef3c7' : 'var(--nl-canvas-node-bg, #ffffff)';
   const boxStroke = isSelected ? '#2563eb' : `${color}aa`;
   const boxStrokeWidth = isSelected ? 2.5 : 1.5;
 
@@ -33,7 +33,7 @@ export function ParticipantRenderer({
       <line
         x1={cx} y1={LAYOUT.LIFELINE_START_Y}
         x2={cx} y2={maxY + 40}
-        stroke="#bbb"
+        stroke="var(--nl-canvas-text-sec, #bbb)"
         strokeWidth={1.5}
         strokeDasharray="6,4"
         opacity={0.7}
@@ -69,7 +69,7 @@ export function ParticipantRenderer({
         <text
           x={cx} y={LAYOUT.PARTICIPANT_Y + 16}
           textAnchor="middle"
-          fill="#64748b"
+          fill="var(--nl-canvas-text-sec, #64748b)"
           fontSize={9}
           fontFamily="monospace"
         >
@@ -77,11 +77,11 @@ export function ParticipantRenderer({
         </text>
       )}
 
-      {/* Label — always dark for readability */}
+      {/* Label — canvas-aware text */}
       <text
         x={cx} y={LAYOUT.PARTICIPANT_Y + (p.stereotype ? 32 : 27)}
         textAnchor="middle"
-        fill="#0f172a"
+        fill="var(--nl-canvas-text, #0f172a)"
         fontSize={12}
         fontWeight={600}
         style={{ pointerEvents: 'none' }}
@@ -105,14 +105,14 @@ export function ParticipantRenderer({
         width={LAYOUT.PARTICIPANT_WIDTH}
         height={24}
         rx={4}
-        fill="#ffffff"
+        fill="var(--nl-canvas-node-bg, #ffffff)"
         stroke={`${color}60`}
         strokeWidth={1}
       />
       <text
         x={cx} y={maxY + 36}
         textAnchor="middle"
-        fill="#64748b"
+        fill="var(--nl-canvas-text-sec, #64748b)"
         fontSize={10}
       >
         {p.label.length > 16 ? p.label.slice(0, 15) + '…' : p.label}
@@ -158,14 +158,14 @@ export function MessageRenderer({ message: m, participants, isSelected, isDraggi
         <path
           d={path}
           fill="none"
-          stroke={isSelected ? '#2563eb' : '#475569'}
+          stroke={isSelected ? '#2563eb' : 'var(--nl-canvas-text-sec, #475569)'}
           strokeWidth={isSelected ? 2 : 1.5}
           strokeDasharray={style.dash || undefined}
           markerEnd="url(#arrowOpen)"
         />
         <text
           x={fromX + loopW + 6} y={y + loopH / 2 + 4}
-          fill={isSelected ? '#1d4ed8' : '#1e293b'}
+          fill={isSelected ? '#1d4ed8' : 'var(--nl-canvas-text, #1e293b)'}
           fontSize={11}
           fontFamily="'DM Sans', sans-serif"
         >
@@ -190,7 +190,7 @@ export function MessageRenderer({ message: m, participants, isSelected, isDraggi
       {/* Actual arrow */}
       <line
         x1={fromX} y1={y} x2={toX} y2={y}
-        stroke={isSelected ? '#2563eb' : '#475569'}
+        stroke={isSelected ? '#2563eb' : 'var(--nl-canvas-text-sec, #475569)'}
         strokeWidth={isSelected ? 2 : 1.5}
         strokeDasharray={style.dash || undefined}
         markerEnd={`url(#${arrowId})`}
@@ -201,7 +201,7 @@ export function MessageRenderer({ message: m, participants, isSelected, isDraggi
         x={(fromX + toX) / 2}
         y={y - 8}
         textAnchor="middle"
-        fill={isSelected ? '#1d4ed8' : '#1e293b'}
+        fill={isSelected ? '#1d4ed8' : 'var(--nl-canvas-text, #1e293b)'}
         fontSize={11}
         fontWeight={500}
         fontFamily="'DM Sans', sans-serif"
@@ -217,7 +217,7 @@ export function MessageRenderer({ message: m, participants, isSelected, isDraggi
           x={(fromX + toX) / 2}
           y={y + 14}
           textAnchor="middle"
-          fill="#94a3b8"
+          fill="var(--nl-canvas-text-sec, #94a3b8)"
           fontSize={8}
           fontFamily="monospace"
           style={{ pointerEvents: 'none' }}
@@ -355,12 +355,12 @@ export function MarkerDefs() {
       {/* Filled triangle (sync) */}
       <marker id="arrowFilled" viewBox="0 0 10 10" refX="10" refY="5"
         markerWidth={8} markerHeight={8} orient="auto-start-reverse">
-        <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569" />
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--nl-canvas-text-sec, #475569)" />
       </marker>
       {/* Open arrow (async, reply) */}
       <marker id="arrowOpen" viewBox="0 0 10 10" refX="10" refY="5"
         markerWidth={8} markerHeight={8} orient="auto-start-reverse">
-        <path d="M 0 0 L 10 5 L 0 10" fill="none" stroke="#475569" strokeWidth={1.5} />
+        <path d="M 0 0 L 10 5 L 0 10" fill="none" stroke="var(--nl-canvas-text-sec, #475569)" strokeWidth={1.5} />
       </marker>
       {/* X marker (destroy) */}
       <marker id="arrowX" viewBox="0 0 10 10" refX="5" refY="5"

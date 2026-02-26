@@ -32,7 +32,8 @@ const STATUS_STYLES: Record<string, { bg: string; color: string; label: string }
 };
 
 export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [], edges: plmEdges = [] }: Props) {
-  const t = theme;
+  // Extend with canvas aliases — bgCard for doc cards on workspace
+  const t = { ...theme, bgCard: theme.canvasNodeBg } as any;
   const {
     templates, documents, activeDoc,
     loading, saving, error,
@@ -122,7 +123,7 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2 style={{ color: t.textPrimary, margin: 0, fontSize: '20px' }}>📄 Project Documents</h2>
+        <h2 style={{ color: t.canvasText, margin: 0, fontSize: '20px' }}>📄 Project Documents</h2>
         <button
           onClick={() => setScreen('templates')}
           style={{
@@ -149,8 +150,8 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
           onChange={(e) => setSearchText(e.target.value)}
           style={{
             flex: 1, padding: '8px 12px',
-            background: t.bgInput, color: t.textPrimary,
-            border: `1px solid ${t.border}`, borderRadius: '6px', fontSize: '13px',
+            background: t.canvasInput, color: t.canvasText,
+            border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '6px', fontSize: '13px',
           }}
         />
         <select
@@ -158,8 +159,8 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
           onChange={(e) => setFilterCategory(e.target.value)}
           style={{
             padding: '8px 12px',
-            background: t.bgInput, color: t.textPrimary,
-            border: `1px solid ${t.border}`, borderRadius: '6px', fontSize: '13px',
+            background: t.canvasInput, color: t.canvasText,
+            border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '6px', fontSize: '13px',
           }}
         >
           <option value="all">All Categories</option>
@@ -171,12 +172,12 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
 
       {/* Document grid */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '40px', color: t.textSecondary }}>Loading documents...</div>
+        <div style={{ textAlign: 'center', padding: '40px', color: t.canvasTextSec }}>Loading documents...</div>
       ) : filteredDocs.length === 0 ? (
         <div style={{
           textAlign: 'center', padding: '60px',
-          color: t.textSecondary,
-          border: `2px dashed ${t.border}`,
+          color: t.canvasTextSec,
+          border: `2px dashed ${t.canvasNodeBorder}`,
           borderRadius: '12px',
         }}>
           <div style={{ fontSize: '36px', marginBottom: '12px' }}>📄</div>
@@ -195,7 +196,7 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
                 style={{
                   padding: '16px',
                   background: t.bgCard,
-                  border: `1px solid ${t.border}`,
+                  border: `1px solid ${t.canvasNodeBorder}`,
                   borderRadius: '8px',
                   cursor: 'pointer',
                   transition: 'border-color 0.2s',
@@ -204,7 +205,7 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
                 onMouseLeave={(e) => (e.currentTarget.style.borderColor = t.border)}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '11px', color: t.textSecondary }}>
+                  <span style={{ fontSize: '11px', color: t.canvasTextSec }}>
                     {cat.icon} {doc.template_name || 'Document'}
                   </span>
                   <span style={{
@@ -214,14 +215,14 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
                     {status.label}
                   </span>
                 </div>
-                <div style={{ fontSize: '14px', fontWeight: 'bold', color: t.textPrimary, marginBottom: '4px' }}>
+                <div style={{ fontSize: '14px', fontWeight: 'bold', color: t.canvasText, marginBottom: '4px' }}>
                   {doc.title}
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: t.textSecondary }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: t.canvasTextSec }}>
                   <span>{doc.doc_number}</span>
                   <span>v{doc.version}</span>
                 </div>
-                <div style={{ fontSize: '10px', color: t.textSecondary, marginTop: '6px' }}>
+                <div style={{ fontSize: '10px', color: t.canvasTextSec, marginTop: '6px' }}>
                   Updated: {new Date(doc.updated_at).toLocaleDateString()}
                 </div>
               </div>
@@ -239,16 +240,16 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
     <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
         <button onClick={() => setScreen('list')} style={{
-          background: 'none', border: 'none', cursor: 'pointer', color: t.textSecondary, fontSize: '16px',
+          background: 'none', border: 'none', cursor: 'pointer', color: t.canvasTextSec, fontSize: '16px',
         }}>← Back</button>
-        <h2 style={{ color: t.textPrimary, margin: 0, fontSize: '20px' }}>Choose Template</h2>
+        <h2 style={{ color: t.canvasText, margin: 0, fontSize: '20px' }}>Choose Template</h2>
       </div>
 
       {Object.entries(templatesByCategory).map(([cat, tmpls]) => {
         const catInfo = CATEGORY_LABELS[cat] || { label: cat, icon: '📄' };
         return (
           <div key={cat} style={{ marginBottom: '24px' }}>
-            <h3 style={{ color: t.textPrimary, fontSize: '14px', marginBottom: '10px' }}>
+            <h3 style={{ color: t.canvasText, fontSize: '14px', marginBottom: '10px' }}>
               {catInfo.icon} {catInfo.label}
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '10px' }}>
@@ -259,7 +260,7 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
                   style={{
                     padding: '14px',
                     background: t.bgCard,
-                    border: `1px solid ${t.border}`,
+                    border: `1px solid ${t.canvasNodeBorder}`,
                     borderRadius: '8px',
                     cursor: 'pointer',
                     transition: 'border-color 0.2s',
@@ -267,13 +268,13 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
                   onMouseEnter={(e) => (e.currentTarget.style.borderColor = t.accent)}
                   onMouseLeave={(e) => (e.currentTarget.style.borderColor = t.border)}
                 >
-                  <div style={{ fontSize: '14px', fontWeight: 'bold', color: t.textPrimary, marginBottom: '4px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 'bold', color: t.canvasText, marginBottom: '4px' }}>
                     {tmpl.name}
                   </div>
-                  <div style={{ fontSize: '12px', color: t.textSecondary }}>
+                  <div style={{ fontSize: '12px', color: t.canvasTextSec }}>
                     {tmpl.description}
                   </div>
-                  <div style={{ fontSize: '10px', color: t.textSecondary, marginTop: '6px' }}>
+                  <div style={{ fontSize: '10px', color: t.canvasTextSec, marginTop: '6px' }}>
                     {tmpl.schema?.sections?.length || 0} sections · v{tmpl.version}
                   </div>
                 </div>
@@ -296,22 +297,22 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
       <div style={{ padding: '20px', maxWidth: '600px', margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
           <button onClick={() => setScreen('templates')} style={{
-            background: 'none', border: 'none', cursor: 'pointer', color: t.textSecondary, fontSize: '16px',
+            background: 'none', border: 'none', cursor: 'pointer', color: t.canvasTextSec, fontSize: '16px',
           }}>← Back</button>
-          <h2 style={{ color: t.textPrimary, margin: 0, fontSize: '20px' }}>
+          <h2 style={{ color: t.canvasText, margin: 0, fontSize: '20px' }}>
             New: {selectedTemplate.name}
           </h2>
         </div>
 
         <div style={{
           background: t.bgCard,
-          border: `1px solid ${t.border}`,
+          border: `1px solid ${t.canvasNodeBorder}`,
           borderRadius: '8px',
           padding: '24px',
         }}>
           {/* Title */}
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: t.textSecondary, marginBottom: '6px' }}>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: t.canvasTextSec, marginBottom: '6px' }}>
               Document Title *
             </label>
             <input
@@ -321,8 +322,8 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
               placeholder={`${selectedTemplate.name} — ...`}
               style={{
                 width: '100%', padding: '10px 12px',
-                background: t.bgInput, color: t.textPrimary,
-                border: `1px solid ${t.border}`, borderRadius: '6px', fontSize: '14px',
+                background: t.canvasInput, color: t.canvasText,
+                border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '6px', fontSize: '14px',
               }}
               autoFocus
             />
@@ -331,7 +332,7 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
           {/* Metadata fields */}
           {metaFields.map(field => (
             <div key={field.key} style={{ marginBottom: '12px' }}>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: t.textSecondary, marginBottom: '4px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: t.canvasTextSec, marginBottom: '4px' }}>
                 {field.label} {field.required ? '*' : ''}
               </label>
               {field.type === 'select' ? (
@@ -340,8 +341,8 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
                   onChange={(e) => setCreateMetadata({ ...createMetadata, [field.key]: e.target.value })}
                   style={{
                     width: '100%', padding: '8px 12px',
-                    background: t.bgInput, color: t.textPrimary,
-                    border: `1px solid ${t.border}`, borderRadius: '6px', fontSize: '13px',
+                    background: t.canvasInput, color: t.canvasText,
+                    border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '6px', fontSize: '13px',
                   }}
                 >
                   <option value="">Select...</option>
@@ -354,8 +355,8 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
                   onChange={(e) => setCreateMetadata({ ...createMetadata, [field.key]: e.target.value })}
                   style={{
                     width: '100%', padding: '8px 12px',
-                    background: t.bgInput, color: t.textPrimary,
-                    border: `1px solid ${t.border}`, borderRadius: '6px', fontSize: '13px',
+                    background: t.canvasInput, color: t.canvasText,
+                    border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '6px', fontSize: '13px',
                   }}
                 />
               )}
@@ -369,7 +370,7 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
               marginTop: '16px',
               width: '100%',
               padding: '12px',
-              background: createTitle.trim() ? t.accent : t.bgInput,
+              background: createTitle.trim() ? t.accent : t.canvasInput,
               color: createTitle.trim() ? '#fff' : t.textSecondary,
               border: 'none',
               borderRadius: '6px',
@@ -390,7 +391,7 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
   // ═══════════════════════════════════════════════════════════
   const renderEditor = () => {
     if (!activeDoc) return (
-      <div style={{ textAlign: 'center', padding: '60px', color: t.textSecondary }}>Loading document...</div>
+      <div style={{ textAlign: 'center', padding: '60px', color: t.canvasTextSec }}>Loading document...</div>
     );
 
     const schema = activeDoc.template_schema;
@@ -404,21 +405,21 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
         {/* Sidebar — sections nav */}
         <div style={{
           width: '240px',
-          borderRight: `1px solid ${t.border}`,
+          borderRight: `1px solid ${t.canvasNodeBorder}`,
           background: t.bgPanel,
           overflowY: 'auto',
           flexShrink: 0,
         }}>
           <div style={{ padding: '16px' }}>
             <button onClick={() => { setActiveDoc(null); setScreen('list'); }} style={{
-              background: 'none', border: 'none', cursor: 'pointer', color: t.textSecondary,
+              background: 'none', border: 'none', cursor: 'pointer', color: t.canvasTextSec,
               fontSize: '12px', marginBottom: '12px',
             }}>← Back to Documents</button>
 
-            <div style={{ fontSize: '13px', fontWeight: 'bold', color: t.textPrimary, marginBottom: '4px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 'bold', color: t.canvasText, marginBottom: '4px' }}>
               {activeDoc.doc_number}
             </div>
-            <div style={{ fontSize: '11px', color: t.textSecondary, marginBottom: '16px' }}>
+            <div style={{ fontSize: '11px', color: t.canvasTextSec, marginBottom: '16px' }}>
               v{activeDoc.version} · {status.label}
             </div>
           </div>
@@ -433,7 +434,7 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
                   display: 'block',
                   padding: '8px 16px',
                   fontSize: '12px',
-                  color: t.textPrimary,
+                  color: t.canvasText,
                   textDecoration: 'none',
                   borderLeft: `3px solid transparent`,
                   transition: 'all 0.2s',
@@ -453,8 +454,8 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
           </div>
 
           {/* Actions */}
-          <div style={{ padding: '16px', borderTop: `1px solid ${t.border}`, marginTop: '16px' }}>
-            <div style={{ fontSize: '11px', fontWeight: 'bold', color: t.textSecondary, marginBottom: '8px' }}>Status</div>
+          <div style={{ padding: '16px', borderTop: `1px solid ${t.canvasNodeBorder}`, marginTop: '16px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 'bold', color: t.canvasTextSec, marginBottom: '8px' }}>Status</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '16px' }}>
               {Object.entries(STATUS_STYLES).map(([key, style]) => (
                 <button
@@ -462,7 +463,7 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
                   onClick={() => handleStatusChange(key)}
                   style={{
                     padding: '3px 10px', borderRadius: '4px',
-                    border: activeDoc.status === key ? `2px solid ${style.bg}` : `1px solid ${t.border}`,
+                    border: activeDoc.status === key ? `2px solid ${style.bg}` : `1px solid ${t.canvasNodeBorder}`,
                     background: activeDoc.status === key ? style.bg : 'transparent',
                     color: activeDoc.status === key ? style.color : t.textSecondary,
                     cursor: 'pointer', fontSize: '10px', fontWeight: 'bold',
@@ -503,7 +504,7 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
               📝 Export Word
             </button>
 
-            <div style={{ borderTop: `1px solid ${t.border}`, margin: '8px 0' }} />
+            <div style={{ borderTop: `1px solid ${t.canvasNodeBorder}`, margin: '8px 0' }} />
 
             <button
               onClick={() => {
@@ -512,8 +513,8 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
               }}
               style={{
                 width: '100%', padding: '6px',
-                background: t.bgInput, color: t.textPrimary,
-                border: `1px solid ${t.border}`, borderRadius: '4px',
+                background: t.canvasInput, color: t.canvasText,
+                border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '4px',
                 cursor: 'pointer', fontSize: '11px', marginBottom: '6px',
               }}
             >
@@ -550,7 +551,7 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
             {/* Document header */}
             <div style={{
               background: t.bgCard,
-              border: `1px solid ${t.border}`,
+              border: `1px solid ${t.canvasNodeBorder}`,
               borderRadius: '8px',
               padding: '24px',
               marginBottom: '20px',
@@ -565,7 +566,7 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
                 readOnly={isReadOnly}
                 style={{
                   width: '100%', fontSize: '20px', fontWeight: 'bold',
-                  background: 'transparent', color: t.textPrimary,
+                  background: 'transparent', color: t.canvasText,
                   border: 'none', marginBottom: '12px',
                 }}
               />
@@ -574,7 +575,7 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
                 {metaFields.map(field => (
                   <div key={field.key}>
-                    <label style={{ fontSize: '10px', fontWeight: 'bold', color: t.textSecondary }}>
+                    <label style={{ fontSize: '10px', fontWeight: 'bold', color: t.canvasTextSec }}>
                       {field.label}
                     </label>
                     {field.type === 'select' ? (
@@ -584,8 +585,8 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
                         disabled={isReadOnly}
                         style={{
                           width: '100%', padding: '6px 8px',
-                          background: t.bgInput, color: t.textPrimary,
-                          border: `1px solid ${t.border}`, borderRadius: '4px', fontSize: '12px',
+                          background: t.canvasInput, color: t.canvasText,
+                          border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '4px', fontSize: '12px',
                         }}
                       >
                         <option value="">—</option>
@@ -599,8 +600,8 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
                         readOnly={isReadOnly}
                         style={{
                           width: '100%', padding: '6px 8px',
-                          background: t.bgInput, color: t.textPrimary,
-                          border: `1px solid ${t.border}`, borderRadius: '4px', fontSize: '12px',
+                          background: t.canvasInput, color: t.canvasText,
+                          border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '4px', fontSize: '12px',
                         }}
                       />
                     )}
@@ -616,19 +617,19 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
                 id={`section-${sec.id}`}
                 style={{
                   background: t.bgCard,
-                  border: `1px solid ${t.border}`,
+                  border: `1px solid ${t.canvasNodeBorder}`,
                   borderRadius: '8px',
                   padding: '20px',
                   marginBottom: '12px',
                 }}
               >
                 <h3 style={{
-                  color: t.textPrimary,
+                  color: t.canvasText,
                   fontSize: '15px',
                   marginTop: 0,
                   marginBottom: '12px',
                   paddingBottom: '8px',
-                  borderBottom: `1px solid ${t.border}`,
+                  borderBottom: `1px solid ${t.canvasNodeBorder}`,
                 }}>
                   {sec.title}
                 </h3>
@@ -648,12 +649,12 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
             {(activeDoc.revision_log?.length > 0) && (
               <div style={{
                 background: t.bgCard,
-                border: `1px solid ${t.border}`,
+                border: `1px solid ${t.canvasNodeBorder}`,
                 borderRadius: '8px',
                 padding: '20px',
                 marginBottom: '12px',
               }}>
-                <h3 style={{ color: t.textPrimary, fontSize: '15px', marginTop: 0, marginBottom: '12px' }}>
+                <h3 style={{ color: t.canvasText, fontSize: '15px', marginTop: 0, marginBottom: '12px' }}>
                   Revision History
                 </h3>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
@@ -661,8 +662,8 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
                     <tr>
                       {['Version', 'Date', 'Author', 'Changes'].map(h => (
                         <th key={h} style={{
-                          padding: '6px 8px', border: `1px solid ${t.border}`,
-                          background: t.bgHeader, color: t.textPrimary, textAlign: 'left', fontWeight: 'bold',
+                          padding: '6px 8px', border: `1px solid ${t.canvasNodeBorder}`,
+                          background: t.canvasInput, color: t.canvasText, textAlign: 'left', fontWeight: 'bold',
                         }}>{h}</th>
                       ))}
                     </tr>
@@ -670,10 +671,10 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
                   <tbody>
                     {activeDoc.revision_log.map((rev, idx) => (
                       <tr key={idx}>
-                        <td style={{ padding: '4px 8px', border: `1px solid ${t.border}`, color: t.textPrimary }}>{rev.version}</td>
-                        <td style={{ padding: '4px 8px', border: `1px solid ${t.border}`, color: t.textPrimary }}>{rev.date}</td>
-                        <td style={{ padding: '4px 8px', border: `1px solid ${t.border}`, color: t.textPrimary }}>{rev.author}</td>
-                        <td style={{ padding: '4px 8px', border: `1px solid ${t.border}`, color: t.textPrimary }}>{rev.changes}</td>
+                        <td style={{ padding: '4px 8px', border: `1px solid ${t.canvasNodeBorder}`, color: t.canvasText }}>{rev.version}</td>
+                        <td style={{ padding: '4px 8px', border: `1px solid ${t.canvasNodeBorder}`, color: t.canvasText }}>{rev.date}</td>
+                        <td style={{ padding: '4px 8px', border: `1px solid ${t.canvasNodeBorder}`, color: t.canvasText }}>{rev.author}</td>
+                        <td style={{ padding: '4px 8px', border: `1px solid ${t.canvasNodeBorder}`, color: t.canvasText }}>{rev.changes}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -694,7 +695,7 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
       width: '100%',
       height: '100%',
       background: t.bgMain,
-      color: t.textPrimary,
+      color: t.canvasText,
       overflow: 'auto',
     }}>
       {error && (

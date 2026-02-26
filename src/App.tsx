@@ -198,6 +198,11 @@ export default function App(): React.ReactElement {
       '--nl-bg-hover': theme.bgHover,
       '--nl-bg-accent': theme.bgAccent,
       '--nl-bg-overlay': theme.bgOverlay,
+      '--nl-canvas-text': theme.canvasText,
+      '--nl-canvas-text-sec': theme.canvasTextSec,
+      '--nl-canvas-node-bg': theme.canvasNodeBg,
+      '--nl-canvas-node-border': theme.canvasNodeBorder,
+      '--nl-canvas-input': theme.canvasInput,
       '--nl-text-primary': theme.textPrimary,
       '--nl-text-secondary': theme.textSecondary,
       '--nl-text-muted': theme.textMuted,
@@ -997,6 +1002,11 @@ const createNewObject = (name, version, description) => {
       '--nl-bg-hover': theme.bgHover,
       '--nl-bg-accent': theme.bgAccent,
       '--nl-bg-overlay': theme.bgOverlay,
+      '--nl-canvas-text': theme.canvasText,
+      '--nl-canvas-text-sec': theme.canvasTextSec,
+      '--nl-canvas-node-bg': theme.canvasNodeBg,
+      '--nl-canvas-node-border': theme.canvasNodeBorder,
+      '--nl-canvas-input': theme.canvasInput,
       '--nl-text-primary': theme.textPrimary,
       '--nl-text-secondary': theme.textSecondary,
       '--nl-text-muted': theme.textMuted,
@@ -1133,6 +1143,7 @@ const createNewObject = (name, version, description) => {
           nodes={nodes}
           edges={edges}
           requirementLinks={requirementLinks}
+          isDarkMode={isDarkMode}
           style={{ height: `${appHeight - 50}px` }} 
         />
       ) : viewMode === 'sequence' ? (
@@ -1143,7 +1154,7 @@ const createNewObject = (name, version, description) => {
           style={{ height: `${appHeight - 50}px` }}
         />
       ) : viewMode === 'docs' ? (
-        <div style={{ height: `${appHeight - 50}px`, overflow: 'hidden' }}>
+        <div style={{ height: `${appHeight - 50}px`, overflow: 'hidden', background: theme.bgCanvas, color: theme.canvasText }}>
           <DocumentEngine
             projectId={currentProject?.id || null}
             theme={theme}

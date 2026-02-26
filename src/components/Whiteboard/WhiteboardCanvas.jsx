@@ -362,7 +362,7 @@ export default function WhiteboardCanvas({ className = '' }) {
         width: `${width}px`, height: `${height}px`, fontSize: `${fontSize}px`,
         fontFamily: 'Inter, system-ui, sans-serif', fontWeight: 'bold',
         color: el.stroke || '#6366f1', textAlign: 'left',
-        background: 'rgba(255,255,255,0.95)',
+        background: 'var(--nl-canvas-node-bg, rgba(255,255,255,0.95))',
         border: `2px solid ${el.stroke || '#6366f1'}`,
         borderRadius: '2px', outline: 'none', resize: 'none',
         overflow: 'hidden', padding: '2px 8px',

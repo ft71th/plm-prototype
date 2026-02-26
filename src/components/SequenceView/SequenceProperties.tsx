@@ -28,7 +28,7 @@ export default function SequenceProperties({
     return (
       <div style={{
         position: 'fixed', right: 0, bottom: 0, width: 300, height: 220,
-        background: '#ffffff', borderTop: '1px solid #e2e8f0', borderLeft: '1px solid #e2e8f0',
+        background: 'var(--nl-bg-panel, #1e293b)', borderTop: '1px solid var(--nl-border-light, #334155)', borderLeft: '1px solid var(--nl-border-light, #334155)',
         zIndex: 2400, display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontFamily: "'DM Sans', sans-serif",
       }}>
@@ -64,13 +64,13 @@ export default function SequenceProperties({
     <div style={{
       position: 'fixed', right: 0, bottom: 0, width: 300,
       maxHeight: 'calc(100vh - 100px)',
-      background: '#ffffff', borderTop: '1px solid #e2e8f0', borderLeft: '1px solid #e2e8f0',
+      background: 'var(--nl-bg-panel, #1e293b)', borderTop: '1px solid var(--nl-border-light, #334155)', borderLeft: '1px solid var(--nl-border-light, #334155)',
       zIndex: 2400, overflowY: 'auto',
       fontFamily: "'DM Sans', sans-serif",
     }}>
       {/* Header */}
-      <div style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ color: '#1e293b', fontSize: 12, fontWeight: 600 }}>
+      <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--nl-border-light, #334155)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ color: 'var(--nl-text-primary, #e2e8f0)', fontSize: 12, fontWeight: 600 }}>
           {elementType === 'participant' ? '👤 Deltagare' :
            elementType === 'message' ? '➡️ Meddelande' : '🔲 Fragment'}
         </span>
@@ -106,7 +106,7 @@ export default function SequenceProperties({
                       key={key}
                       onClick={() => onUpdateParticipant(p.id, { color })}
                       style={{
-                        width: 22, height: 22, borderRadius: 4, border: p.color === color ? '2px solid #1e293b' : '1px solid #d1d5db',
+                        width: 22, height: 22, borderRadius: 4, border: p.color === color ? '2px solid var(--nl-accent, #3498db)' : '1px solid var(--nl-border, #4a5f7f)',
                         background: color, cursor: 'pointer',
                       }}
                       title={key}
@@ -162,7 +162,7 @@ export default function SequenceProperties({
                       style={{
                         padding: '2px 6px', borderRadius: 3, cursor: 'pointer',
                         background: m.type === t ? '#eff6ff' : 'transparent',
-                        border: m.type === t ? '1px solid #bfdbfe' : '1px solid #d1d5db',
+                        border: m.type === t ? '1px solid var(--nl-accent, #3498db)' : '1px solid var(--nl-border, #4a5f7f)',
                         color: m.type === t ? '#1d4ed8' : '#64748b', fontSize: 10, fontFamily: 'monospace',
                       }}>{t}</button>
                   ))}
@@ -218,7 +218,7 @@ export default function SequenceProperties({
                       style={{
                         padding: '2px 6px', borderRadius: 3, cursor: 'pointer',
                         background: f.type === ft ? '#fffbeb' : 'transparent',
-                        border: f.type === ft ? '1px solid #fde68a' : '1px solid #d1d5db',
+                        border: f.type === ft ? '1px solid var(--nl-accent, #3498db)' : '1px solid var(--nl-border, #4a5f7f)',
                         color: f.type === ft ? '#b45309' : '#64748b', fontSize: 10, fontFamily: 'monospace',
                       }}>{ft}</button>
                   ))}
