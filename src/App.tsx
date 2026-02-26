@@ -1061,8 +1061,8 @@ const createNewObject = (name, version, description) => {
         onToggleTheme={toggleTheme}
       />
       
-      {/* Left Icon Strip - hidden in freeform drawing mode */}
-      {viewMode !== 'freeform' && viewMode !== 'tasks' && viewMode !== 'gantt' && viewMode !== '3d' && viewMode !== 'sequence' && viewMode !== 'docs' && viewMode !== 'mindmap' && viewMode !== 'hal' && <LeftIconStrip
+      {/* Left Icon Strip - only in System view */}
+      {viewMode === 'whiteboard' && <LeftIconStrip
         onAddSystem={addSystemNode}
         onAddSubSystem={addSubSystemNode}
         onAddFunction={addFunctionNode}
@@ -1103,54 +1103,11 @@ const createNewObject = (name, version, description) => {
           canRedo={canRedo}
         />
       
-      {/* Show Document View, Tasks Board, Freeform Whiteboard, OR PLM Canvas */}
-      {viewMode === 'document' ? (
-      <DocumentViewEnhanced 
-        nodes={nodes} 
-        edges={edges} 
-        onNodeClick={(node) => {
-          setSelectedNode(node);
-          setFloatingPanelPosition({ x: window.innerWidth - 350, y: 100 });
-        }}
-        onUpdateNodeData={updateNodeData}
-        requirementLinks={requirementLinks}
-        onCreateLink={handleCreateLinkFromNode}
-        onRemoveLink={removeLink}
-        onPinLink={pinLink}
-        onUnpinLink={unpinLink}
-        onUpdateLinkStatus={updateLinkStatus}
-        onUpdateLink={updateLink}
-        onBaselineAll={baselineAllLinks}
-        onCreateNode={() => {
-          // Reuse existing createNewObject logic
-          const id = `node-${nodeId}`;
-          setNodeId(prev => prev + 1);
-          const newNode = {
-            id,
-            type: 'custom',
-            position: { x: 100, y: 100 },
-            data: {
-              label: 'New Requirement',
-              reqId: `REQ-${String(nodeId).padStart(3, '0')}`,
-              description: '',
-              status: 'draft',
-              priority: 'medium',
-              state: 'open',
-              version: '1.0',
-              itemType: 'requirement',
-            },
-          };
-          setNodes(nds => [...nds, newNode]);
-          return newNode;
-        }}
-        onCreatePostIt={() => addPostItNode('yellow')}
-        healthIssues={linkHealthIssues}
-        user={user?.name || 'unknown'}
-      />
-      ) : viewMode === 'tasks' ? (
+      {/* Show Tasks Board, Freeform Whiteboard, OR PLM Canvas */}
+      {viewMode === 'tasks' ? (
         <TaskProvider projectId={currentProject?.id || 'default'} currentUser={user?.name || 'user'} isDarkMode={isDarkMode}>
           <div style={{ 
-            marginTop: '50px', 
+            
             height: `${appHeight - 50}px`,
             overflow: 'hidden'
           }}>
@@ -1163,7 +1120,7 @@ const createNewObject = (name, version, description) => {
       ) : viewMode === 'gantt' ? (
         <TaskProvider projectId={currentProject?.id || 'default'} currentUser={user?.name || 'user'} isDarkMode={isDarkMode}>
           <div style={{ 
-            marginTop: '50px', 
+            
             height: `${appHeight - 50}px`,
             overflow: 'hidden'
           }}>
@@ -1176,17 +1133,17 @@ const createNewObject = (name, version, description) => {
           nodes={nodes}
           edges={edges}
           requirementLinks={requirementLinks}
-          style={{ marginTop: '50px', height: `${appHeight - 50}px` }} 
+          style={{ height: `${appHeight - 50}px` }} 
         />
       ) : viewMode === 'sequence' ? (
         <SequenceView
           projectId={currentProject?.id || null}
           nodes={nodes}
           edges={edges}
-          style={{ marginTop: '50px', height: `${appHeight - 50}px` }}
+          style={{ height: `${appHeight - 50}px` }}
         />
       ) : viewMode === 'docs' ? (
-        <div style={{ marginTop: '50px', height: `${appHeight - 50}px`, overflow: 'hidden' }}>
+        <div style={{ height: `${appHeight - 50}px`, overflow: 'hidden' }}>
           <DocumentEngine
             projectId={currentProject?.id || null}
             theme={theme}
@@ -1199,7 +1156,7 @@ const createNewObject = (name, version, description) => {
           projectId={currentProject?.id || null}
           nodes={nodes}
           edges={edges}
-          style={{ marginTop: '50px', height: `${appHeight - 50}px` }}
+          style={{ height: `${appHeight - 50}px` }}
         />
       ) : viewMode === 'hal' ? (
         <HALManager
@@ -1207,10 +1164,10 @@ const createNewObject = (name, version, description) => {
           nodes={processedNodes}
           edges={processedEdges}
           theme={theme}
-          style={{ marginTop: '50px', height: `${appHeight - 50}px` }}
+          style={{ height: `${appHeight - 50}px` }}
         />
       ) : viewMode === 'freeform' ? (
-        <Whiteboard style={{ marginTop: '50px', height: `${appHeight - 50}px` }} projectId={currentProject?.id || null} />
+        <Whiteboard style={{ height: `${appHeight - 50}px` }} projectId={currentProject?.id || null} />
       ) : (
       
       <ReactFlow
@@ -1296,7 +1253,6 @@ const createNewObject = (name, version, description) => {
         }}
         style={{ 
           background: theme.bgCanvas,
-          marginTop: '50px',
           height: `${appHeight - 50}px`
         }}
       >

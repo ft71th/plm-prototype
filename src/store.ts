@@ -111,7 +111,7 @@ const useStore = create<StoreState>((set, get) => ({
   showHardwareTypesModal: false,
   showSplash: true,
   showRelationshipLabels: true,
-  viewMode: 'plm',
+  viewMode: 'whiteboard',
   isDarkMode: (() => {
     try { return localStorage.getItem('northlight-dark-mode') !== 'false'; } catch { return true; }
   })(),

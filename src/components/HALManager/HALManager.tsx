@@ -147,6 +147,7 @@ function validate(config: HALConfig, appSignals: AppSignal[]): ValidationIssue[]
 
 function extractAppSignals(nodes: any[]): AppSignal[] {
   const signals: AppSignal[] = [];
+  const seenIds = new Set<string>();
   (nodes || []).forEach(n => {
     const d = n.data || {};
     if (!d.metsFamily && !d.ports?.length) return;
@@ -156,9 +157,12 @@ function extractAppSignals(nodes: any[]): AppSignal[] {
 
     // METS signals
     if (d.metsSignals?.length) {
-      d.metsSignals.forEach((sig: any) => {
+      d.metsSignals.forEach((sig: any, idx: number) => {
+        let id = `app_${n.id}_${sig.name}`;
+        if (seenIds.has(id)) id = `${id}_${idx}`;
+        seenIds.add(id);
         signals.push({
-          id: `app_${n.id}_${sig.name}`,
+          id,
           nodeId: n.id,
           componentName: compName,
           componentFamily: family,
@@ -173,9 +177,12 @@ function extractAppSignals(nodes: any[]): AppSignal[] {
 
     // Regular ports
     if (d.ports?.length && !d.metsFamily) {
-      d.ports.forEach((p: any) => {
+      d.ports.forEach((p: any, idx: number) => {
+        let id = `app_${n.id}_${p.id || p.name}`;
+        if (seenIds.has(id)) id = `${id}_${idx}`;
+        seenIds.add(id);
         signals.push({
-          id: `app_${n.id}_${p.id || p.name}`,
+          id,
           nodeId: n.id,
           componentName: compName,
           componentFamily: '',
