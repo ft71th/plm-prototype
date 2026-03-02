@@ -8,6 +8,7 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import useMindMapData from './useMindMapData';
 import MindMapToolbar from './MindMapToolbar';
+import ImportMindMapModal from './ImportMindMapModal';
 import type {
   MindMapNodeLayout, MindMapEdge as MMEdge, MindMapLayout,
   MindMapComment, ContextMenuAction,
@@ -66,6 +67,9 @@ export default function MindMapView({ projectId, nodes: plmNodes, edges: plmEdge
   // Pan state — right-click (2) or middle-click (1)
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+
+  // Import modal
+  const [showImport, setShowImport] = useState(false);
 
   // Editing
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -547,6 +551,7 @@ export default function MindMapView({ projectId, nodes: plmNodes, edges: plmEdge
         onCollapseToDepth={mm.collapseToDepth}
         onExport={exportSVG}
         onExportPNG={exportPNG}
+        onImport={() => setShowImport(true)}
         onAutoLayout={mm.autoLayout}
         onFitView={fitView}
         onCreateMap={mm.createNewMap}
@@ -614,6 +619,17 @@ export default function MindMapView({ projectId, nodes: plmNodes, edges: plmEdge
 
       {ctxMenu && <ContextMenuOverlay state={ctxMenu} actions={getActions(ctxMenu.nodeId)}
         onClose={() => setCtxMenu(null)} colors={colors} />}
+
+      {showImport && (
+        <ImportMindMapModal
+          colors={colors}
+          onImport={(rootNode, name) => {
+            mm.createNewMap(name, rootNode);
+            setShowImport(false);
+          }}
+          onClose={() => setShowImport(false)}
+        />
+      )}
     </div>
   );
 }

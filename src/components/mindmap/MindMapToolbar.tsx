@@ -25,6 +25,7 @@ interface Props {
   onCollapseToDepth: (d: number) => void;
   onExport: () => void;
   onExportPNG: () => void;
+  onImport: () => void;
   onAutoLayout: () => void;
   onFitView: () => void;
   onCreateMap: (name: string) => void;
@@ -43,7 +44,7 @@ export default function MindMapToolbar({
   onSearchChange, onLayoutChange,
   onZoomIn, onZoomOut, onZoomReset,
   onExpandAll, onCollapseAll, onCollapseToDepth,
-  onExport, onExportPNG,
+  onExport, onExportPNG, onImport,
   onAutoLayout, onFitView,
   onCreateMap, onRenameMap, onSwitchMap, onDeleteMap,
 }: Props) {
@@ -265,9 +266,10 @@ export default function MindMapToolbar({
 
       <div style={{ flex: 1 }} />
 
-      {/* Export */}
+      {/* Import / Export */}
       <div style={{ display: 'flex', gap: 3 }}>
-        <button onClick={onExport} style={btn(false)} title="Export SVG">📥 SVG</button>
+        <button onClick={onImport} style={btn(false)} title="Import from Text, Miro, PDF">📥 Import</button>
+        <button onClick={onExport} style={btn(false)} title="Export SVG">📤 SVG</button>
         <button onClick={onExportPNG} style={btn(false)} title="Export PNG">🖼️ PNG</button>
       </div>
 

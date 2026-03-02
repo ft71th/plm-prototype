@@ -94,6 +94,7 @@ function TopHeader({
         {viewBtn('sequence', '📊 Seq', 'Sequence Diagram')}
         {viewBtn('hal', '🔌 HAL', 'Hardware Abstraction Layer')}
         {viewBtn('freeform', '✏️ Draw', 'Freeform Drawing')}
+        {viewBtn('mindmap', '🧠 Mind', 'Mind Map')}
         <div style={{ width: '8px' }} />
         {viewBtn('tasks', '☑ Tasks', 'Task Board')}
         {viewBtn('gantt', '📊 Gantt', 'Gantt Timeline')}
