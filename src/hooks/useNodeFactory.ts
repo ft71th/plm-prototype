@@ -406,6 +406,95 @@ export default function useNodeFactory({
     }, 0);
   }, [nodeId, handleNodeLabelChange, setNodes, clearSelection, getCenterPosition, setNodeId]);
 
+  /** Add SW Program node (IEC 61131-3 PRG) */
+  const addSWProgramNode = useCallback((opts?: {
+    label?: string; swcCode?: string; language?: string;
+    taskType?: string; taskInterval?: string; taskPriority?: number;
+    dropPosition?: { x: number; y: number };
+  }) => {
+    clearSelection();
+    const position = opts?.dropPosition || getCenterPosition();
+    const itemId = generateItemId('swProgram');
+    const label = opts?.label || 'PRG_Main';
+
+    setTimeout(() => {
+      const newNode = {
+        id: String(nodeId),
+        type: 'swPou',
+        position,
+        selected: true,
+        data: {
+          label,
+          type: 'swPou',
+          itemType: 'swProgram',
+          reqId: itemId,
+          version: '1.0',
+          pouType: 'program',
+          swcCode: opts?.swcCode || '',
+          swLanguage: opts?.language || 'ST',
+          swSignals: [],
+          swVersion: '0.1',
+          swStatus: 'draft',
+          taskName: label.replace('PRG_', 'TSK_'),
+          taskType: opts?.taskType || 'cyclic',
+          taskInterval: opts?.taskInterval || 'T#100ms',
+          taskPriority: opts?.taskPriority ?? 10,
+          useStateMachine: false,
+          stateTemplate: 'packml-marine',
+          allocatedFunctions: [],
+          description: '',
+          nodeWidth: 260,
+          onChange: handleNodeLabelChange,
+        },
+      };
+      setNodes((nds) => [...nds, newNode]);
+      setNodeId((id) => id + 1);
+    }, 0);
+  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId, clearSelection, getCenterPosition, setNodeId]);
+
+  /** Add SW Function Block node (IEC 61131-3 FB) */
+  const addSWFunctionBlockNode = useCallback((opts?: {
+    label?: string; swcCode?: string; language?: string;
+    useStateMachine?: boolean;
+    dropPosition?: { x: number; y: number };
+  }) => {
+    clearSelection();
+    const position = opts?.dropPosition || getCenterPosition();
+    const itemId = generateItemId('swFunctionBlock');
+    const swc = opts?.swcCode || '';
+    const label = opts?.label || (swc ? `FB_${swc}` : 'FB_New');
+
+    setTimeout(() => {
+      const newNode = {
+        id: String(nodeId),
+        type: 'swPou',
+        position,
+        selected: true,
+        data: {
+          label,
+          type: 'swPou',
+          itemType: 'swFunctionBlock',
+          reqId: itemId,
+          version: '1.0',
+          pouType: 'functionBlock',
+          swcCode: swc,
+          swLanguage: opts?.language || 'ST',
+          swSignals: [],
+          swVersion: '0.1',
+          swStatus: 'draft',
+          useStateMachine: opts?.useStateMachine ?? false,
+          stateTemplate: 'packml-marine',
+          allocatedFunctions: [],
+          description: '',
+          nodeWidth: 260,
+          onChange: handleNodeLabelChange,
+        },
+      };
+      setNodes((nds) => [...nds, newNode]);
+      setNodeId((id) => id + 1);
+    }, 0);
+  }, [nodeId, handleNodeLabelChange, setNodes, generateItemId, clearSelection, getCenterPosition, setNodeId]);
+
   // Convenience aliases matching old API
   const addSystemNode = useCallback(() => addNode('system'), [addNode]);
   const addSubSystemNode = useCallback(() => addNode('subsystem'), [addNode]);
@@ -424,6 +513,8 @@ export default function useNodeFactory({
     addImageNode,
     addPostItNode,
     addSWComponentNode,
+    addSWProgramNode,
+    addSWFunctionBlockNode,
     addSystemNode,
     addSubSystemNode,
     addFunctionNode,

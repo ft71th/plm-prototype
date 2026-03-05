@@ -16,6 +16,9 @@ interface SequencePropertiesProps {
   onRemoveMessage: (id: string) => void;
   onRemoveFragment: (id: string) => void;
   plmNodes?: any[];
+  diagramName?: string;
+  diagramDescription?: string;
+  onRenameDiagram?: (name: string, description?: string) => void;
 }
 
 export default function SequenceProperties({
@@ -23,18 +26,46 @@ export default function SequenceProperties({
   onUpdateParticipant, onUpdateMessage, onUpdateFragment,
   onRemoveParticipant, onRemoveMessage, onRemoveFragment,
   plmNodes = [],
+  diagramName = '', diagramDescription = '', onRenameDiagram,
 }: SequencePropertiesProps) {
   if (!element || !elementType) {
     return (
       <div style={{
         position: 'fixed', right: 0, bottom: 0, width: 300, height: 220,
         background: 'var(--nl-bg-panel, #1e293b)', borderTop: '1px solid var(--nl-border-light, #334155)', borderLeft: '1px solid var(--nl-border-light, #334155)',
-        zIndex: 2400, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 2400, display: 'flex', flexDirection: 'column',
         fontFamily: "'DM Sans', sans-serif",
       }}>
-        <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>
-          <div style={{ fontSize: 28, marginBottom: 8 }}>🔍</div>
-          Markera ett element för att redigera
+        {/* Diagram info header */}
+        <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--nl-border-light, #334155)' }}>
+          <div style={{ color: '#64748b', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>Diagramnamn</div>
+          <input
+            value={diagramName}
+            onChange={e => onRenameDiagram?.(e.target.value)}
+            style={{
+              width: '100%', padding: '5px 8px', boxSizing: 'border-box',
+              background: 'var(--nl-bg-input, #f8fafc)', border: '1px solid var(--nl-border, #d1d5db)', borderRadius: 4,
+              color: 'var(--nl-text-primary, #e2e8f0)', fontSize: 12, fontWeight: 600, outline: 'none',
+            }}
+            placeholder="Namnge diagram..."
+          />
+          <div style={{ color: '#64748b', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2, marginTop: 8 }}>Beskrivning</div>
+          <input
+            value={diagramDescription}
+            onChange={e => onRenameDiagram?.(diagramName, e.target.value)}
+            style={{
+              width: '100%', padding: '5px 8px', boxSizing: 'border-box',
+              background: 'var(--nl-bg-input, #f8fafc)', border: '1px solid var(--nl-border, #d1d5db)', borderRadius: 4,
+              color: 'var(--nl-text-primary, #e2e8f0)', fontSize: 11, outline: 'none',
+            }}
+            placeholder="Valfri beskrivning..."
+          />
+        </div>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>
+            <div style={{ fontSize: 28, marginBottom: 8 }}>🔍</div>
+            Markera ett element för att redigera
+          </div>
         </div>
       </div>
     );

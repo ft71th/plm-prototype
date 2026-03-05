@@ -48,7 +48,7 @@ const LAYER_CONFIG = {
     y: -4,
     color: "#2ecc71",
     icon: "⚡",
-    types: ['function', 'usecase', 'parameter'],
+    types: ['function', 'usecase', 'parameter', 'swProgram', 'swFunctionBlock'],
   },
   hardware: {
     label: "Hårdvara",
@@ -75,6 +75,8 @@ const TYPE_COLORS = {
   testcase: '#27ae60',
   testrun: '#e67e22',
   testresult: '#9b59b6',
+  swProgram: '#f59e0b',
+  swFunctionBlock: '#06b6d4',
 };
 
 const STATUS_COLORS = {
@@ -150,6 +152,8 @@ function getLayerForType(itemType, reqId) {
     if (prefix === 'ACT') return 'hardware';
     if (prefix === 'PAR' || prefix === 'PRM') return 'functions';
     if (prefix === 'PLT' || prefix === 'PLAT') return 'requirements';
+    if (prefix === 'PRG') return 'functions';
+    if (prefix === 'FB') return 'functions';
     // PRJ prefix: use itemType as fallback since PRJ can be anything
   }
   // Fallback to itemType

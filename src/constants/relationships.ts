@@ -15,6 +15,9 @@ export const RELATIONSHIP_TYPES: Record<RelationshipKey, RelationshipDef> = {
   related: { label: 'Related to', color: '#95a5a6', style: 'dotted' },
   flowsDown: { label: 'Flows down', color: '#00bcd4', style: 'solid' },
   reuses: { label: 'Reuses', color: '#16a085', style: 'solid' },
+  // SW POU relationships (IEC 61131-3)
+  calls: { label: 'Calls', color: '#06b6d4', style: 'solid' },
+  mapsTo: { label: 'Maps to (HAL)', color: '#e67e22', style: 'dashed' },
 };
 
 export const defaultEdgeOptions = {
@@ -45,6 +48,16 @@ export function inferRelationshipType(
   if (!sourceItemType && targetItemType === 'system') return 'satisfies';
   if (sourceItemType === 'testcase' && !targetItemType) return 'verifies';
   if (!sourceItemType && targetItemType === 'testcase') return 'verifies';
+
+  // SW POU relationships (IEC 61131-3)
+  // Function → SW FB = allocatedTo (PLM function allocated to SW implementation)
+  if (sourceItemType === 'function' && (targetItemType === 'swFunctionBlock' || targetItemType === 'swProgram')) return 'allocatedTo';
+  // PRG → FB = calls (program calls function block)
+  if (sourceItemType === 'swProgram' && targetItemType === 'swFunctionBlock') return 'calls';
+  // FB → FB = calls (function block calls another)
+  if (sourceItemType === 'swFunctionBlock' && targetItemType === 'swFunctionBlock') return 'calls';
+  // SW → HW = mapsTo (HAL signal mapping)
+  if ((sourceItemType === 'swFunctionBlock' || sourceItemType === 'swProgram') && targetItemType === 'hardware') return 'mapsTo';
 
   if (sourceClass === 'need' && targetClass === 'capability') return 'addresses';
   if (sourceClass === 'capability' && targetClass === 'requirement') return 'implements';

@@ -1831,9 +1831,9 @@ function loadSequenceDiagrams(projectId: string | null): SeqDiagram[] {
   } catch { return []; }
 }
 
-function DynamicSequenceEmbed({ section, data, onChange, theme: t, nodes = [], edges = [] }: SectionProps & { nodes?: any[], edges?: any[], projectId?: string }) {
-  // Try to get projectId from section data or URL
-  const projectId = (section as any).projectId || new URLSearchParams(window.location.search).get('project') || null;
+function DynamicSequenceEmbed({ section, data, onChange, theme: t, nodes = [], edges = [], projectId: propProjectId }: SectionProps & { nodes?: any[], edges?: any[], projectId?: string | null }) {
+  // Use prop first, then fall back to URL param
+  const projectId = propProjectId || new URLSearchParams(window.location.search).get('project') || null;
   const diagrams = loadSequenceDiagrams(projectId);
 
   const [selectedDiagramId, setSelectedDiagramId] = useState<string>(
@@ -1988,6 +1988,339 @@ function DynamicSequenceEmbed({ section, data, onChange, theme: t, nodes = [], e
 
 
 // ═══════════════════════════════════════════════════════════
+// DYNAMIC SW POU LIST — Programs and Function Blocks from canvas
+// ═══════════════════════════════════════════════════════════
+
+function DynamicSWPouList({ section, data, onChange, theme: t, nodes = [] }: SectionProps & { nodes?: any[] }) {
+  const pouNodes = (nodes || []).filter(n =>
+    n.data?.itemType === 'swProgram' || n.data?.itemType === 'swFunctionBlock'
+  );
+
+  const programs = pouNodes.filter(n => n.data?.pouType === 'program');
+  const fbs = pouNodes.filter(n => n.data?.pouType === 'functionBlock');
+
+  const pouColors: Record<string, { bg: string; text: string }> = {
+    program: { bg: '#fef3c7', text: '#92400e' },
+    functionBlock: { bg: '#cffafe', text: '#155e75' },
+  };
+
+  if (pouNodes.length === 0) {
+    return (
+      <div style={{ padding: '32px', textAlign: 'center', background: `${t.accent}08`, border: `2px dashed ${t.canvasNodeBorder}`, borderRadius: '8px' }}>
+        <div style={{ fontSize: '28px', marginBottom: '8px' }}>💻</div>
+        <div style={{ fontSize: '14px', color: t.canvasTextSec }}>No SW POU nodes found</div>
+        <div style={{ fontSize: '12px', color: t.canvasTextSec, opacity: 0.7 }}>Add Programs (PRG) or Function Blocks (FB) in System view</div>
+      </div>
+    );
+  }
+
+  const renderPouRow = (n: any) => {
+    const d = n.data || {};
+    const isPrg = d.pouType === 'program';
+    const col = pouColors[d.pouType] || pouColors.functionBlock;
+    const signalCount = (d.swSignals || []).length;
+    const hasStateMachine = !!d.useStateMachine;
+    const activeStates = (d.activeStates || []).length;
+    return (
+      <tr key={n.id}>
+        <td style={{ padding: '6px 10px', borderBottom: `1px solid ${t.canvasNodeBorder}` }}>
+          <span style={{ background: col.bg, color: col.text, padding: '1px 6px', borderRadius: 3, fontSize: '10px', fontWeight: 700 }}>
+            {isPrg ? 'PRG' : 'FB'}
+          </span>
+        </td>
+        <td style={{ padding: '6px 10px', borderBottom: `1px solid ${t.canvasNodeBorder}`, fontFamily: 'monospace', fontWeight: 600 }}>
+          {d.label || '—'}
+        </td>
+        <td style={{ padding: '6px 10px', borderBottom: `1px solid ${t.canvasNodeBorder}` }}>
+          {d.swcCode ? (
+            <span style={{ background: '#8b5cf615', color: '#8b5cf6', padding: '1px 5px', borderRadius: 3, fontSize: '10px', fontFamily: 'monospace', fontWeight: 600 }}>{d.swcCode}</span>
+          ) : '—'}
+        </td>
+        <td style={{ padding: '6px 10px', borderBottom: `1px solid ${t.canvasNodeBorder}`, fontSize: '12px' }}>{d.swLanguage || 'ST'}</td>
+        <td style={{ padding: '6px 10px', borderBottom: `1px solid ${t.canvasNodeBorder}`, fontSize: '12px', textAlign: 'center' }}>{signalCount}</td>
+        <td style={{ padding: '6px 10px', borderBottom: `1px solid ${t.canvasNodeBorder}`, fontSize: '12px' }}>
+          {hasStateMachine ? <span style={{ color: '#22c55e' }}>✓ PackML ({activeStates})</span> : <span style={{ color: '#94a3b8' }}>—</span>}
+        </td>
+        <td style={{ padding: '6px 10px', borderBottom: `1px solid ${t.canvasNodeBorder}`, fontSize: '12px' }}>
+          {isPrg ? `${d.taskType || 'cyclic'} ${d.taskInterval || 'T#100ms'} P${d.taskPriority ?? 10}` : '—'}
+        </td>
+        <td style={{ padding: '6px 10px', borderBottom: `1px solid ${t.canvasNodeBorder}`, fontSize: '11px', color: t.canvasTextSec }}>{d.description || ''}</td>
+      </tr>
+    );
+  };
+
+  const headerStyle: React.CSSProperties = {
+    padding: '6px 10px', textAlign: 'left', fontSize: '10px', fontWeight: 700,
+    textTransform: 'uppercase', letterSpacing: '0.5px', color: t.canvasTextSec,
+    borderBottom: `2px solid ${t.canvasNodeBorder}`, background: `${t.accent}08`,
+  };
+
+  return (
+    <div>
+      <div style={{ fontSize: '12px', color: t.canvasTextSec, marginBottom: '8px' }}>
+        {programs.length} Program{programs.length !== 1 ? 's' : ''} · {fbs.length} Function Block{fbs.length !== 1 ? 's' : ''}
+      </div>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', color: t.canvasText }}>
+          <thead>
+            <tr>
+              <th style={headerStyle}>Type</th>
+              <th style={headerStyle}>Name</th>
+              <th style={headerStyle}>SWC</th>
+              <th style={headerStyle}>Lang.</th>
+              <th style={{ ...headerStyle, textAlign: 'center' }}>Signals</th>
+              <th style={headerStyle}>State Machine</th>
+              <th style={headerStyle}>Task</th>
+              <th style={headerStyle}>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {programs.map(renderPouRow)}
+            {fbs.map(renderPouRow)}
+          </tbody>
+        </table>
+      </div>
+      <div style={{ marginTop: '8px', fontSize: '10px', color: t.canvasTextSec, opacity: 0.6, fontStyle: 'italic' }}>
+        Auto-populated from PLM canvas · {new Date().toLocaleDateString()}
+      </div>
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════
+// DYNAMIC SW SIGNAL LIST — all signals from PRG/FB nodes
+// ═══════════════════════════════════════════════════════════
+
+function DynamicSWSignalList({ section, data, onChange, theme: t, nodes = [] }: SectionProps & { nodes?: any[] }) {
+  const [filterSwc, setFilterSwc] = useState<string>('all');
+  const [filterDir, setFilterDir] = useState<string>('all');
+
+  type SigRow = { name: string; datatype: string; direction: string; unit?: string; description?: string; source: string; swc: string; pouType: string; packml: boolean };
+
+  const allSignals: SigRow[] = [];
+  (nodes || []).forEach(n => {
+    const d = n.data || {};
+    if (d.itemType !== 'swProgram' && d.itemType !== 'swFunctionBlock') return;
+    const source = d.label || n.id;
+    const swc = d.swcCode || '';
+    const pouType = d.pouType === 'program' ? 'PRG' : 'FB';
+
+    (d.swSignals || []).forEach((sig: any) => {
+      allSignals.push({ name: sig.name, datatype: sig.datatype, direction: sig.direction, unit: sig.unit, description: sig.description, source, swc, pouType, packml: false });
+    });
+
+    // PackML auto-signals
+    if (d.useStateMachine) {
+      const ids: number[] = d.activeStates || [];
+      const sm: { name: string; dir: string; dt: string }[] = [
+        { name: 'e_state', dir: 'OUT', dt: 'E_STATE' },
+        { name: 'e_mode', dir: 'OUT', dt: 'E_MODE' },
+        { name: 'x_ready', dir: 'OUT', dt: 'BOOL' },
+        { name: 'x_running', dir: 'OUT', dt: 'BOOL' },
+        { name: 'x_cmdStart', dir: 'IN', dt: 'BOOL' },
+        { name: 'x_cmdStop', dir: 'IN', dt: 'BOOL' },
+        { name: 'x_cmdReset', dir: 'IN', dt: 'BOOL' },
+        { name: 'i_stateId', dir: 'OUT', dt: 'INT' },
+        { name: 't_stateTime', dir: 'OUT', dt: 'TIME' },
+        { name: 'e_md_modeReq', dir: 'IN', dt: 'E_MODE' },
+      ];
+      if (ids.includes(7)) { sm.push({ name: 'x_held', dir: 'OUT', dt: 'BOOL' }, { name: 'x_cmdHold', dir: 'IN', dt: 'BOOL' }, { name: 'x_cmdUnhold', dir: 'IN', dt: 'BOOL' }); }
+      if (ids.includes(13)) { sm.push({ name: 'x_faulted', dir: 'OUT', dt: 'BOOL' }, { name: 'x_cmdAbort', dir: 'IN', dt: 'BOOL' }); }
+      if (ids.includes(10)) { sm.push({ name: 'x_complete', dir: 'OUT', dt: 'BOOL' }); }
+      if (ids.includes(1)) { sm.push({ name: 'x_initialized', dir: 'OUT', dt: 'BOOL' }); }
+      sm.forEach(s => {
+        const fullName = swc ? `${swc}_${s.name}` : s.name;
+        allSignals.push({ name: fullName, datatype: s.dt, direction: s.dir, source, swc, pouType, packml: true, description: `PackML: ${s.name}` });
+      });
+    }
+  });
+
+  const swcList = [...new Set(allSignals.map(s => s.swc).filter(Boolean))];
+  const filtered = allSignals.filter(s => {
+    if (filterSwc !== 'all' && s.swc !== filterSwc) return false;
+    if (filterDir !== 'all' && s.direction !== filterDir) return false;
+    return true;
+  });
+
+  const dirColors: Record<string, string> = { IN: '#3b82f6', OUT: '#ec4899', IN_OUT: '#f59e0b' };
+
+  if (allSignals.length === 0) {
+    return (
+      <div style={{ padding: '32px', textAlign: 'center', background: `${t.accent}08`, border: `2px dashed ${t.canvasNodeBorder}`, borderRadius: '8px' }}>
+        <div style={{ fontSize: '28px', marginBottom: '8px' }}>📡</div>
+        <div style={{ fontSize: '14px', color: t.canvasTextSec }}>No SW signals found</div>
+        <div style={{ fontSize: '12px', color: t.canvasTextSec, opacity: 0.7 }}>Add signals to PRG/FB nodes in their properties panel</div>
+      </div>
+    );
+  }
+
+  const headerStyle: React.CSSProperties = {
+    padding: '5px 8px', textAlign: 'left', fontSize: '10px', fontWeight: 700,
+    textTransform: 'uppercase', letterSpacing: '0.5px', color: t.canvasTextSec,
+    borderBottom: `2px solid ${t.canvasNodeBorder}`, background: `${t.accent}08`,
+  };
+
+  return (
+    <div>
+      {/* Toolbar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '12px', color: t.canvasTextSec, fontWeight: 600 }}>{filtered.length} of {allSignals.length} signals</span>
+        <span style={{ background: '#dbeafe', color: '#2563eb', padding: '1px 6px', borderRadius: 3, fontSize: '10px', fontWeight: 600 }}>IN: {allSignals.filter(s => s.direction === 'IN').length}</span>
+        <span style={{ background: '#fce7f3', color: '#be185d', padding: '1px 6px', borderRadius: 3, fontSize: '10px', fontWeight: 600 }}>OUT: {allSignals.filter(s => s.direction === 'OUT').length}</span>
+        <span style={{ background: '#fef3c7', color: '#92400e', padding: '1px 6px', borderRadius: 3, fontSize: '10px', fontWeight: 600 }}>PackML: {allSignals.filter(s => s.packml).length}</span>
+        <div style={{ flex: 1 }} />
+        {swcList.length > 1 && (
+          <select value={filterSwc} onChange={e => setFilterSwc(e.target.value)} style={{ background: t.bgCard, border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '4px', color: t.canvasText, padding: '3px 6px', fontSize: '11px' }}>
+            <option value="all">All SWC</option>
+            {swcList.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        )}
+        <select value={filterDir} onChange={e => setFilterDir(e.target.value)} style={{ background: t.bgCard, border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '4px', color: t.canvasText, padding: '3px 6px', fontSize: '11px' }}>
+          <option value="all">All Directions</option>
+          <option value="IN">IN</option>
+          <option value="OUT">OUT</option>
+          <option value="IN_OUT">IN/OUT</option>
+        </select>
+      </div>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', color: t.canvasText }}>
+          <thead>
+            <tr>
+              <th style={headerStyle}>Signal Name</th>
+              <th style={headerStyle}>Dir</th>
+              <th style={headerStyle}>Type</th>
+              <th style={headerStyle}>Unit</th>
+              <th style={headerStyle}>Source</th>
+              <th style={headerStyle}>SWC</th>
+              <th style={headerStyle}>Origin</th>
+              <th style={headerStyle}>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((sig, i) => (
+              <tr key={i} style={{ background: sig.packml ? `${t.accent}05` : 'transparent' }}>
+                <td style={{ padding: '4px 8px', borderBottom: `1px solid ${t.canvasNodeBorder}`, fontFamily: 'monospace', fontSize: '11px', fontWeight: 600 }}>{sig.name}</td>
+                <td style={{ padding: '4px 8px', borderBottom: `1px solid ${t.canvasNodeBorder}` }}>
+                  <span style={{ color: dirColors[sig.direction] || '#94a3b8', fontWeight: 700, fontSize: '10px' }}>{sig.direction}</span>
+                </td>
+                <td style={{ padding: '4px 8px', borderBottom: `1px solid ${t.canvasNodeBorder}`, fontFamily: 'monospace', fontSize: '11px' }}>{sig.datatype}</td>
+                <td style={{ padding: '4px 8px', borderBottom: `1px solid ${t.canvasNodeBorder}`, fontSize: '11px', color: t.canvasTextSec }}>{sig.unit || ''}</td>
+                <td style={{ padding: '4px 8px', borderBottom: `1px solid ${t.canvasNodeBorder}`, fontFamily: 'monospace', fontSize: '11px' }}>{sig.source}</td>
+                <td style={{ padding: '4px 8px', borderBottom: `1px solid ${t.canvasNodeBorder}` }}>
+                  {sig.swc ? <span style={{ background: '#8b5cf610', color: '#8b5cf6', padding: '0 4px', borderRadius: 2, fontFamily: 'monospace', fontSize: '10px' }}>{sig.swc}</span> : ''}
+                </td>
+                <td style={{ padding: '4px 8px', borderBottom: `1px solid ${t.canvasNodeBorder}`, fontSize: '10px' }}>
+                  {sig.packml ? <span style={{ color: '#f59e0b' }}>⚙ PackML</span> : <span style={{ color: '#64748b' }}>{sig.pouType}</span>}
+                </td>
+                <td style={{ padding: '4px 8px', borderBottom: `1px solid ${t.canvasNodeBorder}`, fontSize: '11px', color: t.canvasTextSec }}>{sig.description || ''}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div style={{ marginTop: '8px', fontSize: '10px', color: t.canvasTextSec, opacity: 0.6, fontStyle: 'italic' }}>
+        Auto-populated from PLM canvas · {new Date().toLocaleDateString()}
+      </div>
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════
+// DYNAMIC SW STATE MACHINE — PackML state tables per FB
+// ═══════════════════════════════════════════════════════════
+
+const PACKML_STATE_LABELS: Record<number, { label: string; type: string }> = {
+  0: { label: 'OFF', type: 'wait' }, 1: { label: 'INITIALIZING', type: 'acting' },
+  2: { label: 'STOPPED', type: 'wait' }, 3: { label: 'RESETTING', type: 'acting' },
+  4: { label: 'IDLE', type: 'wait' }, 5: { label: 'STARTING', type: 'acting' },
+  6: { label: 'EXECUTE', type: 'acting' }, 7: { label: 'HOLDING', type: 'acting' },
+  8: { label: 'HELD', type: 'wait' }, 9: { label: 'UNHOLDING', type: 'acting' },
+  10: { label: 'COMPLETING', type: 'acting' }, 11: { label: 'COMPLETE', type: 'wait' },
+  12: { label: 'STOPPING', type: 'acting' }, 13: { label: 'ABORTING', type: 'fault' },
+  14: { label: 'ABORTED', type: 'fault' },
+};
+
+const SM_TYPE_COLORS: Record<string, string> = { wait: '#16a34a', acting: '#2563eb', fault: '#dc2626' };
+
+function DynamicSWStateMachine({ section, data, onChange, theme: t, nodes = [] }: SectionProps & { nodes?: any[] }) {
+  const smNodes = (nodes || []).filter(n =>
+    (n.data?.itemType === 'swProgram' || n.data?.itemType === 'swFunctionBlock') && n.data?.useStateMachine
+  );
+
+  if (smNodes.length === 0) {
+    return (
+      <div style={{ padding: '32px', textAlign: 'center', background: `${t.accent}08`, border: `2px dashed ${t.canvasNodeBorder}`, borderRadius: '8px' }}>
+        <div style={{ fontSize: '28px', marginBottom: '8px' }}>◻</div>
+        <div style={{ fontSize: '14px', color: t.canvasTextSec }}>No state machines configured</div>
+        <div style={{ fontSize: '12px', color: t.canvasTextSec, opacity: 0.7 }}>Enable PackML in FB properties to populate this section</div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {smNodes.map(n => {
+        const d = n.data || {};
+        const activeIds: number[] = d.activeStates || [];
+        const actions: Record<string, string> = d.stateActions || {};
+        const isPrg = d.pouType === 'program';
+
+        return (
+          <div key={n.id} style={{ marginBottom: '20px', background: t.bgCard || '#f8fafc', border: `1px solid ${t.canvasNodeBorder}`, borderRadius: '8px', overflow: 'hidden' }}>
+            {/* Header */}
+            <div style={{ padding: '10px 14px', borderBottom: `1px solid ${t.canvasNodeBorder}`, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '14px' }}>{isPrg ? '▶' : '⚙'}</span>
+              <span style={{ fontWeight: 700, fontSize: '14px', fontFamily: 'monospace', color: t.canvasText }}>{d.label || '—'}</span>
+              {d.swcCode && (
+                <span style={{ background: '#8b5cf615', color: '#8b5cf6', padding: '1px 6px', borderRadius: 3, fontSize: '10px', fontFamily: 'monospace', fontWeight: 600 }}>{d.swcCode}</span>
+              )}
+              <span style={{ fontSize: '11px', color: t.canvasTextSec }}>{activeIds.length} of 15 states active</span>
+            </div>
+
+            {/* State table */}
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', color: t.canvasText }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: '5px 10px', textAlign: 'left', fontSize: '10px', fontWeight: 700, color: t.canvasTextSec, background: `${t.accent}06`, borderBottom: `1px solid ${t.canvasNodeBorder}` }}>#</th>
+                  <th style={{ padding: '5px 10px', textAlign: 'left', fontSize: '10px', fontWeight: 700, color: t.canvasTextSec, background: `${t.accent}06`, borderBottom: `1px solid ${t.canvasNodeBorder}` }}>State</th>
+                  <th style={{ padding: '5px 10px', textAlign: 'left', fontSize: '10px', fontWeight: 700, color: t.canvasTextSec, background: `${t.accent}06`, borderBottom: `1px solid ${t.canvasNodeBorder}` }}>Type</th>
+                  <th style={{ padding: '5px 10px', textAlign: 'left', fontSize: '10px', fontWeight: 700, color: t.canvasTextSec, background: `${t.accent}06`, borderBottom: `1px solid ${t.canvasNodeBorder}` }}>Equipment Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activeIds.sort((a, b) => a - b).map(id => {
+                  const info = PACKML_STATE_LABELS[id];
+                  if (!info) return null;
+                  const action = actions[info.label] || '';
+                  return (
+                    <tr key={id}>
+                      <td style={{ padding: '4px 10px', borderBottom: `1px solid ${t.canvasNodeBorder}`, color: t.canvasTextSec, fontSize: '11px' }}>{id}</td>
+                      <td style={{ padding: '4px 10px', borderBottom: `1px solid ${t.canvasNodeBorder}`, fontFamily: 'monospace', fontWeight: 600 }}>{info.label}</td>
+                      <td style={{ padding: '4px 10px', borderBottom: `1px solid ${t.canvasNodeBorder}` }}>
+                        <span style={{ color: SM_TYPE_COLORS[info.type], fontWeight: 600, fontSize: '11px', textTransform: 'uppercase' }}>{info.type}</span>
+                      </td>
+                      <td style={{ padding: '4px 10px', borderBottom: `1px solid ${t.canvasNodeBorder}`, fontSize: '12px', color: action ? t.canvasText : t.canvasTextSec, fontStyle: action ? 'normal' : 'italic' }}>
+                        {action || '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        );
+      })}
+      <div style={{ marginTop: '8px', fontSize: '10px', color: t.canvasTextSec, opacity: 0.6, fontStyle: 'italic' }}>
+        Auto-populated from PLM canvas · PackML ISA TR88.00.02 Marine · {new Date().toLocaleDateString()}
+      </div>
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════
 // PLACEHOLDER for PLM-linked sections
 // ═══════════════════════════════════════════════════════════
 export function PlaceholderSection({ section, theme: t }: { section: SectionDef, theme: any }) {
@@ -1998,6 +2331,9 @@ export function PlaceholderSection({ section, theme: t }: { section: SectionDef,
     component_list: '🔧 Component list — from METS library',
     io_list: '⚡ I/O list — from PLM nodes',
     alarm_list: '🔔 Alarm list — from PLM nodes',
+    sw_pou_list: '💻 SW POU list — from PLM canvas',
+    sw_signal_list: '📡 SW Signal list — from PLM canvas',
+    sw_state_machine: '◻ State machines — from PLM canvas',
   };
 
   return (
@@ -2021,7 +2357,7 @@ export function PlaceholderSection({ section, theme: t }: { section: SectionDef,
 // ═══════════════════════════════════════════════════════════
 // SECTION DISPATCHER
 // ═══════════════════════════════════════════════════════════
-export function renderSection(section: SectionDef, data: any, onChange: (id: string, d: any) => void, readOnly: boolean, theme: any, nodes?: any[], edges?: any[]) {
+export function renderSection(section: SectionDef, data: any, onChange: (id: string, d: any) => void, readOnly: boolean, theme: any, nodes?: any[], edges?: any[], projectId?: string | null) {
   const props = { section, data, onChange, readOnly, theme };
 
   switch (section.type) {
@@ -2046,13 +2382,19 @@ export function renderSection(section: SectionDef, data: any, onChange: (id: str
     case 'architecture_view':
       return <DynamicArchitectureView {...props} nodes={nodes} edges={edges} />;
     case 'sequence_embed':
-      return <DynamicSequenceEmbed {...props} nodes={nodes} edges={edges} />;
+      return <DynamicSequenceEmbed {...props} nodes={nodes} edges={edges} projectId={projectId} />;
     case 'component_list':
       return <DynamicComponentList {...props} nodes={nodes} edges={edges} />;
     case 'io_list':
       return <DynamicIOList {...props} nodes={nodes} edges={edges} />;
     case 'alarm_list':
       return <DynamicAlarmList {...props} nodes={nodes} edges={edges} />;
+    case 'sw_pou_list':
+      return <DynamicSWPouList {...props} nodes={nodes} />;
+    case 'sw_signal_list':
+      return <DynamicSWSignalList {...props} nodes={nodes} />;
+    case 'sw_state_machine':
+      return <DynamicSWStateMachine {...props} nodes={nodes} />;
     default:
       return <PlaceholderSection section={section} theme={theme} />;
   }

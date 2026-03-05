@@ -5,7 +5,8 @@
 export type ItemType =
   | 'system' | 'subsystem' | 'function' | 'requirement'
   | 'testcase' | 'usecase' | 'actor' | 'hardware'
-  | 'parameter' | 'textAnnotation' | 'platform';
+  | 'parameter' | 'textAnnotation' | 'platform'
+  | 'swProgram' | 'swFunctionBlock';
 
 export type Priority = 'critical' | 'high' | 'medium' | 'low';
 export type State = 'open' | 'frozen' | 'released';
@@ -15,6 +16,15 @@ export type Classification =
   | 'testcase' | 'usecase' | 'actor' | 'capability';
 export type ReqType = 'project' | 'customer' | 'platform' | 'implementation';
 export type Origin = 'internal' | 'external' | 'derived';
+
+export interface SWSignal {
+  name: string;               // Full METS name e.g., "GENERC_x_startCmd"
+  datatype: string;           // IEC datatype: BOOL, REAL, INT, etc.
+  direction: 'IN' | 'OUT' | 'IN_OUT';
+  unit?: string;              // ISO unit prefix: kW, bar, DegC, etc.
+  defaultValue?: string;
+  description?: string;
+}
 
 export interface Port {
   id: string;
@@ -66,6 +76,25 @@ export interface NodeData {
   actors?: string[];
   actorType?: string;
   responsibilities?: string;
+  // SW POU-specific (IEC 61131-3)
+  pouType?: 'program' | 'functionBlock';
+  swcCode?: string;           // SWC tag (max 6 chars, UPPERCASE) e.g., "GENERC"
+  swLanguage?: 'ST' | 'FBD' | 'SFC' | 'LD' | 'CFC';
+  swSignals?: SWSignal[];     // Interface signals (inputs/outputs)
+  swVersion?: string;
+  swStatus?: 'draft' | 'review' | 'approved';
+  // Task attributes (only for pouType === 'program')
+  taskName?: string;
+  taskType?: 'cyclic' | 'event' | 'freewheeling';
+  taskInterval?: string;      // e.g., "100ms", "T#200ms"
+  taskPriority?: number;
+  // State machine
+  useStateMachine?: boolean;
+  stateTemplate?: string;     // e.g., "packml-marine"
+  activeStates?: number[];    // array of active PackML state IDs
+  stateActions?: Record<string, string>;  // state label → action description
+  // Allocated functions (PLM traceability)
+  allocatedFunctions?: string[]; // Array of function node IDs
   // Resize
   nodeWidth?: number;
   nodeHeight?: number;
@@ -160,7 +189,8 @@ export interface RelationshipDef {
 export type RelationshipKey =
   | 'contains' | 'provides' | 'realizedBy' | 'verifies' | 'allocatedTo'
   | 'addresses' | 'implements' | 'satisfies' | 'derives' | 'depends'
-  | 'conflicts' | 'related' | 'flowsDown' | 'reuses';
+  | 'conflicts' | 'related' | 'flowsDown' | 'reuses'
+  | 'calls' | 'mapsTo';
 
 // ═══════════════════════════════════════════
 // HARDWARE TYPES
@@ -238,7 +268,7 @@ export interface ProjectData {
 // VIEW MODE
 // ═══════════════════════════════════════════
 
-export type ViewMode = 'plm' | 'whiteboard' | 'simple' | 'document' | 'tasks' | 'gantt' | 'freeform' | '3d' | 'sequence' | 'mindmap' | 'docs';
+export type ViewMode = 'plm' | 'whiteboard' | 'simple' | 'document' | 'tasks' | 'gantt' | 'freeform' | '3d' | 'sequence' | 'mindmap' | 'docs' | 'systemExplorer' | 'hal';
 
 // ═══════════════════════════════════════════
 // CLIPBOARD

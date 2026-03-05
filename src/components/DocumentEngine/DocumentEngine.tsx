@@ -640,7 +640,8 @@ export default function DocumentEngine({ projectId, theme, nodes: plmNodes = [],
                   isReadOnly,
                   t,
                   plmNodes,
-                  plmEdges
+                  plmEdges,
+                  projectId
                 )}
               </div>
             ))}

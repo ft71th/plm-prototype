@@ -149,64 +149,74 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
     }
   }, [viewBox]);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (isPanning) {
+  // SVG-level handlers kept minimal — only for non-drag interactions
+  const handleMouseMove = useCallback((_e: React.MouseEvent) => {}, []);
+  const handleMouseUp = useCallback(() => {}, []);
+
+  // ── Window-level pan + drag listeners ──
+  // Using window so overlapping toolbar/panels don't interrupt any drag
+  useEffect(() => {
+    if (!isPanning && !dragParticipantId && !dragMessageId) return;
+
+    const onMove = (e: MouseEvent) => {
       const svg = svgRef.current;
       if (!svg) return;
       const rect = svg.getBoundingClientRect();
-      const dx = ((e.clientX - panStart.x) / rect.width) * viewBox.w;
-      const dy = ((e.clientY - panStart.y) / rect.height) * viewBox.h;
-      setViewBox(vb => ({ ...vb, x: panStart.vx - dx, y: panStart.vy - dy }));
-      return;
-    }
 
-    // Participant dragging — reorder by x position
-    if (dragParticipantId && participants.length > 1) {
-      const svg = svgRef.current;
-      if (!svg) return;
-      const rect = svg.getBoundingClientRect();
-      const svgX = ((e.clientX - rect.left) / rect.width) * viewBox.w + viewBox.x;
-      // Find which order slot this x maps to
-      const targetOrder = Math.round(Math.max(0, Math.min(
-        participants.length - 1,
-        (svgX - LAYOUT.CANVAS_PADDING + LAYOUT.PARTICIPANT_GAP / 2) / LAYOUT.PARTICIPANT_GAP
-      )));
-      setDragTargetOrder(targetOrder);
-    }
-
-    // Message dragging — reorder by y position
-    if (dragMessageId && messages.length > 1) {
-      const svg = svgRef.current;
-      if (!svg) return;
-      const rect = svg.getBoundingClientRect();
-      const svgY = ((e.clientY - rect.top) / rect.height) * viewBox.h + viewBox.y;
-      const rawIdx = Math.round((svgY - LAYOUT.MESSAGE_START_Y) / LAYOUT.MESSAGE_SPACING);
-      const targetIdx = Math.max(0, Math.min(messages.length - 1, rawIdx));
-      setDragMessageTargetIdx(targetIdx);
-    }
-  }, [isPanning, panStart, viewBox, dragParticipantId, participants, dragMessageId, messages]);
-
-  const handleMouseUp = useCallback(() => {
-    // Finish participant drag — actually reorder
-    if (dragParticipantId && dragTargetOrder !== null) {
-      const draggedP = participants.find(p => p.id === dragParticipantId);
-      if (draggedP && draggedP.order !== dragTargetOrder) {
-        sd.reorderParticipants(draggedP.order, dragTargetOrder);
+      // Panning
+      if (isPanning) {
+        const dx = ((e.clientX - panStart.x) / rect.width) * viewBox.w;
+        const dy = ((e.clientY - panStart.y) / rect.height) * viewBox.h;
+        setViewBox(vb => ({ ...vb, x: panStart.vx - dx, y: panStart.vy - dy }));
+        return;
       }
-    }
-    // Finish message drag — reorder
-    if (dragMessageId && dragMessageTargetIdx !== null) {
-      const draggedM = messages.find(m => m.id === dragMessageId);
-      if (draggedM && draggedM.orderIndex !== dragMessageTargetIdx) {
-        sd.reorderMessage(dragMessageId, dragMessageTargetIdx);
+
+      // Participant drag
+      if (dragParticipantId && participants.length > 1) {
+        const svgX = ((e.clientX - rect.left) / rect.width) * viewBox.w + viewBox.x;
+        const targetOrder = Math.round(Math.max(0, Math.min(
+          participants.length - 1,
+          (svgX - LAYOUT.CANVAS_PADDING + LAYOUT.PARTICIPANT_GAP / 2) / LAYOUT.PARTICIPANT_GAP
+        )));
+        setDragTargetOrder(targetOrder);
       }
-    }
-    setIsPanning(false);
-    setDragParticipantId(null);
-    setDragTargetOrder(null);
-    setDragMessageId(null);
-    setDragMessageTargetIdx(null);
-  }, [dragParticipantId, dragTargetOrder, participants, sd, dragMessageId, dragMessageTargetIdx, messages]);
+
+      // Message drag
+      if (dragMessageId && messages.length > 1) {
+        const svgY = ((e.clientY - rect.top) / rect.height) * viewBox.h + viewBox.y;
+        const rawIdx = Math.round((svgY - LAYOUT.MESSAGE_START_Y) / LAYOUT.MESSAGE_SPACING);
+        const targetIdx = Math.max(0, Math.min(messages.length - 1, rawIdx));
+        setDragMessageTargetIdx(targetIdx);
+      }
+    };
+
+    const onUp = () => {
+      if (dragParticipantId && dragTargetOrder !== null) {
+        const draggedP = participants.find(p => p.id === dragParticipantId);
+        if (draggedP && draggedP.order !== dragTargetOrder) {
+          sd.reorderParticipants(draggedP.order, dragTargetOrder);
+        }
+      }
+      if (dragMessageId && dragMessageTargetIdx !== null) {
+        const draggedM = messages.find(m => m.id === dragMessageId);
+        if (draggedM && draggedM.orderIndex !== dragMessageTargetIdx) {
+          sd.reorderMessage(dragMessageId, dragMessageTargetIdx);
+        }
+      }
+      setIsPanning(false);
+      setDragParticipantId(null);
+      setDragTargetOrder(null);
+      setDragMessageId(null);
+      setDragMessageTargetIdx(null);
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [isPanning, panStart, dragParticipantId, dragTargetOrder, dragMessageId, dragMessageTargetIdx, participants, messages, viewBox, sd]);
 
   // Prevent context menu on canvas (so right-click pan works)
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
@@ -390,13 +400,13 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
             onClick={() => setShowDiagramMenu(!showDiagramMenu)}
             style={{
               padding: '6px 12px', background: 'var(--nl-bg-panel, #ffffff)', border: '1px solid var(--nl-border, #d1d5db)',
-              borderRadius: 6, color: 'var(--nl-canvas-text, #1e293b)', fontSize: 12, cursor: 'pointer',
+              borderRadius: 6, color: 'var(--nl-text-primary, #1e293b)', fontSize: 12, cursor: 'pointer',
               display: 'flex', alignItems: 'center', gap: 6,
               boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
             }}
           >
             📊 {diagram?.name || 'Inget diagram'}
-            <span style={{ fontSize: 9, color: '#94a3b8' }}>▼</span>
+            <span style={{ fontSize: 9, color: 'var(--nl-text-muted, #94a3b8)' }}>▼</span>
           </button>
 
           {showDiagramMenu && (
@@ -420,31 +430,40 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
                       onBlur={() => { sd.renameDiagram(d.id, renameText); setRenamingId(null); }}
                       onKeyDown={e => { if (e.key === 'Enter') { sd.renameDiagram(d.id, renameText); setRenamingId(null); } }}
                       autoFocus
-                      style={{ background: 'var(--nl-bg-canvas, #f8fafc)', border: '1px solid #3b82f6', borderRadius: 3, color: 'var(--nl-canvas-text, #1e293b)', fontSize: 11, padding: '2px 6px', outline: 'none', width: '70%' }}
+                      style={{ background: 'var(--nl-bg-input, #f8fafc)', border: '1px solid #3b82f6', borderRadius: 3, color: 'var(--nl-text-primary, #1e293b)', fontSize: 11, padding: '2px 6px', outline: 'none', width: '70%' }}
                     />
                   ) : (
                     <span
                       onClick={() => { sd.setActiveDiagramId(d.id); setShowDiagramMenu(false); }}
                       onDoubleClick={() => { setRenamingId(d.id); setRenameText(d.name); }}
-                      style={{ color: 'var(--nl-canvas-text, #1e293b)', fontSize: 11, flex: 1 }}
+                      style={{ color: 'var(--nl-text-primary, #1e293b)', fontSize: 11, flex: 1 }}
                     >
                       {d.name}
                     </span>
                   )}
-                  {sd.diagrams.length > 1 && (
-                    <button
-                      onClick={e => { e.stopPropagation(); sd.deleteDiagram(d.id); }}
-                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 12, padding: '0 4px' }}
-                    >×</button>
-                  )}
+                  <div style={{ display: 'flex', gap: 2, flexShrink: 0, marginLeft: 4 }}>
+                    {renamingId !== d.id && (
+                      <button
+                        onClick={e => { e.stopPropagation(); setRenamingId(d.id); setRenameText(d.name); }}
+                        style={{ background: 'none', border: 'none', color: 'var(--nl-text-muted, #94a3b8)', cursor: 'pointer', fontSize: 11, padding: '0 3px' }}
+                        title="Byt namn"
+                      >✏️</button>
+                    )}
+                    {sd.diagrams.length > 1 && (
+                      <button
+                        onClick={e => { e.stopPropagation(); sd.deleteDiagram(d.id); }}
+                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 12, padding: '0 4px' }}
+                      >×</button>
+                    )}
+                  </div>
                 </div>
               ))}
-              <div style={{ borderTop: '1px solid #e2e8f0', padding: '6px 10px' }}>
+              <div style={{ borderTop: '1px solid var(--nl-border, #e2e8f0)', padding: '6px 10px' }}>
                 <button
                   onClick={() => { sd.createDiagram(`Sequence Diagram ${sd.diagrams.length + 1}`); setShowDiagramMenu(false); }}
                   style={{
-                    width: '100%', padding: '4px 8px', background: '#f0fdf4', border: '1px solid #bbf7d0',
-                    borderRadius: 4, color: '#15803d', fontSize: 10, cursor: 'pointer',
+                    width: '100%', padding: '4px 8px', background: 'var(--nl-bg-hover, #f0fdf4)', border: '1px solid var(--nl-border, #bbf7d0)',
+                    borderRadius: 4, color: '#22c55e', fontSize: 10, cursor: 'pointer',
                   }}
                 >+ Nytt diagram</button>
               </div>
@@ -499,7 +518,6 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
         onClick={handleCanvasClick}
         onContextMenu={handleContextMenu}
       >
@@ -645,7 +663,7 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
               left: screenX - 80, top: screenY - 12,
               width: 160, padding: '4px 8px',
               background: 'var(--nl-bg-panel, #ffffff)', border: '2px solid #3b82f6', borderRadius: 4,
-              color: 'var(--nl-canvas-text, #1e293b)', fontSize: 12, textAlign: 'center', outline: 'none',
+              color: 'var(--nl-text-primary, #1e293b)', fontSize: 12, textAlign: 'center', outline: 'none',
               zIndex: 3000,
               boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
             }}
@@ -662,8 +680,8 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
           boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-            <span style={{ color: 'var(--nl-canvas-text, #1e293b)', fontSize: 14, fontWeight: 600 }}>Välj PLM-nod</span>
-            <button onClick={() => setShowNodePicker(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 16 }}>×</button>
+            <span style={{ color: 'var(--nl-text-primary, #1e293b)', fontSize: 14, fontWeight: 600 }}>Välj PLM-nod</span>
+            <button onClick={() => setShowNodePicker(false)} style={{ background: 'none', border: 'none', color: 'var(--nl-text-muted, #94a3b8)', cursor: 'pointer', fontSize: 16 }}>×</button>
           </div>
           {nodes
             .filter(n => ['system','subsystem','function','actor','hardware'].includes(n.data?.itemType || n.data?.type))
@@ -679,7 +697,7 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
                   display: 'flex', alignItems: 'center', gap: 8,
                   marginBottom: 2, transition: 'background 0.1s',
                 }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#f1f5f9')}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--nl-bg-hover, #f1f5f9)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               >
                 <span style={{
@@ -689,14 +707,14 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
                               n.data?.itemType === 'actor' ? '#2ecc71' : '#795548',
                 }} />
                 <div>
-                  <div style={{ color: 'var(--nl-canvas-text, #1e293b)', fontSize: 12 }}>{n.data?.label}</div>
-                  <div style={{ color: '#94a3b8', fontSize: 9 }}>{n.data?.itemType || n.data?.type} · {n.data?.reqId || n.id}</div>
+                  <div style={{ color: 'var(--nl-text-primary, #1e293b)', fontSize: 12, fontWeight: 500 }}>{n.data?.label || 'Unnamed'}</div>
+                  <div style={{ color: 'var(--nl-text-muted, #94a3b8)', fontSize: 9 }}>{n.data?.itemType || n.data?.type} · {n.data?.reqId || n.id}</div>
                 </div>
               </div>
             ))
           }
           {nodes.filter(n => ['system','subsystem','function','actor','hardware'].includes(n.data?.itemType || n.data?.type)).length === 0 && (
-            <div style={{ color: '#94a3b8', fontSize: 12, textAlign: 'center', padding: 20 }}>Inga PLM-noder tillgängliga</div>
+            <div style={{ color: 'var(--nl-text-muted, #94a3b8)', fontSize: 12, textAlign: 'center', padding: 20 }}>Inga PLM-noder tillgängliga</div>
           )}
         </div>
       )}
@@ -713,6 +731,16 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
         onRemoveMessage={sd.removeMessage}
         onRemoveFragment={sd.removeFragment}
         plmNodes={nodes}
+        diagramName={diagram?.name || ''}
+        diagramDescription={diagram?.description || ''}
+        onRenameDiagram={(name, desc) => {
+          if (!sd.activeDiagramId) return;
+          if (desc !== undefined) {
+            sd.updateDiagramDescription(sd.activeDiagramId, desc);
+          } else {
+            sd.renameDiagram(sd.activeDiagramId, name);
+          }
+        }}
       />
     </div>
   );

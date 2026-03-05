@@ -135,7 +135,9 @@ return (
                   node.data.itemType === 'parameter' ? 'Parameter' :
                   node.data.itemType === 'hardware' ? 'Hardware' :
                   node.data.itemType === 'usecase' ? 'Use Case' :
-                  node.data.itemType === 'actor' ? 'Actor' : 'Requirement'}
+                  node.data.itemType === 'actor' ? 'Actor' :
+                  node.data.itemType === 'swProgram' ? 'SW Program' :
+                  node.data.itemType === 'swFunctionBlock' ? 'SW Function Block' : 'Requirement'}
           </span>
           {!isEditable && <span style={{ fontSize: '12px', color: '#f39c12' }}>🔒 Read-Only</span>}
         </div>
@@ -176,7 +178,9 @@ return (
              node.data.itemType === 'parameter' ? 'Parameter ID' :
              node.data.itemType === 'hardware' ? 'Hardware ID' :
              node.data.itemType === 'usecase' ? 'Use Case ID' :
-             node.data.itemType === 'actor' ? 'Actor ID' : 'Item ID'}
+             node.data.itemType === 'actor' ? 'Actor ID' :
+             node.data.itemType === 'swProgram' ? 'Program ID' :
+             node.data.itemType === 'swFunctionBlock' ? 'FB ID' : 'Item ID'}
           </label>
           <div style={{
             padding: '8px',

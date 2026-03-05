@@ -178,6 +178,11 @@ export default function useSequenceDiagram(projectId: string | null) {
     persist(updated);
   }, [diagrams, persist]);
 
+  const updateDiagramDescription = useCallback((id: string, description: string) => {
+    const updated = diagrams.map(d => d.id === id ? { ...d, description } : d);
+    persist(updated);
+  }, [diagrams, persist]);
+
   // ─── Participants ───
   const addParticipant = useCallback((label: string, linkedNodeId?: string, linkedNodeType?: string) => {
     updateActive(d => {
@@ -441,7 +446,7 @@ export default function useSequenceDiagram(projectId: string | null) {
   return {
     // Diagrams
     diagrams, activeDiagram, activeDiagramId, isLoading,
-    setActiveDiagramId, createDiagram, deleteDiagram, renameDiagram,
+    setActiveDiagramId, createDiagram, deleteDiagram, renameDiagram, updateDiagramDescription,
     // Participants
     addParticipant, updateParticipant, removeParticipant, reorderParticipants,
     // Messages

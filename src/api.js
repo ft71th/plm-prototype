@@ -104,6 +104,18 @@ export const projects = {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
+
+  rename: (id, name, description) =>
+    apiFetch(`/projects/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name, description }),
+    }),
+
+  clone: (id, name) =>
+    apiFetch(`/projects/${id}/clone`, {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
   
   delete: (id) => 
     apiFetch(`/projects/${id}`, {

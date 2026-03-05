@@ -16,6 +16,8 @@ interface Counters {
   impIdCounter: number;
   parIdCounter: number;
   hwIdCounter: number;
+  prgIdCounter: number;
+  fbIdCounter: number;
 }
 
 export default function useIdCounters() {
@@ -32,6 +34,8 @@ export default function useIdCounters() {
   const [hwIdCounter, setHwIdCounter] = useState(1);
   const [ucIdCounter, setUcIdCounter] = useState(1);
   const [actIdCounter, setActIdCounter] = useState(1);
+  const [prgIdCounter, setPrgIdCounter] = useState(1);
+  const [fbIdCounter, setFbIdCounter] = useState(1);
 
   const generateItemId = useCallback((itemType: string): string => {
     const pad = (n: number) => String(n).padStart(3, '0');
@@ -47,10 +51,13 @@ export default function useIdCounters() {
       case 'implementation': { const id = `IMP-${pad(impIdCounter)}`; setImpIdCounter(c => c + 1); return id; }
       case 'parameter': { const id = `PAR-${pad(parIdCounter)}`; setParIdCounter(c => c + 1); return id; }
       case 'hardware': { const id = `HW-${pad(hwIdCounter)}`; setHwIdCounter(c => c + 1); return id; }
+      case 'swProgram': { const id = `PRG-${pad(prgIdCounter)}`; setPrgIdCounter(c => c + 1); return id; }
+      case 'swFunctionBlock': { const id = `FB-${pad(fbIdCounter)}`; setFbIdCounter(c => c + 1); return id; }
       default: { const id = `PRJ-${pad(prjIdCounter)}`; setPrjIdCounter(c => c + 1); return id; }
     }
   }, [sysIdCounter, subIdCounter, funIdCounter, tcIdCounter, ucIdCounter, actIdCounter,
-      cusIdCounter, pltIdCounter, prjIdCounter, impIdCounter, parIdCounter, hwIdCounter]);
+      cusIdCounter, pltIdCounter, prjIdCounter, impIdCounter, parIdCounter, hwIdCounter,
+      prgIdCounter, fbIdCounter]);
 
   const setCountersFromNodes = useCallback((projectNodes: PLMNode[]) => {
     if (!projectNodes || projectNodes.length === 0) {
@@ -58,6 +65,7 @@ export default function useIdCounters() {
       setCusIdCounter(1); setPltIdCounter(1); setPrjIdCounter(1); setImpIdCounter(1);
       setSysIdCounter(1); setSubIdCounter(1); setFunIdCounter(1); setParIdCounter(1);
       setHwIdCounter(1); setTcIdCounter(1); setUcIdCounter(1); setActIdCounter(1);
+      setPrgIdCounter(1); setFbIdCounter(1);
       return;
     }
 
@@ -67,6 +75,7 @@ export default function useIdCounters() {
     let maxCus = 0, maxPlt = 0, maxPrj = 0, maxImp = 0;
     let maxSys = 0, maxSub = 0, maxFun = 0, maxPar = 0, maxHw = 0;
     let maxTc = 0, maxUc = 0, maxAct = 0;
+    let maxPrg = 0, maxFb = 0;
 
     projectNodes.forEach((n: any) => {
       const reqId = n.data?.reqId || '';
@@ -83,6 +92,8 @@ export default function useIdCounters() {
       if (reqId.startsWith('TC')) maxTc = Math.max(maxTc, num);
       if (reqId.startsWith('UC')) maxUc = Math.max(maxUc, num);
       if (reqId.startsWith('ACT')) maxAct = Math.max(maxAct, num);
+      if (reqId.startsWith('PRG')) maxPrg = Math.max(maxPrg, num);
+      if (reqId.startsWith('FB')) maxFb = Math.max(maxFb, num);
     });
 
     setCusIdCounter(maxCus + 1); setPltIdCounter(maxPlt + 1);
@@ -91,6 +102,7 @@ export default function useIdCounters() {
     setFunIdCounter(maxFun + 1); setParIdCounter(maxPar + 1);
     setHwIdCounter(maxHw + 1);  setTcIdCounter(maxTc + 1);
     setUcIdCounter(maxUc + 1);  setActIdCounter(maxAct + 1);
+    setPrgIdCounter(maxPrg + 1); setFbIdCounter(maxFb + 1);
   }, []);
 
   const incrementCounter = useCallback((itemType: string) => {
@@ -106,6 +118,8 @@ export default function useIdCounters() {
       case 'customer': setCusIdCounter(c => c + 1); break;
       case 'platform': setPltIdCounter(c => c + 1); break;
       case 'implementation': setImpIdCounter(c => c + 1); break;
+      case 'swProgram': setPrgIdCounter(c => c + 1); break;
+      case 'swFunctionBlock': setFbIdCounter(c => c + 1); break;
       default: setPrjIdCounter(c => c + 1); break;
     }
   }, []);
@@ -117,6 +131,7 @@ export default function useIdCounters() {
       sysIdCounter, subIdCounter, funIdCounter, tcIdCounter,
       ucIdCounter, actIdCounter, cusIdCounter, pltIdCounter,
       prjIdCounter, impIdCounter, parIdCounter, hwIdCounter,
+      prgIdCounter, fbIdCounter,
     } as Counters,
   };
 }

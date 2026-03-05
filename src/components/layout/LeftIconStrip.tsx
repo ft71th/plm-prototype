@@ -31,6 +31,8 @@ function LeftIconStrip({
   onAddActor,
   onAddTextAnnotation,
   onAddPostIt,
+  onAddSWProgram,
+  onAddSWFunctionBlock,
   onOpenLibrary,
   onOpenMETSLibrary,
   onOpenIssueManager,
@@ -81,6 +83,15 @@ function LeftIconStrip({
         { key: 'hardware',  label: 'Hardware',   icon: '📦', bgColor: '#795548', action: () => onAddHardware('generic') },
         { key: 'parameter', label: 'Parameter',  icon: '⚙️', bgColor: '#00bcd4', action: () => onAddParameter('configuration') },
         { key: 'mets',      label: 'METS Komp.', icon: '🔧', bgColor: '#1e3a5f', action: onOpenMETSLibrary },
+      ],
+    },
+    {
+      id: 'sw',
+      label: 'Mjukvara',
+      icon: '💻',
+      items: [
+        { key: 'swprg', label: 'Program (PRG)', icon: '▶', bgColor: '#b45309', action: onAddSWProgram },
+        { key: 'swfb',  label: 'Func. Block (FB)', icon: '⚙', bgColor: '#0e7490', action: onAddSWFunctionBlock },
       ],
     },
     {

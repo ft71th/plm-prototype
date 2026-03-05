@@ -90,6 +90,7 @@ function TopHeader({
       {/* View Modes */}
       <div style={{ display: 'flex', gap: '2px' }}>
         {viewBtn('whiteboard', '🎯 System', 'System View', '6px 0 0 6px')}
+        {viewBtn('systemExplorer', '📂 Explorer', 'System Explorer & Traceability')}
         {viewBtn('3d', '🔮 3D', '3D Traceability View')}
         {viewBtn('sequence', '📊 Seq', 'Sequence Diagram')}
         {viewBtn('hal', '🔌 HAL', 'Hardware Abstraction Layer')}

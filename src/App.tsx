@@ -56,6 +56,7 @@ import TextAnnotationNode from './components/flow/TextAnnotationNode';
 
 // ─── Extracted Panel Components ───
 import FloatingPanel from './components/panels/FloatingPanel';
+import SWPouPropertiesPanel from './components/panels/SWPouPropertiesPanel';
 import RelationshipPanel from './components/panels/RelationshipPanel';
 import TextAnnotationToolbar from './components/panels/TextAnnotationToolbar';
 
@@ -88,6 +89,7 @@ import { SequenceView } from './components/SequenceView';
 import { DocumentEngine } from './components/DocumentEngine';
 import { MindMapView } from './components/mindmap';
 import { HALManager } from './components/HALManager';
+import { SystemExplorer } from './components/SystemExplorer';
 
 // API Base URL - same as api.js
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -779,6 +781,7 @@ export default function App(): React.ReactElement {
     addImageNode,
     addPostItNode,
     addSWComponentNode,
+    addSWProgramNode, addSWFunctionBlockNode,
   } = useNodeFactory({
     nodeId, setNodeId, generateItemId, handleNodeLabelChange,
     setNodes, reactFlowInstance, hardwareTypes,
@@ -1085,6 +1088,8 @@ const createNewObject = (name, version, description) => {
         onAddActor={addActorNode}
         onAddTextAnnotation={addTextAnnotationNode}
         onAddPostIt={addPostItNode}
+        onAddSWProgram={() => addSWProgramNode()}
+        onAddSWFunctionBlock={() => addSWFunctionBlockNode()}
         onOpenLibrary={() => setShowLibraryPanel(true)}
         onOpenMETSLibrary={() => setShowMETSLibrary(true)}
         onOpenIssueManager={() => setShowIssueManagerModal(true)}
@@ -1174,6 +1179,15 @@ const createNewObject = (name, version, description) => {
           projectId={currentProject?.id || null}
           nodes={processedNodes}
           edges={processedEdges}
+          theme={theme}
+          style={{ height: `${appHeight - 50}px` }}
+        />
+      ) : viewMode === 'systemExplorer' ? (
+        <SystemExplorer
+          projectId={currentProject?.id || null}
+          nodes={nodes}
+          edges={edges}
+          requirementLinks={requirementLinks}
           theme={theme}
           style={{ height: `${appHeight - 50}px` }}
         />
@@ -1501,7 +1515,7 @@ const createNewObject = (name, version, description) => {
       )}
 
       {/* Floating Panel for Regular Nodes */}
-      {selectedNode && selectedNode.data?.itemType !== 'textAnnotation' && (
+      {selectedNode && selectedNode.data?.itemType !== 'textAnnotation' && selectedNode.data?.itemType !== 'swProgram' && selectedNode.data?.itemType !== 'swFunctionBlock' && (
         <FloatingPanel
           node={selectedNode}
           onClose={() => setSelectedNode(null)}
@@ -1517,6 +1531,16 @@ const createNewObject = (name, version, description) => {
           onUnpinLink={unpinLink}
           onUpdateLinkStatus={updateLinkStatus}
           onUpdateLink={updateLink}
+        />
+      )}
+
+      {/* SW POU Properties Panel */}
+      {selectedNode && (selectedNode.data?.itemType === 'swProgram' || selectedNode.data?.itemType === 'swFunctionBlock') && (
+        <SWPouPropertiesPanel
+          node={selectedNode}
+          onClose={() => setSelectedNode(null)}
+          onUpdate={updateNodeData}
+          initialPosition={floatingPanelPosition}
         />
       )}
 

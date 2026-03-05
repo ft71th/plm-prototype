@@ -16,7 +16,7 @@ import type {
 import {
   getNodeWidth, getNodeHeight, getHorizontalBezier, getVerticalBezier,
 } from './treeLayout';
-import { HVAS_SAMPLE_DATA } from './hvasSampleData';
+// Sample data removed — new projects start with empty mind map
 import useStore from '../../store';
 
 // ─── Props (same pattern as SequenceView) ───
@@ -40,7 +40,7 @@ const CSTYLES: Record<string, { bg: string; border: string; icon: string }> = {
 // ═══════════════════════════════════════════════════════════════
 
 export default function MindMapView({ projectId, nodes: plmNodes, edges: plmEdges, style }: MindMapViewProps) {
-  const mm = useMindMapData(projectId, HVAS_SAMPLE_DATA);
+  const mm = useMindMapData(projectId);
   const { isDarkMode } = useStore();
   const svgRef = useRef<SVGSVGElement>(null);
   const isDark = isDarkMode;

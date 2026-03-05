@@ -4,6 +4,7 @@ import TextAnnotationNode from './TextAnnotationNode';
 import ImageNode from './ImageNode';
 import PostItNode from './PostItNode';
 import SWComponentNode from './SWComponentNode';
+import SWPouNode from './SWPouNode';
 import CustomEdge from './CustomEdge';
 
 export const nodeTypes = {
@@ -12,6 +13,7 @@ export const nodeTypes = {
   imageNode: ImageNode,
   postIt: PostItNode,
   swComponent: SWComponentNode,
+  swPou: SWPouNode,
 };
 
 export const edgeTypes = {
