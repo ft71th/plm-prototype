@@ -7,7 +7,6 @@
 
 import React, { useEffect, useRef } from 'react';
 import useWhiteboardStore from '../../stores/whiteboardStore';
-import { buildOrthogonalWaypoints, addWaypointAt } from './renderers/LineRenderer';
 
 const MENU_WIDTH = 200;
 
@@ -130,49 +129,6 @@ export default function ContextMenu() {
   }
 
   if (hasSelection || multiSelection) actions.push(null); // Separator
-
-  // ─── Linjealternativ ─────────────────────────────────
-  const isLine = firstEl?.type === 'line';
-  if (isLine && !multiSelection) {
-    const hasWaypoints = firstEl?.lineType === 'orthogonal' && Array.isArray(firstEl?.waypoints);
-
-    actions.push({
-      label: 'Lägg till waypoint', icon: '➕',
-      action: () => {
-        const s = store.getState();
-        const el = s.elements[selectedArr[0]];
-        if (!el) return;
-        s.pushHistoryCheckpoint?.();
-        // Convert to orthogonal if not already
-        const wx = contextMenu.worldX ?? (el.x + el.x2) / 2;
-        const wy = contextMenu.worldY ?? (el.y + el.y2) / 2;
-        if (el.lineType === 'orthogonal' && Array.isArray(el.waypoints)) {
-          const newWaypoints = addWaypointAt(el.waypoints, wx, wy);
-          s.updateElement(el.id, { waypoints: newWaypoints });
-        } else {
-          // Convert straight line to orthogonal first, then add waypoint
-          const wps = buildOrthogonalWaypoints(el.x, el.y, el.x2, el.y2);
-          const newWaypoints = addWaypointAt(wps, wx, wy);
-          s.updateElement(el.id, { lineType: 'orthogonal', waypoints: newWaypoints });
-        }
-      },
-    });
-
-    if (hasWaypoints) {
-      actions.push({
-        label: 'Rensa böjar', icon: '✖',
-        action: () => {
-          const s = store.getState();
-          const el = s.elements[selectedArr[0]];
-          if (!el) return;
-          s.pushHistoryCheckpoint?.();
-          s.updateElement(el.id, { lineType: 'straight', waypoints: null });
-        },
-      });
-    }
-
-    actions.push(null);
-  }
 
   // ─── Ta bort ─────────────────────────────────────────
   if (hasSelection) {

@@ -495,6 +495,20 @@ export default function SequenceView({ projectId, nodes = [], edges = [], style 
         fragmentType={fragmentType}
         onFragmentTypeChange={setFragmentType}
         onAutoGenerate={handleAutoGenerate}
+        onGenerateFromPackML={(nodeId, scenario) => {
+          const node = nodes.find(n => n.id === nodeId);
+          if (node) sd.generateFromPackML(node, scenario as any);
+        }}
+        packmlNodes={
+          nodes
+            .filter(n => (n.data?.itemType === 'swProgram' || n.data?.itemType === 'swFunctionBlock') && n.data?.useStateMachine)
+            .map(n => ({
+              id: n.id,
+              label: n.data?.label || n.id,
+              swc: n.data?.swcCode || '',
+              stateCount: (n.data?.activeStates || []).length,
+            }))
+        }
         onFitToWindow={fitToWindow}
         onExportPlantUML={handleExportPlantUML}
         onExportSVG={handleExportSVG}

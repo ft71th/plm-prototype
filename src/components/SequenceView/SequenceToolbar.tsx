@@ -13,6 +13,8 @@ interface SequenceToolbarProps {
   fragmentType: FragmentType;
   onFragmentTypeChange: (t: FragmentType) => void;
   onAutoGenerate: () => void;
+  onGenerateFromPackML?: (nodeId: string, scenario: string) => void;
+  packmlNodes?: { id: string; label: string; swc: string; stateCount: number }[];
   onFitToWindow: () => void;
   onExportPlantUML: () => void;
   onExportSVG: () => void;
@@ -25,11 +27,13 @@ export default function SequenceToolbar({
   onAddParticipant, onAddParticipantFromNode,
   messageType, onMessageTypeChange,
   fragmentType, onFragmentTypeChange,
-  onAutoGenerate, onFitToWindow, onExportPlantUML, onExportSVG,
+  onAutoGenerate, onGenerateFromPackML, packmlNodes,
+  onFitToWindow, onExportPlantUML, onExportSVG,
   participantCount, messageCount,
 }: SequenceToolbarProps) {
   const [newParticipantName, setNewParticipantName] = useState('');
   const [showExport, setShowExport] = useState(false);
+  const [showPackML, setShowPackML] = useState(false);
 
   const btnStyle = (isActive: boolean) => ({
     width: 44, height: 44,
@@ -186,6 +190,47 @@ export default function SequenceToolbar({
         </button>
         <span style={labelStyle}>Auto-gen</span>
       </div>
+
+      {/* PackML State Machine generation */}
+      {packmlNodes && packmlNodes.length > 0 && onGenerateFromPackML && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button onClick={() => setShowPackML(!showPackML)} style={btnStyle(showPackML)} title="Generate sequence from PackML state machine">
+              ◻
+            </button>
+            <span style={labelStyle}>PackML</span>
+          </div>
+          {showPackML && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {packmlNodes.map(pn => (
+                <div key={pn.id} style={{ marginBottom: 4 }}>
+                  <div style={{
+                    padding: '3px 6px', fontSize: 10, fontWeight: 700,
+                    color: '#06b6d4', fontFamily: 'monospace',
+                  }}>{pn.label} {pn.swc ? `(${pn.swc})` : ''}</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, paddingLeft: 4 }}>
+                    {(['full', 'normal', 'hold', 'abort', 'complete'] as const)
+                      .filter(s => s === 'full' || s === 'normal' || (s === 'hold' && pn.stateCount > 9) || (s === 'abort' && pn.stateCount > 7) || (s === 'complete' && pn.stateCount > 7))
+                      .map(scenario => (
+                        <button
+                          key={scenario}
+                          onClick={() => { onGenerateFromPackML(pn.id, scenario); setShowPackML(false); }}
+                          style={{
+                            padding: '2px 5px', fontSize: 8, cursor: 'pointer',
+                            background: scenario === 'abort' ? '#ef444415' : scenario === 'hold' ? '#f59e0b15' : '#22c55e15',
+                            border: `1px solid ${scenario === 'abort' ? '#ef444440' : scenario === 'hold' ? '#f59e0b40' : '#22c55e40'}`,
+                            borderRadius: 3,
+                            color: scenario === 'abort' ? '#ef4444' : scenario === 'hold' ? '#f59e0b' : '#22c55e',
+                          }}
+                        >{scenario}</button>
+                      ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
 
       {sep}
 

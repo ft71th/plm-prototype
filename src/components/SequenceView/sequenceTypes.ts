@@ -85,6 +85,8 @@ export const PARTICIPANT_COLORS: Record<string, string> = {
   actor: '#2ecc71',
   requirement: '#e67e22',
   platform: '#9b59b6',
+  swProgram: '#f59e0b',
+  swFunctionBlock: '#06b6d4',
   default: '#607d8b',
 };
 

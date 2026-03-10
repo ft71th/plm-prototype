@@ -393,6 +393,158 @@ export default function useSequenceDiagram(projectId: string | null) {
     });
   }, [activeDiagramId, diagrams, persist, updateActive]);
 
+  // ─── Auto-generate from PackML state machine ───
+  const generateFromPackML = useCallback((node: any, scenarioType: 'normal' | 'hold' | 'abort' | 'complete' | 'full' = 'full') => {
+    const d = node?.data;
+    if (!d?.useStateMachine) return null;
+
+    const label = d.label || 'FB';
+    const swc = d.swcCode || '';
+    const activeIds: number[] = d.activeStates || [];
+    const actions: Record<string, string> = d.stateActions || {};
+
+    // PackML state info
+    const S: Record<number, string> = {
+      0: 'OFF', 1: 'INITIALIZING', 2: 'STOPPED', 3: 'RESETTING', 4: 'IDLE',
+      5: 'STARTING', 6: 'EXECUTE', 7: 'HOLDING', 8: 'HELD', 9: 'UNHOLDING',
+      10: 'COMPLETING', 11: 'COMPLETE', 12: 'STOPPING', 13: 'ABORTING', 14: 'ABORTED',
+    };
+
+    const diagramName = scenarioType === 'full'
+      ? `${label} — PackML State Sequence`
+      : `${label} — ${scenarioType.charAt(0).toUpperCase() + scenarioType.slice(1)} Scenario`;
+
+    const newDiagram = createEmptyDiagram(diagramName);
+    newDiagram.description = `Auto-generated from PackML state machine on ${label}${swc ? ` (${swc})` : ''}`;
+
+    // Participants: Operator, the FB/Controller, Equipment/Process
+    const pOperator: SequenceParticipant = {
+      id: uid(), label: 'Operator / PMS', stereotype: '<<actor>>',
+      color: '#2ecc71', icon: '👤',
+      x: LAYOUT.CANVAS_PADDING, order: 0,
+    };
+    const pController: SequenceParticipant = {
+      id: uid(), label, linkedNodeId: node.id,
+      linkedNodeType: d.itemType,
+      stereotype: `<<${d.pouType === 'program' ? 'PRG' : 'FB'}>>`,
+      color: d.pouType === 'program' ? '#f59e0b' : '#06b6d4',
+      x: LAYOUT.CANVAS_PADDING + LAYOUT.PARTICIPANT_GAP, order: 1,
+    };
+    const pEquipment: SequenceParticipant = {
+      id: uid(), label: swc ? `${swc} Equipment` : 'Equipment', stereotype: '<<hardware>>',
+      color: '#795548',
+      x: LAYOUT.CANVAS_PADDING + 2 * LAYOUT.PARTICIPANT_GAP, order: 2,
+    };
+
+    newDiagram.participants = [pOperator, pController, pEquipment];
+
+    const msgs: SequenceMessage[] = [];
+    const frags: SequenceFragment[] = [];
+    let idx = 0;
+
+    function msg(from: string, to: string, lbl: string, type: MessageType = 'sync', guard?: string) {
+      msgs.push({ id: uid(), fromId: from, toId: to, label: lbl, type, orderIndex: idx++, guard });
+    }
+    function note(from: string, to: string, lbl: string) {
+      msg(from, to, lbl, 'reply');
+    }
+
+    const has = (id: number) => activeIds.includes(id);
+
+    // ── Build scenario-specific sequences ──
+
+    // Init sequence (if INITIALIZING is active)
+    if ((scenarioType === 'full' || scenarioType === 'normal') && has(1)) {
+      msg(pOperator.id, pController.id, 'PowerOn');
+      msg(pController.id, pEquipment.id, actions['INITIALIZING'] || 'Initialize');
+      note(pEquipment.id, pController.id, 'InitDone');
+      note(pController.id, pController.id, '→ STOPPED');
+    }
+
+    // Normal startup sequence (always available in core)
+    if (scenarioType === 'full' || scenarioType === 'normal') {
+      if (!has(1)) {
+        msg(pOperator.id, pController.id, 'PowerOn');
+        note(pController.id, pController.id, '→ STOPPED');
+      }
+      msg(pOperator.id, pController.id, 'Reset');
+      if (actions['RESETTING']) msg(pController.id, pEquipment.id, actions['RESETTING']);
+      note(pController.id, pController.id, '→ IDLE');
+      msg(pOperator.id, pController.id, 'Start');
+      msg(pController.id, pEquipment.id, actions['STARTING'] || 'Start sequence');
+      note(pController.id, pController.id, '→ EXECUTE');
+      if (actions['EXECUTE']) msg(pController.id, pEquipment.id, actions['EXECUTE']);
+    }
+
+    // Hold scenario
+    if ((scenarioType === 'full' || scenarioType === 'hold') && has(7)) {
+      const fragStart = idx;
+      msg(pOperator.id, pController.id, 'Hold', 'sync', 'load shed / pause');
+      msg(pController.id, pEquipment.id, actions['HOLDING'] || 'Transition to hold');
+      note(pController.id, pController.id, '→ HELD');
+      if (actions['HELD']) msg(pController.id, pEquipment.id, actions['HELD']);
+      msg(pOperator.id, pController.id, 'Unhold');
+      msg(pController.id, pEquipment.id, actions['UNHOLDING'] || 'Resume');
+      note(pController.id, pController.id, '→ EXECUTE');
+      frags.push({
+        id: uid(), type: 'opt', label: 'Hold / Resume',
+        fromOrderIndex: fragStart, toOrderIndex: idx - 1,
+        participantIds: [pOperator.id, pController.id, pEquipment.id],
+        color: '#f59e0b',
+      });
+    }
+
+    // Complete scenario
+    if ((scenarioType === 'full' || scenarioType === 'complete') && has(10)) {
+      const fragStart = idx;
+      msg(pController.id, pController.id, 'Complete', 'sync', 'cycle done');
+      msg(pController.id, pEquipment.id, actions['COMPLETING'] || 'Finish cycle');
+      note(pController.id, pController.id, '→ COMPLETE');
+      if (actions['COMPLETE']) note(pEquipment.id, pController.id, actions['COMPLETE']);
+      msg(pOperator.id, pController.id, 'Reset');
+      note(pController.id, pController.id, '→ IDLE');
+      frags.push({
+        id: uid(), type: 'opt', label: 'Completion Cycle',
+        fromOrderIndex: fragStart, toOrderIndex: idx - 1,
+        participantIds: [pOperator.id, pController.id, pEquipment.id],
+        color: '#22c55e',
+      });
+    }
+
+    // Normal stop
+    if (scenarioType === 'full' || scenarioType === 'normal') {
+      msg(pOperator.id, pController.id, 'Stop');
+      msg(pController.id, pEquipment.id, actions['STOPPING'] || 'Shutdown sequence');
+      note(pController.id, pController.id, '→ STOPPED');
+    }
+
+    // Abort scenario
+    if ((scenarioType === 'full' || scenarioType === 'abort') && has(13)) {
+      const fragStart = idx;
+      msg(pOperator.id, pController.id, 'Abort', 'sync', 'emergency / fault');
+      msg(pController.id, pEquipment.id, actions['ABORTING'] || 'Emergency stop');
+      note(pController.id, pController.id, '→ ABORTED');
+      if (actions['ABORTED']) msg(pController.id, pEquipment.id, actions['ABORTED']);
+      msg(pOperator.id, pController.id, 'Clear');
+      note(pController.id, pController.id, '→ STOPPED');
+      frags.push({
+        id: uid(), type: 'break', label: 'Abort / Emergency',
+        fromOrderIndex: fragStart, toOrderIndex: idx - 1,
+        participantIds: [pOperator.id, pController.id, pEquipment.id],
+        color: '#ef4444',
+      });
+    }
+
+    newDiagram.messages = msgs;
+    newDiagram.fragments = frags;
+
+    // Add to diagrams and activate
+    const updated = [...diagrams, newDiagram];
+    persist(updated);
+    setActiveDiagramId(newDiagram.id);
+    return newDiagram;
+  }, [diagrams, persist]);
+
   // ─── Export PlantUML ───
   const exportPlantUML = useCallback((): string => {
     if (!activeDiagram) return '';
@@ -457,7 +609,7 @@ export default function useSequenceDiagram(projectId: string | null) {
     selectedElementId, selectedElementType, selectedElement,
     select,
     // Utilities
-    generateFromEdges, exportPlantUML,
+    generateFromEdges, generateFromPackML, exportPlantUML,
     // Load from project data
     loadDiagrams: (data: SequenceDiagram[]) => persist(data),
   };

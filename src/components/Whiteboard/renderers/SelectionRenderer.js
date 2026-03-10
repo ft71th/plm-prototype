@@ -161,8 +161,14 @@ function drawSelectionOutline(ctx, element) {
     ctx.lineWidth = (element.strokeWidth || 2) + 4;
     ctx.globalAlpha = 0.25;
     ctx.beginPath();
-    ctx.moveTo(element.x, element.y);
-    if (element.curvature) {
+
+    // For orthogonal lines with waypoints, follow the actual path
+    if (element.lineType === 'orthogonal' && Array.isArray(element.waypoints) && element.waypoints.length >= 2) {
+      const pts = element.waypoints;
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    } else if (element.curvature) {
+      ctx.moveTo(element.x, element.y);
       const midX = (element.x + element.x2) / 2;
       const midY = (element.y + element.y2) / 2;
       const dx = element.x2 - element.x;
@@ -176,6 +182,7 @@ function drawSelectionOutline(ctx, element) {
         element.x2, element.y2
       );
     } else {
+      ctx.moveTo(element.x, element.y);
       ctx.lineTo(element.x2, element.y2);
     }
     ctx.stroke();
@@ -199,11 +206,17 @@ function drawSelectionOutline(ctx, element) {
 
 function drawHandles(ctx, element) {
   if (element.type === 'line') {
-    // Draw circle handles at line endpoints
-    const endpoints = [
-      { x: element.x, y: element.y },
-      { x: element.x2, y: element.y2 },
-    ];
+    // For orthogonal lines: use waypoints endpoints; for others: use x,y/x2,y2
+    let start, end;
+    if (element.lineType === 'orthogonal' && Array.isArray(element.waypoints) && element.waypoints.length >= 2) {
+      start = element.waypoints[0];
+      end = element.waypoints[element.waypoints.length - 1];
+    } else {
+      start = { x: element.x, y: element.y };
+      end = { x: element.x2, y: element.y2 };
+    }
+
+    const endpoints = [start, end];
     ctx.save();
     for (const pt of endpoints) {
       ctx.fillStyle = HANDLE_FILL;

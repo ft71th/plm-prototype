@@ -18,7 +18,7 @@ import {
   getBoundingBox,
   getCombinedBoundingBox,
 } from '../../../utils/geometry';
-import { findNearestConnectionPoint } from '../renderers/LineRenderer';
+import { findNearestConnectionPoint, hitTestOrthogonalSegment, moveOrthogonalSegment, insertOrthogonalBend, buildOrthogonalWaypoints, hitTestStraightLineMid, buildUShapeWaypoints, hitTestOrthogonalCorner, moveOrthogonalCorner, updateStartWaypoint, updateEndWaypoint } from '../renderers/LineRenderer';
 
 // Rotation handle constants (must match SelectionRenderer)
 const ROTATION_HANDLE_DISTANCE = 25;
@@ -60,6 +60,21 @@ export class SelectTool {
     this.resizeOriginal = null;
     this.resizeElementId = null;
     this.lassoStart = null;
+    // Orthogonal bend segment dragging
+    this.isDraggingBend = false;
+    this.bendLineId = null;
+    this.bendSegIndex = null;
+    this.bendStartWaypoints = null;
+    this.bendDragStart = null;
+    // Straight line → U-shape bend creation by dragging midpoint
+    this.isBendCreating = false;
+    this.bendCreateLineId = null;
+    this.bendCreateStart = null;
+    // Corner waypoint dragging (move single corner, others stay fixed)
+    this.isDraggingCorner = false;
+    this.cornerLineId = null;
+    this.cornerIndex = null;
+    this.cornerStartWaypoints = null;
   }
 
   onMouseDown(worldX, worldY, shiftKey, store, renderer) {
@@ -84,6 +99,32 @@ export class SelectTool {
       }
     }
 
+    // Check for orthogonal line endpoint handles FIRST (before general hitTestHandles)
+    // This ensures we can always grab endpoints regardless of where x2,y2 are
+    for (const id of state.selectedIds) {
+      const el = state.elements[id];
+      if (!el || el.type !== 'line' || el.lineType !== 'orthogonal' || !Array.isArray(el.waypoints) || el.waypoints.length < 2) continue;
+      const threshold = 12 / (state.zoom || 1);
+      const first = el.waypoints[0];
+      const last = el.waypoints[el.waypoints.length - 1];
+      if (Math.hypot(worldX - first.x, worldY - first.y) <= threshold) {
+        this.isResizing = true;
+        this.resizeHandle = 'line-start';
+        this.resizeElementId = id;
+        this.resizeOriginal = { x: el.x, y: el.y, width: 0, height: 0 };
+        this.dragStartWorld = { x: worldX, y: worldY };
+        return;
+      }
+      if (Math.hypot(worldX - last.x, worldY - last.y) <= threshold) {
+        this.isResizing = true;
+        this.resizeHandle = 'line-end';
+        this.resizeElementId = id;
+        this.resizeOriginal = { x: el.x, y: el.y, width: 0, height: 0 };
+        this.dragStartWorld = { x: worldX, y: worldY };
+        return;
+      }
+    }
+
     // Check for resize handle on selected elements
     for (const id of state.selectedIds) {
       const el = state.elements[id];
@@ -95,6 +136,46 @@ export class SelectTool {
         this.resizeElementId = id;
         this.resizeOriginal = { x: el.x, y: el.y, width: el.width, height: el.height };
         this.dragStartWorld = { x: worldX, y: worldY };
+        return;
+      }
+    }
+
+    // Check for orthogonal bend segment handles on selected lines
+    for (const id of state.selectedIds) {
+      const el = state.elements[id];
+      if (!el || el.type !== 'line' || el.lineType !== 'orthogonal' || !Array.isArray(el.waypoints)) continue;
+
+      // ── Corner waypoints (filled circles) — move single corner ──
+      const cornerIdx = hitTestOrthogonalCorner(worldX, worldY, el.waypoints, state.zoom || 1);
+      if (cornerIdx !== null) {
+        this.isDraggingCorner = true;
+        this.cornerLineId = id;
+        this.cornerIndex = cornerIdx;
+        this.cornerStartWaypoints = el.waypoints.map((p) => ({ ...p }));
+        this.dragStartWorld = { x: worldX, y: worldY };
+        return;
+      }
+
+      // ── Segment midpoint squares — move whole segment perpendicularly ──
+      const hit = hitTestOrthogonalSegment(worldX, worldY, el.waypoints, state.zoom || 1);
+      if (hit) {
+        this.isDraggingBend = true;
+        this.bendLineId = id;
+        this.bendSegIndex = hit.segIndex;
+        this.bendStartWaypoints = el.waypoints.map((p) => ({ ...p }));
+        this.bendDragStart = { x: worldX, y: worldY };
+        return;
+      }
+    }
+
+    // Check for straight line midpoint handle (diamond) — drag to create U-shape bend
+    for (const id of state.selectedIds) {
+      const el = state.elements[id];
+      if (!el || el.type !== 'line' || (el.lineType && el.lineType !== 'straight')) continue;
+      if (hitTestStraightLineMid(worldX, worldY, el, state.zoom || 1)) {
+        this.isBendCreating = true;
+        this.bendCreateLineId = id;
+        this.bendCreateStart = { x: worldX, y: worldY, el: { ...el } };
         return;
       }
     }
@@ -145,6 +226,10 @@ export class SelectTool {
           if (el.type === 'line') {
             this.dragStartPositions[id].x2 = el.x2;
             this.dragStartPositions[id].y2 = el.y2;
+            // Save waypoints for orthogonal lines so they move with the line
+            if (el.lineType === 'orthogonal' && Array.isArray(el.waypoints)) {
+              this.dragStartPositions[id].waypoints = el.waypoints.map((p) => ({ ...p }));
+            }
           }
         }
       }
@@ -170,6 +255,33 @@ export class SelectTool {
       return;
     }
 
+    if (this.isDraggingBend) {
+      const dx = worldX - this.bendDragStart.x;
+      const dy = worldY - this.bendDragStart.y;
+      const newWaypoints = moveOrthogonalSegment(this.bendStartWaypoints, this.bendSegIndex, dx, dy);
+      store.getState().updateElement(this.bendLineId, { waypoints: newWaypoints });
+      renderer.markDirty();
+      return;
+    }
+
+    if (this.isDraggingCorner) {
+      const newWaypoints = moveOrthogonalCorner(this.cornerStartWaypoints, this.cornerIndex, worldX, worldY);
+      store.getState().updateElement(this.cornerLineId, { waypoints: newWaypoints });
+      renderer.markDirty();
+      return;
+    }
+
+    if (this.isBendCreating) {
+      const el = this.bendCreateStart.el;
+      const waypoints = buildUShapeWaypoints(el.x, el.y, el.x2, el.y2, worldX, worldY);
+      store.getState().updateElement(this.bendCreateLineId, {
+        lineType: 'orthogonal',
+        waypoints,
+      });
+      renderer.markDirty();
+      return;
+    }
+
     if (this.isDragging) {
       this._handleMove(worldX, worldY, store, renderer);
       return;
@@ -185,6 +297,36 @@ export class SelectTool {
   }
 
   onMouseUp(worldX, worldY, shiftKey, store, renderer) {
+    if (this.isDraggingBend) {
+      store.getState().pushHistoryCheckpoint?.();
+      this.isDraggingBend = false;
+      this.bendLineId = null;
+      this.bendSegIndex = null;
+      this.bendStartWaypoints = null;
+      this.bendDragStart = null;
+      renderer.markDirty();
+      return;
+    }
+
+    if (this.isDraggingCorner) {
+      store.getState().pushHistoryCheckpoint?.();
+      this.isDraggingCorner = false;
+      this.cornerLineId = null;
+      this.cornerIndex = null;
+      this.cornerStartWaypoints = null;
+      renderer.markDirty();
+      return;
+    }
+
+    if (this.isBendCreating) {
+      store.getState().pushHistoryCheckpoint?.();
+      this.isBendCreating = false;
+      this.bendCreateLineId = null;
+      this.bendCreateStart = null;
+      renderer.markDirty();
+      return;
+    }
+
     if (this.isLassoing) {
       // Complete lasso selection
       const state = store.getState();
@@ -229,6 +371,21 @@ export class SelectTool {
 
   onDoubleClick(worldX, worldY, store, renderer) {
     const state = store.getState();
+
+    // Check for double-click on orthogonal line segment → insert bend
+    for (const id of state.selectedIds) {
+      const el = state.elements[id];
+      if (!el || el.type !== 'line' || el.lineType !== 'orthogonal' || !Array.isArray(el.waypoints)) continue;
+      const hit = hitTestOrthogonalSegment(worldX, worldY, el.waypoints, state.zoom || 1);
+      if (hit) {
+        const newWaypoints = insertOrthogonalBend(el.waypoints, hit.segIndex);
+        state.pushHistoryCheckpoint?.();
+        state.updateElement(id, { waypoints: newWaypoints });
+        renderer.markDirty();
+        return;
+      }
+    }
+
     const hitId = renderer.hitTest(state, worldX, worldY);
 
     if (hitId) {
@@ -321,6 +478,11 @@ export class SelectTool {
           updates.x2 = snapped2.x;
           updates.y2 = snapped2.y;
         }
+        // Also move waypoints for orthogonal lines
+        const el = state.elements[id];
+        if (el && el.lineType === 'orthogonal' && Array.isArray(startPos.waypoints)) {
+          updates.waypoints = startPos.waypoints.map((p) => ({ x: p.x + dx, y: p.y + dy }));
+        }
       }
 
       state.updateElement(id, updates);
@@ -354,6 +516,23 @@ export class SelectTool {
         }
       }
       if (Object.keys(lineUpdates).length > 0) {
+        // For orthogonal lines: preserve interior waypoints, only move the affected endpoint
+        if (el.lineType === 'orthogonal' && Array.isArray(el.waypoints) && el.waypoints.length >= 2) {
+          if (lineUpdates.x !== undefined && lineUpdates.y !== undefined) {
+            // Start endpoint moved
+            lineUpdates.waypoints = updateStartWaypoint(el.waypoints, lineUpdates.x, lineUpdates.y);
+          } else if (lineUpdates.x2 !== undefined && lineUpdates.y2 !== undefined) {
+            // End endpoint moved
+            lineUpdates.waypoints = updateEndWaypoint(el.waypoints, lineUpdates.x2, lineUpdates.y2);
+          } else {
+            // Fallback: regenerate
+            const newX = lineUpdates.x ?? el.x;
+            const newY = lineUpdates.y ?? el.y;
+            const newX2 = lineUpdates.x2 ?? el.x2;
+            const newY2 = lineUpdates.y2 ?? el.y2;
+            lineUpdates.waypoints = buildOrthogonalWaypoints(newX, newY, newX2, newY2);
+          }
+        }
         state.updateElement(id, lineUpdates);
       }
     }
@@ -436,15 +615,19 @@ export class SelectTool {
     }
 
     if (this.resizeHandle === 'line-start') {
-      state.updateElement(this.resizeElementId, {
-        x: ex, y: ey,
-        startConnection: connection,
-      });
+      const updates = { x: ex, y: ey, startConnection: connection };
+      // Preserve interior waypoints - only update first waypoint and adjust first interior corner
+      if (el.lineType === 'orthogonal' && Array.isArray(el.waypoints) && el.waypoints.length >= 2) {
+        updates.waypoints = updateStartWaypoint(el.waypoints, ex, ey);
+      }
+      state.updateElement(this.resizeElementId, updates);
     } else {
-      state.updateElement(this.resizeElementId, {
-        x2: ex, y2: ey,
-        endConnection: connection,
-      });
+      const updates = { x2: ex, y2: ey, endConnection: connection };
+      // Preserve interior waypoints - only update last waypoint and adjust last interior corner
+      if (el.lineType === 'orthogonal' && Array.isArray(el.waypoints) && el.waypoints.length >= 2) {
+        updates.waypoints = updateEndWaypoint(el.waypoints, ex, ey);
+      }
+      state.updateElement(this.resizeElementId, updates);
     }
 
     renderer._showConnectionPoints = true;
@@ -475,6 +658,32 @@ export class SelectTool {
       const dist = Math.hypot(worldX - rotHandle.x, worldY - rotHandle.y);
       if (dist <= rotHandle.radius + 4) {
         return 'grab';
+      }
+    }
+
+    // Check orthogonal line endpoints first (waypoints-aware)
+    for (const id of state.selectedIds) {
+      const el = state.elements[id];
+      if (!el || el.type !== 'line' || el.lineType !== 'orthogonal' || !Array.isArray(el.waypoints) || el.waypoints.length < 2) continue;
+      const threshold = 12 / (state.zoom || 1);
+      const first = el.waypoints[0];
+      const last = el.waypoints[el.waypoints.length - 1];
+      if (Math.hypot(worldX - first.x, worldY - first.y) <= threshold ||
+          Math.hypot(worldX - last.x, worldY - last.y) <= threshold) {
+        return 'grab';
+      }
+      // Check interior corners
+      if (hitTestOrthogonalCorner(worldX, worldY, el.waypoints, state.zoom || 1) !== null) {
+        return 'move';
+      }
+    }
+
+    // Check straight line midpoint handle (diamond → creates U-bend)
+    for (const id of state.selectedIds) {
+      const el = state.elements[id];
+      if (!el || el.type !== 'line' || (el.lineType && el.lineType !== 'straight')) continue;
+      if (hitTestStraightLineMid(worldX, worldY, el, state.zoom || 1)) {
+        return 'crosshair';
       }
     }
 

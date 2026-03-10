@@ -3,11 +3,358 @@
  *
  * Supports:
  * - Straight lines and quadratic bézier curves
+ * - Orthogonal lines with waypoints (lineType: 'orthogonal', waypoints: [{x,y},...])
  * - Arrow heads: none, arrow, diamond, circle
  * - Line styles: solid, dashed, dotted
  * - Labels (text on line midpoint)
  * - Connection endpoints (visual indicator when connected to shapes)
  */
+
+// ─── Orthogonal (right-angle) line helpers ────────────────
+
+/**
+ * Build default waypoints for an orthogonal line (L-shape via horizontal mid).
+ */
+export function buildOrthogonalWaypoints(x, y, x2, y2) {
+  const midX = (x + x2) / 2;
+  return [
+    { x, y },
+    { x: midX, y },
+    { x: midX, y: y2 },
+    { x: x2, y: y2 },
+  ];
+}
+
+/**
+ * Render orthogonal bend handles on screen (called from CanvasRenderer when line is selected).
+ * - Large filled circles at interior corner waypoints (drag = move that corner)
+ * - Small squares at segment midpoints (drag = move whole segment perpendicular)
+ */
+export function renderOrthogonalHandles(ctx, waypoints, zoom) {
+  if (!waypoints || waypoints.length < 2) return;
+  ctx.save();
+  const segHandleSize = 7 / zoom;
+  const cornerR = 6 / zoom;
+
+  // ── Segment midpoint squares (move whole segment) ──────
+  for (let i = 0; i < waypoints.length - 1; i++) {
+    const a = waypoints[i], b = waypoints[i + 1];
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#3b82f6';
+    ctx.lineWidth = 1.5 / zoom;
+    ctx.beginPath();
+    ctx.rect(mx - segHandleSize / 2, my - segHandleSize / 2, segHandleSize, segHandleSize);
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  // ── Corner circles (move single corner) ───────────────
+  // Skip first and last points (they are endpoints, handled separately)
+  for (let i = 1; i < waypoints.length - 1; i++) {
+    const p = waypoints[i];
+    ctx.fillStyle = '#3b82f6';
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2 / zoom;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, cornerR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+/**
+ * Hit-test segment midpoint handles. Returns { segIndex } or null.
+ */
+export function hitTestOrthogonalSegment(worldX, worldY, waypoints, zoom) {
+  if (!waypoints || waypoints.length < 2) return null;
+  const threshold = 12 / zoom;
+  for (let i = 0; i < waypoints.length - 1; i++) {
+    const a = waypoints[i], b = waypoints[i + 1];
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    if (Math.hypot(worldX - mx, worldY - my) < threshold) return { segIndex: i };
+  }
+  return null;
+}
+
+/**
+ * Move an orthogonal segment perpendicular to its direction.
+ * Updates the two neighbouring segments to maintain orthogonality.
+ */
+export function moveOrthogonalSegment(waypoints, segIndex, dx, dy) {
+  const pts = waypoints.map((p) => ({ ...p }));
+  const a = pts[segIndex], b = pts[segIndex + 1];
+  const isHorizontal = Math.abs(a.y - b.y) < 1;
+
+  if (isHorizontal) {
+    // Horizontal segment: move vertically
+    pts[segIndex] = { ...a, y: a.y + dy };
+    pts[segIndex + 1] = { ...b, y: b.y + dy };
+    // Extend adjacent vertical segments
+    if (segIndex > 0) pts[segIndex - 1] = { ...pts[segIndex - 1], y: pts[segIndex - 1].y };
+    if (segIndex + 2 < pts.length) pts[segIndex + 2] = { ...pts[segIndex + 2], y: pts[segIndex + 2].y };
+  } else {
+    // Vertical segment: move horizontally
+    pts[segIndex] = { ...a, x: a.x + dx };
+    pts[segIndex + 1] = { ...b, x: b.x + dx };
+  }
+  return pts;
+}
+
+/**
+ * Insert a new bend into an orthogonal polyline at segment segIndex.
+ */
+export function insertOrthogonalBend(waypoints, segIndex) {
+  const a = waypoints[segIndex], b = waypoints[segIndex + 1];
+  const isHorizontal = Math.abs(a.y - b.y) < 1;
+  const midX = (a.x + b.x) / 2;
+  const midY = (a.y + b.y) / 2;
+  const offset = 30;
+
+  let newPts;
+  if (isHorizontal) {
+    newPts = [
+      ...waypoints.slice(0, segIndex + 1),
+      { x: midX, y: a.y },
+      { x: midX, y: a.y + offset },
+      { x: midX, y: b.y },
+      ...waypoints.slice(segIndex + 1),
+    ];
+  } else {
+    newPts = [
+      ...waypoints.slice(0, segIndex + 1),
+      { x: a.x, y: midY },
+      { x: a.x + offset, y: midY },
+      { x: b.x, y: midY },
+      ...waypoints.slice(segIndex + 1),
+    ];
+  }
+  return newPts;
+}
+
+/**
+ * Update only the START endpoint (waypoints[0]) of an orthogonal line,
+ * keeping all interior corners intact. Adjusts the first interior corner
+ * to maintain orthogonality with the new start position.
+ */
+export function updateStartWaypoint(waypoints, newX, newY) {
+  if (!waypoints || waypoints.length < 2) return [{ x: newX, y: newY }, { x: newX, y: newY }];
+  const pts = waypoints.map((p) => ({ ...p }));
+  pts[0] = { x: newX, y: newY };
+
+  if (pts.length >= 3) {
+    // Segment 0→1: maintain orthogonality
+    const seg0IsH = Math.abs(waypoints[1].y - waypoints[0].y) < Math.abs(waypoints[1].x - waypoints[0].x);
+    if (seg0IsH) {
+      pts[1] = { ...pts[1], y: newY }; // keep horizontal → adjust Y
+    } else {
+      pts[1] = { ...pts[1], x: newX }; // keep vertical → adjust X
+    }
+  } else {
+    // Only 2 points: update end to maintain straight orthogonal
+    const seg0IsH = Math.abs(waypoints[1].y - waypoints[0].y) < Math.abs(waypoints[1].x - waypoints[0].x);
+    if (seg0IsH) {
+      pts[1] = { ...pts[1], y: newY };
+    } else {
+      pts[1] = { ...pts[1], x: newX };
+    }
+  }
+  return pts;
+}
+
+/**
+ * Update only the END endpoint (waypoints[last]) of an orthogonal line,
+ * keeping all interior corners intact. Adjusts the second-to-last interior
+ * corner to maintain orthogonality with the new end position.
+ */
+export function updateEndWaypoint(waypoints, newX, newY) {
+  if (!waypoints || waypoints.length < 2) return [{ x: newX, y: newY }, { x: newX, y: newY }];
+  const pts = waypoints.map((p) => ({ ...p }));
+  const last = pts.length - 1;
+  pts[last] = { x: newX, y: newY };
+
+  if (pts.length >= 3) {
+    // Segment (last-1)→last: maintain orthogonality
+    const lastSegIsH = Math.abs(waypoints[last].y - waypoints[last - 1].y) < Math.abs(waypoints[last].x - waypoints[last - 1].x);
+    if (lastSegIsH) {
+      pts[last - 1] = { ...pts[last - 1], y: newY }; // keep horizontal → adjust Y
+    } else {
+      pts[last - 1] = { ...pts[last - 1], x: newX }; // keep vertical → adjust X
+    }
+  } else {
+    const lastSegIsH = Math.abs(waypoints[last].y - waypoints[last - 1].y) < Math.abs(waypoints[last].x - waypoints[last - 1].x);
+    if (lastSegIsH) {
+      pts[last - 1] = { ...pts[last - 1], y: newY };
+    } else {
+      pts[last - 1] = { ...pts[last - 1], x: newX };
+    }
+  }
+  return pts;
+}
+
+
+
+/**
+ * Hit-test INTERIOR corner waypoints (not the endpoints).
+ * Returns the index of the waypoint hit, or null.
+ */
+export function hitTestOrthogonalCorner(worldX, worldY, waypoints, zoom) {
+  if (!waypoints || waypoints.length < 3) return null;
+  const threshold = 10 / zoom;
+  for (let i = 1; i < waypoints.length - 1; i++) {
+    const p = waypoints[i];
+    if (Math.hypot(worldX - p.x, worldY - p.y) < threshold) return i;
+  }
+  return null;
+}
+
+/**
+ * Move a single interior corner waypoint to (newX, newY), adjusting adjacent
+ * interior corners to maintain orthogonality. Endpoints are never moved.
+ */
+export function moveOrthogonalCorner(waypoints, cornerIdx, newX, newY) {
+  const pts = waypoints.map((p) => ({ ...p }));
+  const i = cornerIdx;
+  if (i <= 0 || i >= pts.length - 1) return pts;
+
+  const prev = waypoints[i - 1];
+  const curr = waypoints[i];
+
+  // Determine if the segment TO the previous point is horizontal or vertical
+  const prevDx = Math.abs(curr.x - prev.x);
+  const prevDy = Math.abs(curr.y - prev.y);
+  const prevIsH = prevDx >= prevDy; // segment before this corner is horizontal
+
+  // Move the corner
+  pts[i] = { x: newX, y: newY };
+
+  // Adjust the PREVIOUS interior corner (not start endpoint)
+  if (i - 1 > 0) {
+    if (prevIsH) {
+      pts[i - 1] = { ...pts[i - 1], y: newY }; // keep prev→curr horizontal: match Y
+    } else {
+      pts[i - 1] = { ...pts[i - 1], x: newX }; // keep prev→curr vertical: match X
+    }
+  }
+
+  // Adjust the NEXT interior corner (not end endpoint)
+  if (i + 1 < pts.length - 1) {
+    if (prevIsH) {
+      pts[i + 1] = { ...pts[i + 1], x: newX }; // next segment is V: match X
+    } else {
+      pts[i + 1] = { ...pts[i + 1], y: newY }; // next segment is H: match Y
+    }
+  }
+
+  return pts;
+}
+
+/**
+ * Insert a new waypoint on the segment nearest to (worldX, worldY).
+ * Splits that segment at the click position, maintaining orthogonality
+ * by snapping to the segment's axis.
+ */
+export function addWaypointAt(waypoints, worldX, worldY) {
+  if (!waypoints || waypoints.length < 2) return waypoints;
+
+  let bestSeg = 0;
+  let bestDist = Infinity;
+
+  for (let i = 0; i < waypoints.length - 1; i++) {
+    const a = waypoints[i], b = waypoints[i + 1];
+    const mx = (a.x + b.x) / 2;
+    const my = (a.y + b.y) / 2;
+    const d = Math.hypot(worldX - mx, worldY - my);
+    if (d < bestDist) { bestDist = d; bestSeg = i; }
+  }
+
+  const a = waypoints[bestSeg];
+  const b = waypoints[bestSeg + 1];
+  const isH = Math.abs(a.y - b.y) < Math.abs(a.x - b.x);
+
+  // Snap the new point onto the segment axis
+  const newPt = isH
+    ? { x: Math.max(Math.min(worldX, Math.max(a.x, b.x)), Math.min(a.x, b.x)), y: a.y }
+    : { x: a.x, y: Math.max(Math.min(worldY, Math.max(a.y, b.y)), Math.min(a.y, b.y)) };
+
+  // Insert 3 points to create a draggable U-bend: a → newPt(−offset) → newPt → newPt(+offset) → b
+  // Actually just split into two new corners, giving the user a handle to drag
+  const offset = isH ? 30 : 30;
+  const mid1 = isH ? { x: newPt.x, y: newPt.y } : { x: newPt.x, y: newPt.y };
+  // Simply split: a → newPt → b  (one new interior corner)
+  return [
+    ...waypoints.slice(0, bestSeg + 1),
+    { ...newPt },
+    ...waypoints.slice(bestSeg + 1),
+  ];
+}
+
+
+
+/**
+ * Render a diamond-shaped midpoint handle on a straight selected line.
+ * Dragging this handle converts the line to orthogonal with a U-shape.
+ */
+export function renderStraightLineMidHandle(ctx, line, zoom) {
+  const mx = (line.x + line.x2) / 2;
+  const my = (line.y + line.y2) / 2;
+  const size = 7 / zoom;
+
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+  ctx.strokeStyle = '#6366f1';
+  ctx.lineWidth = 1.5 / zoom;
+  ctx.beginPath();
+  ctx.moveTo(mx, my - size);
+  ctx.lineTo(mx + size, my);
+  ctx.lineTo(mx, my + size);
+  ctx.lineTo(mx - size, my);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * Hit-test the midpoint handle on a straight line.
+ * Returns true if (worldX, worldY) is within threshold of midpoint.
+ */
+export function hitTestStraightLineMid(worldX, worldY, line, zoom) {
+  const mx = (line.x + line.x2) / 2;
+  const my = (line.y + line.y2) / 2;
+  const threshold = 12 / zoom;
+  return Math.hypot(worldX - mx, worldY - my) < threshold;
+}
+
+/**
+ * Build U-shape waypoints by dragging the midpoint to (dragX, dragY).
+ * Detects whether to route around horizontally or vertically.
+ */
+export function buildUShapeWaypoints(x, y, x2, y2, dragX, dragY) {
+  // Determine primary axis of the line
+  const isHorizontal = Math.abs(x2 - x) >= Math.abs(y2 - y);
+  if (isHorizontal) {
+    // Drag vertically: U goes start → down → across → up → end
+    return [
+      { x, y },
+      { x, y: dragY },
+      { x: x2, y: dragY },
+      { x: x2, y: y2 },
+    ];
+  } else {
+    // Drag horizontally: U goes start → right → across → left → end
+    return [
+      { x, y },
+      { x: dragX, y },
+      { x: dragX, y: y2 },
+      { x: x2, y: y2 },
+    ];
+  }
+}
+
+
 
 export function renderLine(ctx, line) {
   const { x, y, x2, y2, stroke, strokeWidth, lineStyle, arrowHead } = line;
@@ -33,6 +380,42 @@ export function renderLine(ctx, line) {
       ctx.setLineDash([]);
   }
 
+  // ── Orthogonal line with waypoints ──────────────────────
+  if (line.lineType === 'orthogonal' && Array.isArray(line.waypoints) && line.waypoints.length >= 2) {
+    const pts = line.waypoints;
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) {
+      ctx.lineTo(pts[i].x, pts[i].y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Arrow at end
+    if (arrowHead && arrowHead !== 'none') {
+      const last = pts[pts.length - 1];
+      const prev = pts[pts.length - 2];
+      const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
+      drawArrowHead(ctx, last.x, last.y, angle, arrowHead, stroke || '#000000', strokeWidth || 2);
+    }
+    if (line.arrowTail && line.arrowTail !== 'none') {
+      const first = pts[0], second = pts[1];
+      const angle = Math.atan2(first.y - second.y, first.x - second.x);
+      drawArrowHead(ctx, first.x, first.y, angle, line.arrowTail, stroke || '#000000', strokeWidth || 2);
+    }
+    if (line.startConnection) drawConnectionDot(ctx, pts[0].x, pts[0].y, stroke || '#000000');
+    if (line.endConnection) { const l = pts[pts.length - 1]; drawConnectionDot(ctx, l.x, l.y, stroke || '#000000'); }
+    if (line.label && line.label.text) {
+      const mid = Math.floor(pts.length / 2);
+      const lx = (pts[mid - 1].x + pts[mid].x) / 2;
+      const ly = (pts[mid - 1].y + pts[mid].y) / 2;
+      renderLineLabelAt(ctx, line, lx, ly);
+    }
+    ctx.restore();
+    return;
+  }
+
+  // ── Standard straight / curved line ────────────────────
   // Calculate the control point for bézier curves
   const isCurved = !!line.curvature && line.curvature !== 0;
   let cpx, cpy; // control point
@@ -312,4 +695,38 @@ export function findNearestConnectionPoint(worldX, worldY, elements, elementOrde
   }
 
   return best;
+}
+
+// ─── Label at explicit position (for orthogonal lines) ───
+function renderLineLabelAt(ctx, line, lx, ly) {
+  const { label } = line;
+  if (!label || !label.text) return;
+  ctx.save();
+  const fontSize = label.fontSize || 12;
+  ctx.font = `${fontSize}px ${label.fontFamily || 'Inter, system-ui, sans-serif'}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const metrics = ctx.measureText(label.text);
+  const padX = 6, padY = 3;
+  const bgW = metrics.width + padX * 2, bgH = fontSize + padY * 2;
+  ctx.fillStyle = label.background || 'rgba(255,255,255,0.9)';
+  ctx.beginPath();
+  const rrx = lx - bgW / 2, rry = ly - bgH / 2;
+  ctx.moveTo(rrx + 4, rry);
+  ctx.lineTo(rrx + bgW - 4, rry);
+  ctx.arcTo(rrx + bgW, rry, rrx + bgW, rry + 4, 4);
+  ctx.lineTo(rrx + bgW, rry + bgH - 4);
+  ctx.arcTo(rrx + bgW, rry + bgH, rrx + bgW - 4, rry + bgH, 4);
+  ctx.lineTo(rrx + 4, rry + bgH);
+  ctx.arcTo(rrx, rry + bgH, rrx, rry + bgH - 4, 4);
+  ctx.lineTo(rrx, rry + 4);
+  ctx.arcTo(rrx, rry, rrx + 4, rry, 4);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = label.borderColor || '#e0e0e0';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.fillStyle = label.color || '#333333';
+  ctx.fillText(label.text, lx, ly);
+  ctx.restore();
 }

@@ -8,20 +8,11 @@
 import { renderGrid } from './renderers/GridRenderer';
 import { renderShape } from './renderers/ShapeRenderer';
 import { renderText } from './renderers/TextRenderer';
-import { renderConnectionPoints, renderOrthogonalHandles, renderStraightLineMidHandle } from './renderers/LineRenderer';
+import { renderConnectionPoints, renderOrthogonalHandles } from './renderers/LineRenderer';
 import { renderPath, renderPathPreview } from './renderers/PathRenderer';
 import { renderImage } from './renderers/ImageRenderer';
 import { renderSelection, renderAlignmentGuides } from './renderers/SelectionRenderer';
 import { hitTest as elementHitTest } from '../../utils/geometry';
-
-/** Point-to-segment distance (world coords). */
-function distToSegment(px, py, ax, ay, bx, by) {
-  const dx = bx - ax, dy = by - ay;
-  const lenSq = dx * dx + dy * dy;
-  if (lenSq === 0) return Math.hypot(px - ax, py - ay);
-  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq));
-  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
-}
 
 export class CanvasRenderer {
   constructor(canvas) {
@@ -177,12 +168,8 @@ export class CanvasRenderer {
     // Orthogonal bend handles (for selected lines with waypoints)
     for (const id of state.selectedIds) {
       const el = state.elements[id];
-      if (!el || el.type !== 'line') continue;
-      if (el.lineType === 'orthogonal' && Array.isArray(el.waypoints)) {
+      if (el && el.type === 'line' && el.lineType === 'orthogonal' && Array.isArray(el.waypoints)) {
         renderOrthogonalHandles(ctx, el.waypoints, state.zoom);
-      } else if (!el.lineType || el.lineType === 'straight') {
-        // Show diamond midpoint handle on straight lines to allow creating bends
-        renderStraightLineMidHandle(ctx, el, state.zoom);
       }
     }
 
@@ -455,40 +442,19 @@ export class CanvasRenderer {
       layerMap.set(layers[i].id, layers[i]);
     }
 
-    // Click threshold for line segments (in world units, adjusted by zoom)
-    const lineThreshold = Math.max(6, 8 / (state.zoom || 1));
-
     for (let i = state.elementOrder.length - 1; i >= 0; i--) {
       const id = state.elementOrder[i];
       const el = state.elements[id];
       if (!el || !el.visible) continue;
+      // Layer visibility check (O(1))
       const layerId = el.layerId || 'default';
       const layer = layerMap.get(layerId);
       if (layer && (!layer.visible || layer.locked)) continue;
 
-      // ── Line segment hit testing ──────────────────────────
-      if (el.type === 'line') {
-        let pts;
-        if (el.lineType === 'orthogonal' && Array.isArray(el.waypoints) && el.waypoints.length >= 2) {
-          pts = el.waypoints;
-        } else {
-          pts = [{ x: el.x, y: el.y }, { x: el.x2, y: el.y2 }];
-        }
-        let hit = false;
-        for (let s = 0; s < pts.length - 1; s++) {
-          if (distToSegment(worldX, worldY, pts[s].x, pts[s].y, pts[s + 1].x, pts[s + 1].y) <= lineThreshold) {
-            hit = true;
-            break;
-          }
-        }
-        if (hit) return id;
-        continue;
-      }
-
-      // ── Shape/text/frame hit testing ─────────────────────
+      // For rotated elements, transform the test point into the element's local space
       let testX = worldX;
       let testY = worldY;
-      if (el.rotation && el.rotation !== 0) {
+      if (el.rotation && el.rotation !== 0 && el.type !== 'line') {
         const cx = el.x + (el.width || 0) / 2;
         const cy = el.y + (el.height || 0) / 2;
         const cos = Math.cos(-el.rotation);

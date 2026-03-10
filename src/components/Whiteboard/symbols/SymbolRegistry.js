@@ -8,6 +8,8 @@
 import { MARINE_ELECTRICAL_SYMBOLS, getCategories as getMarineCats, getSymbolsByCategory as getMarineByCategory } from './MarineElectrical';
 import { FLOWCHART_SYMBOLS, getCategories as getFlowCats, getSymbolsByCategory as getFlowByCategory } from './Flowchart';
 import { NETWORK_IT_SYMBOLS, getCategories as getNetCats, getSymbolsByCategory as getNetByCategory } from './NetworkIT';
+import { INDUSTRIAL_SYMBOLS, getCategories as getIndustrialCats, getSymbolsByCategory as getIndustrialByCategory } from './Industrial';
+import { ELECTRONICS_SYMBOLS, getCategories as getElCats, getSymbolsByCategory as getElByCategory } from './Electronics';
 
 /**
  * Library definitions — each with id, label, icon, symbols array and helpers.
@@ -36,6 +38,22 @@ export const LIBRARIES = [
     symbols: NETWORK_IT_SYMBOLS,
     getCategories: getNetCats,
     getSymbolsByCategory: getNetByCategory,
+  },
+  {
+    id: 'industrial',
+    label: 'Industriellt',
+    icon: '⚙️',
+    symbols: INDUSTRIAL_SYMBOLS,
+    getCategories: getIndustrialCats,
+    getSymbolsByCategory: getIndustrialByCategory,
+  },
+  {
+    id: 'electronics',
+    label: 'Elektronik',
+    icon: '🔌',
+    symbols: ELECTRONICS_SYMBOLS,
+    getCategories: getElCats,
+    getSymbolsByCategory: getElByCategory,
   },
 ];
 

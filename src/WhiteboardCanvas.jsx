@@ -420,17 +420,7 @@ export default function WhiteboardCanvas({ className = '' }) {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onDoubleClick={handleDoubleClick}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          const world = getWorldCoords(e);
-          // Select element under cursor if not already selected
-          const state = store.getState();
-          const hitId = rendererRef.current?.hitTest(state, world.x, world.y);
-          if (hitId && !state.selectedIds.has(hitId)) {
-            state.selectElement(hitId, false);
-          }
-          state.setContextMenu({ x: e.clientX, y: e.clientY, worldX: world.x, worldY: world.y });
-        }}
+        onContextMenu={(e) => e.preventDefault()}
       />
       {editingElement && (
         <textarea
