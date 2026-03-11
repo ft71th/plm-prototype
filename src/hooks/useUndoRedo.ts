@@ -17,6 +17,7 @@ export default function useUndoRedo({ nodes, edges, setNodes, setEdges }: UndoRe
   const historyRef = useRef<HistoryEntry[]>([]);
   const historyIndexRef = useRef(-1);
   const isUndoRedoRef = useRef(false);
+  const justResetRef = useRef(false);
   const [, forceUpdate] = useState(0);
 
   const saveToHistory = useCallback(() => {
@@ -62,7 +63,15 @@ export default function useUndoRedo({ nodes, edges, setNodes, setEdges }: UndoRe
 
   useEffect(() => {
     if (!isUndoRedoRef.current && nodes.length > 0) {
-      const timeoutId = setTimeout(() => { saveToHistory(); }, 500);
+      const timeoutId = setTimeout(() => {
+        // Don't auto-save immediately after a project switch — wait for
+        // the first real user action before recording history
+        if (justResetRef.current) {
+          justResetRef.current = false;
+          return;
+        }
+        saveToHistory();
+      }, 500);
       return () => clearTimeout(timeoutId);
     }
   }, [nodes, edges, saveToHistory]);
@@ -70,6 +79,7 @@ export default function useUndoRedo({ nodes, edges, setNodes, setEdges }: UndoRe
   const resetHistory = useCallback(() => {
     historyRef.current = [];
     historyIndexRef.current = -1;
+    justResetRef.current = true; // Block one auto-save cycle after project switch
     forceUpdate(n => n + 1);
   }, []);
 

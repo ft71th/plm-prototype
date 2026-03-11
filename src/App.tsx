@@ -488,6 +488,10 @@ export default function App(): React.ReactElement {
     setSelectedNode(null);
     setSelectedEdge(null);
     
+    // CRITICAL: Reset undo/redo history so previous project's history
+    // doesn't bleed into this project when user presses Ctrl+Z
+    resetHistory();
+    
     // Connect to real-time
     realtime.connect();
     realtime.joinProject(projectData.project?.id || projectData.id, user);
@@ -1165,6 +1169,11 @@ const createNewObject = (name, version, description) => {
             theme={theme}
             nodes={processedNodes}
             edges={processedEdges}
+            onUpdateNode={useCallback((nodeId: string, data: Record<string, any>) => {
+              Object.entries(data).forEach(([field, value]) => {
+                handleNodeLabelChange(nodeId, field, value);
+              });
+            }, [handleNodeLabelChange])}
           />
         </div>
       ) : viewMode === 'mindmap' ? (
